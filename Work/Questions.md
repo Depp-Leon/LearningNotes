@@ -788,6 +788,27 @@ SELECT * FROM TABLE    #类似于sql语句
    >
    > TableOfContents页码单独分离出来实现调页
 
+5. git
+
+   ```
+   使用git clone就可以直接把仓库拉到本地，并同步log，并把当前作为本地git仓库
+   使用git clone git@时需要配公钥到github上
+   使用git clone http@时不需要配公钥，根据仓库的类型可以允许克隆,但是需要在github上给用户权限才能push
+   ```
+
+6. git log展示版本信息
+
+   ```
+   (origin/master, origin/HEAD) 说明：
+   	远程仓库的 HEAD 当前指向 master 分支。
+   	origin/master 是远程仓库 origin 上的 master 分支的最新提交。
+   (HEAD -> master) 表示：
+   	当前 HEAD 指向本地的 master 分支，意味着你正在 master 分支上工作。
+   	当你提交新的更改时，master 分支的指针会随之移动到新的提交，而 HEAD 也会继续跟随指向 master 分支。
+   ```
+
+7. git push时如果检测到某次commit有error(比如有文件大于100M)，那么就需要本地版本回溯然后再解决问题，不然历史提交记录永远会保存这次的提交信息，导致后续永远push错误
+
 #### 2. 代码部分
 
 1. fork分离进程  、  daemon守护进程
