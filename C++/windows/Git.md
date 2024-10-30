@@ -88,18 +88,27 @@ ssh-keygen
 
 ​	在`gitee`或者`github`等远端服务器上创建仓库
 
+
+
 #### 2. 初始化本地仓库
 
 ```
-//初始化本地git仓库，在要被管理的文件目录下执行
+//方式1：初始化本地git仓库，在要被管理的文件目录下执行
 git init
+//方式2： 将别的仓库(git未添加的仓库)拉过来
+git clone <项目地址>
 ```
+
+
 
 #### 3. 查看远端仓库
 
 ```
-git remote
+git remote	//执行 git remote 命令之后 ，只是会单纯的列出所有远程仓库的名字，不会展示远程仓库的地址
+git remote -v  //执行该命令后，会列出当前程序对应的所有远程版本仓库的信息，含仓库名和仓库地址 . （ v 是verbose 的缩写，冗余 ）
 ```
+
+
 
 #### 4. 添加远端仓库
 
@@ -108,13 +117,27 @@ git remote
 git remote add origin 远端仓库地址	//origin是仓库的别名
 ```
 
->   github 远端仓库地址使用这种方式：git@github.com:Depp-Leon/StudyNotes.git
+>   可以添加多个仓库，后续push或者pull都通过这个别名实现
+>
+>   github 远端仓库地址使用ssh方式：git@github.com:Depp-Leon/LearningNotes.git
+>
+>   不建议使用http方式，因为已经设置了ssh密钥，所以可以直接建立仓库连接，如果使用http则每次都需要重新输入github账号密码
+
+
+
+#### 5. 删除远端仓库连接
+
+```c++
+git remote rm origin
+```
+
+
 
 ---
 
 ### 6. 上传项目
 
-- 工作区修改->添加到缓存区->提交到本地仓库->推送到服务器
+工作区修改->添加到缓存区->提交到本地仓库->推送到服务器
 
 ```
 //1. 拷贝项目文档到git工作目录
@@ -123,17 +146,44 @@ git add .
 //3. 提交到本地仓库，每次修改都得提交
 git commit -m "第一次提交"
 //4. 推送到远端仓库
-git push -u origin master			//origin是远端仓库的别名；master主分支，branch其他分支
+git push -u origin master			//origin是远端仓库的别名；master表示主分支，也可以写其他分支
+									// -u 建立追踪关系
 ```
 
-> 1. **master**：在Git中，"master" 是默认的主要分支名。在创建一个新的仓库时，通常会自动创建一个名为 "master" 的主分支。在Git 2.28版本后，许多代码托管服务已经开始将默认主分支名从 "master" 改为 "main"。
-> 2. **branch**：分支（branch）在Git中指的是一个独立的工作路径，允许你在不影响主分支（如 "master"）的情况下进行修改和实验。你可以创建新的分支，在其中做一些修改，最后再将这些修改合并回主分支。
+> 在`git push -u origin master`命令中，`-u`的意思是`--set-upstream`，表示将本地的`master`分支和远程的`master`分支关联起来。
+>
+> 加上`-u`参数后，git 不但会把本地的`master`分支内容推送到远程新的`master`分支，还会建立这种关联。在以后的推送或者拉取时就可以简化命令，直接使用`git push`或`git pull`，而无需再指定远程仓库名和分支名（因为 git 已经知道要推送到或从哪个远程分支拉取）。
 
----
+```
+git status	//查看提交状态
+git diff	//查看修改情况
+```
 
 
 
-### 7. 更新项目
+### 8. 更新项目
+
+#### 1. 本地同步操作
+
+```
+git fetch origin master      
+```
+
+> 执行这个命令后，就会将远程版本库上的代码同步到本地，不过同步下来的代码并不会合并到任何分支上去，而是会存放在到一个 origin/master 分支上,之后再调用 merge 命令将 origin/master 分支上的修改合并到主分支上即可 git merge origin/master
+
+```
+git pull origin master:brantest //将远程主机 origin 的 master 分支拉取过来，与本地的 brantest 分支合并。
+git pull origin master  		 //如果远程分支是与当前分支合并，则冒号后面的部分可以省略
+
+git pull 	
+git pull origin			//更新操作
+```
+
+> pull 命令则是相当于将 fetch 和 merge 这两个命令放在一起执行了，它可以从远程版 本库上获取最新的代码并且合并到本地(当前分支)
+
+
+
+#### 2. 更新项目操作
 
 - 更新项目-->添加缓存区->提交本地仓库->推送到远程仓库
 
@@ -201,7 +251,7 @@ git branch 分支名称
 
 ```
 //切换到分支上面做开发，进行版本的提交，切换后我们的工作空间也会切换
-git chechout 分支名称
+git checkout 分支名称
 ```
 
 - **查看分支**
@@ -219,9 +269,9 @@ git branch -D 分支名称
 - **分支合并**
 
 ```
-//1. 分支先执行git add 和commit操作，不提交的话，就相当于分支再原来的分支基础上没有进行修改操作
+//1. 分支先执行git add 和commit操作，不提交的话，就相当于分支在原来的分支基础上没有进行修改操作
 //2. 再切换到要被覆盖的主分支上，比如master进行合并操作
-git merge 分支名称(开发了新功能的分支名称)		//分支合并，覆盖掉master分支
+git merge 		分支名称(开发了新功能的分支名称)		//分支合并，覆盖掉master分支
 git push		//把覆盖后的重新上传到服务器
 ```
 
@@ -233,9 +283,28 @@ git push		//把覆盖后的重新上传到服务器
 git merge --abort
 ```
 
+- **强制重命名分支**
 
+```c++
+git branch -M master	//把默认仓库强制改名为master
+git branch -m master	//用于重命名分支
+```
+
+> `git branch -M master` 中的 `-M` 是 `-m`（移动或重命名分支）和 `-f`（强制）的组合选项，用于强制重命名分支。
+
+> 在 GitHub 上，如果不执行 `git branch -M master` 代码，默认情况下不会将代码推送到 `master` 分支。
+>
+> 从 2020 年 10 月 1 日开始，GitHub 上所有新创建的源代码库默认分支被命名为 `main`，而不再是 `master`。在此之前创建的现有库，其默认分支仍然是 `master`，不会受到影响。
+>
+> 如果你在新创建的 GitHub 仓库中进行操作，并且没有执行上述重命名分支的操作，那么当你使用 `git push` 命令且未指定具体分支时，代码将被推送到 `main` 分支。
+>
+> 如果你希望将代码推送到其他分支，可以在 `git push` 命令中明确指定分支名称，例如 `git push origin <分支名>`。这样，代码就会被推送到指定的分支上。
 
 ---
+
+
+
+
 
 ### 10. 处理冲突
 
@@ -253,6 +322,114 @@ git merge --abort
 
 方法2：撤销本次合并
 git merge --abort
+```
+
+
+
+### 11. 关于pull和push
+
+#### 1. pull
+
+`git pull` 用于从远程仓库获取最新的更改并合并到本地分支。
+
+**格式**：
+
+```
+git pull <远程仓库> <远程分支名>:<本地分支名>  #将远程分支获取下来并和本地分支混合
+
+```
+
+**注意事项**：
+
+1. 如果不指定远程分支名`<remote>`  和 本地分支名`<branch>`，则默认从名为 `origin` 的远程仓库获取**与当前所在本地分支对应的分支**的更改。
+
+   > 例如，如果您在 `master` 分支上，执行 `git pull` 将会从 `origin` 远程仓库的 `master` 分支获取更改并合并到本地的 `master` 分支。
+
+2. 在某些场合，Git会自动在本地分支与远程分支之间，建立一种追踪关系(tracking)。比如，在`git clone`的时候，所有本地分支默认与远程主机的同名分支，建立追踪关系，也就是说，本地的`master`分支自动”追踪”`origin/master`分支。
+
+3. Git也允许手动建立追踪关系：
+
+   ```
+   git branch --set-upstream master origin/next  #指定master分支追踪origin/next分支
+   ```
+
+
+
+#### 2. push
+
+**格式**：
+
+```
+git push <远程主机名> <本地分支名>:<远程分支名>  #将本地分支推送到远程分支
+```
+
+**注意事项**：
+
+1. 如果省略远程分支名，则表示将本地分支推送与之存在”追踪关系”的远程分支(通常两者同名)
+
+2. 远程分支本地分支名称不强制要求相同
+
+3. 若远程分支不存在会自动创建
+
+4. 若本地分支为空，则会删除远程分支（不会影响本地分支）：
+
+   ```
+   git push origin :dev  #删除远程dev分支，等同于
+   git push origin --delete dev
+   ```
+
+3. 参数：
+
+   使用`-u`选项的`git push`命令可以将当前分支的更改推送到指定的远程分支，并且在推送的同时设置这个远程分支为当前分支的上游分支，设置上游分支后，后续的`git pull`和`git push`命令将自动使用上游分支，无需额外指定远程仓库和分支。
+
+   ```
+   # 从上游分支拉取更新
+   git pull
+   # 推送到上游分支
+   git push
+   ```
+
+   
+
+
+
+
+### 12. 多人协同
+
+1. mainer配置ssh密钥、创建仓库
+2. 拉其他协同者，其他协同者也需要配置ssh密钥
+3. mainer中的linux下使用git init创建git文件夹，其他协同者使用git clone创建git文件夹
+4. 每个人创建自己的分支、在自己分支上push
+5. 每次使用时先pull更新一下项目
+
+
+
+# 补充
+
+### 1. 问题（Non-fast-forward）
+
+[git 上传出现“ ! [rejected\] master -> master (non-fast-forward)”_! [rejected] ysq-0124-机房免登扫码登记 -> ysq-0124-机房免登扫码登-CSDN博客](https://blog.csdn.net/m0_37806112/article/details/82289606)
+
+出现原因在于：git仓库中已经有一部分代码，所以它不允许你直接把你的代码覆盖上去。
+
+于是你有2个选择方式：
+
+1、强推，即利用强覆盖方式用你本地的代码替代git仓库内的内容，如果远程仓库是刚建的，没有代码，可以这样操作，尽量避免这种操作方法。
+
+```perl
+git push -f
+```
+
+2、先把git的东西fetch到你本地然后merge后再push
+
+```crystal
+$ git fetch
+$ git merge
+```
+
+```
+//这2句命令等价于
+$ git pull
 ```
 
 
