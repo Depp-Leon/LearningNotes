@@ -24,11 +24,27 @@
 
 ### 二、项目框架
 
-#### 2.1  数据传输
+#### 2.1 客户端层次
 
-数据传输方式有protobuffer和Json格式，作为项目中的数据传输类型
+1. 客户端整体框架层次分布
 
-##### 2.1.1 protobuffer
+   ```
+   1. UI界面层
+   2. UI moudle层
+   3. 插件层/助手层(safed)：功能的主要逻辑，负责与UI和服务端(中控)之间的信息传输、不同插件(后台功能)的实现
+   4. ZDFY和GJCZ层：ZDFY主要负责系统防护和数据防护；GJCZ主要是和查杀有关的；两个都是开启系统后就在后台启动。记录的数据通过插件层zdfy和gjcz的中转到达UI和服务端
+   ```
+
+2. 组件(`modules/component`)主要是一些共用的功能模块，插件(`plugins`)是单独的可以增加、去掉的模块。比如不同的插件都可以使用组件里的认证、防护日志、任务管理、定时任务、更新等
+
+3. `include`文件夹里面主要包含的是定义的头文件，把复杂的头文件/接口摘出来
+4. `common`文件夹里面主要包含的是整个项目封装好的工具类，比如`nlohman`(`json`文件)、`thread`(线程)、`utils`(工具包，各种时间、类型转换)、`epoll`(`io`相关)
+
+#### 2.2  数据传输
+
+数据传输方式有`protobuffer`和`Json`格式，作为项目中的数据传输类型
+
+##### 2.2.1 protobuffer
 
 1. protobuffer的格式
 
@@ -107,7 +123,7 @@
    isoInfo->set_md5(info.param.md5);
    ```
 
-8. mutable_
+8. mutable_ 
 
    ```c++
    // 获取指向嵌套 Address 消息的指针，并设置其字段。
@@ -120,7 +136,7 @@
 
    ```c++
    add_address()：向 repeated 字段中 新增一个地址。
-   mutable_address(index)：获取并 修改指定索引处的地址。
+   mutable_address(index)：获取并修改指定索引处的地址。
    address(index)：只读访问指定索引处的地址。
    ```
 
@@ -136,7 +152,7 @@
 
 
 
-##### 2.1.2 Json
+##### 2.2.2 Json
 
 1. 使用Json传递数据时，使用`dump()`函数转换为字符串
 
@@ -165,75 +181,76 @@
    QString ipAddress = rootObj.value("ipAddress").toString();
    ```
 
-##### 2.1.3 protobuffer和json的区别
+##### 2.2.3 protobuffer和json的区别
 
 
 
 
 
-#### 2.2 通信原理
+#### 2.3 通信原理
 
 1. IGeneralOperator有什么用，插件plugin**通信原理**？imessage和IPC？搞清楚IPC：上报中控、接收中控。发送UI，接收UI字段+流程
 
 2. 客户端与中控之间的**交互**
 
-   > 中控下发->需要使用onNewNotify根据下发key字段和message的protobuff获取指令
-   >
-   > > 在插件接受数据那块
-   >
-   > 中控上发->需要使用asynPort根据上发的key字段和需要封装的message的protobuff发送
-   >
-   > > 在功能上报
-
+   ```
+   中控下发->需要使用onNewNotify根据下发key字段和message的protobuff获取指令
+   > 在插件接受数据那块
+   中控上发->需要使用asynPort根据上发的key字段和需要封装的message的protobuff发送
+   > 在功能上报
+   ```
+   
 3. C++与UI之间的交互？SendToUI如何实现的
 
 
 
-#### 2.3 插件
+#### 2.4 插件层/助手
 
-1. 模块->组件->包(deb)
-
-2. plugins文件夹下面是一些**插件**模块
-
-3. commen/utils文件夹下是一些常用的小插件(小功能，比如时间转换啥的)
-
-4. **更新插件**分为软件更新和病毒库更新
-
-   > calback(反馈)用来通信，与客户局端(前端界面)传递信息
-   >
-   > > update_callback_interface.h接口
-   > >
-   > > update_callback.h实现接口功能
-   >
-   > soft软件更新：
-   >
-   > > download:下载文件
-   > >
-   > > update_console_client更新用户界面
-
-4. mingfei代码属于是让功能类继承CGeneralOperator,CGeneralOperator需要有参(IGeneralOperator)构造，然后在接口处初始化时直接让该功能类使用传来的IGeneralOperator进行构造。由于功能类继承于CGeneralOperator，所以可以使用其定义的函数进行与前端交互。
+1. mingfei代码属于是让功能类继承CGeneralOperator,CGeneralOperator需要有参(IGeneralOperator)构造，然后在接口处初始化时直接让该功能类使用传来的IGeneralOperator进行构造。由于功能类继承于CGeneralOperator，所以可以使用其定义的函数进行与前端交互。
 
    > 接口类继承于CPluginHelper，该类继承于CPlugin和CGeneralOperator，所以接口类也可以使用插件类的函数和前端交互的函数
 
    kongbin代码属于是类的聚合，定义一个总类，里面包含功能类和CGeneralOperator(与前端交互类)实现功能互用
 
-5. ZySingketon.h 实现了单例模式的模板类。
+2. ZySingketon.h 实现了单例模式的模板类。
 
    ```
    class CZDFYManage : public CommonUtils::CSingleton<CZDFYManage>   #实现了单例
    ```
 
-6. 插件对象，子对象可以当作父类传入
+3. 插件对象，子对象可以当作父类传入
 
-7. 普通日志输出不出来是因为上报日志的顺序不对，时间和类型的顺序搞反了
+4. 普通日志输出不出来是因为上报日志的顺序不对，时间和类型的顺序搞反了
 
    详情日志输出不出来也是因为发送的第一个字段是时间而不是类型！
 
-##### 2.3.1 扫描插件
+##### 2.4.1 更新组件/Upgrade
+
+更新组件分为软件更新和病毒库更新
+
+1. `calback`(反馈)用来通信，与客户局端(前端界面)传递信息
+
+   ```
+   update_callback_interface.h接口
+   update_callback.h实现接口功能
+   ```
+
+2. `soft`软件更新
+
+   ```
+   download:下载文件
+   update_console_client更新用户界面
+   ```
+
+3. `virus`病毒库更新
+
+
+
+##### 2.4.1 扫描插件/Scan
 
 关于隔离区数据上报与中控的逻辑：版本号初始可能为空，每次收到中控下发指令比较并保存该版本号，如果说版本号不同那么就上报所有隔离区数据
 
-代码逻辑：
+扫描插件逻辑：
 
 ```
 1. imp:插件，封装为插件形式启动、关闭、接受ui点击/中控 下发的信号key和msg。#里面包含task和flow两个成员对象，task初始化任务列表、flow作为功能核心
@@ -250,9 +267,9 @@
 
 
 
-#### 2.4 日志
+#### 2.5 日志
 
-1. 导入qlog库，LOG**日志**记录
+1. 导入qlog库，使用LOG日志记录
 
 2. 开启日志打印
 
@@ -285,41 +302,51 @@
 
 
 
-#### 2.5 数据库
+#### 2.6 数据库
 
-##### 2.5.1 SQlite
+##### 2.6.1 SQlite
 
-```
-sqlite3 <数据库.db>
-.tables   #查看所有表
-SELECT * FROM TABLE    #类似于sql语句
-.quit 
-.exit	#退出
-```
+1. sqlite的常用命令
 
+   ```
+   sqlite3 <数据库.db>
+   .tables   #查看所有表
+   SELECT * FROM TABLE    #类似于sql语句
+   .quit 
+   .exit	#退出
+   ```
 
+2. 项目中sqlite的路径
 
-#### 2.6 编译
+   ```
+   /opt/apps/chenxinsd/cache/xxx.db
+   ```
+
+   
+
+#### 2.7 编译
 
 1. 详见**CMakelist**，打包so文件，即动态库
 
 
 
-#### 2.7 调试
+#### 2.8 调试
 
 1. 使用"sudo gdb JYNSAFED"
 
-2. 打断点：在目的函数名CJYNetProtectionPluginImpl::onNewNotify
+2. 打断点：在目的函数名 b CJYNetProtectionPluginImpl::onNewNotify
 
 3. 执行：r
 
-4. 逐过程：n        /不能逐步骤，因为逐步骤会进入调用的所有函数
+4. 逐过程：n        /不能逐步骤s，因为逐步骤会进入调用的所有函数
 
 5. p 变量名：打印变量名的值，确认是否正确收到并解析
 
-6. quit 退出
+6. bt：查看栈调用情况，如果程序崩溃可以通过栈查看那个地方有问题
 
-7. 当打印数据类型是原子类型时，比如atmoc_bool
+7. quit ：退出
+
+8. 当打印数据类型是原子类型时，比如atmoc_bool
 
    ```
    (gdb) p m_reportLog
@@ -329,57 +356,28 @@ SELECT * FROM TABLE    #类似于sql语句
    > 1. `_M_base` 和 `_M_i` 是 `std::atomic` 或其他标准库类型的内部表示。它们通常用于实现原子操作和存储状态。
    > 2. `_S_alignment` 是一个静态成员，表示这个类型在内存中的对齐要求。在这里，对齐为 `1` 字节，意味着该类型的对象在内存中必须以 1 字节对齐，这通常适用于 `bool` 类型。
 
-8. 为什么启动有些服务需要sudo，有些不需要？
+9. 为什么启动有些服务需要sudo，有些不需要？
 
    > 需要sudo的话，这个服务一般涉及对文件/的操作等
 
-9. gdb调试报错：
+10. gdb调试报错：
 
-   > 1. 需要使用编译版本，如果直接使用的是deb安装下来的则使用不了gdb
-   > 2. 哪部分需要调试，就将哪部分执行文件单独拿出来使用gdb执行，其他部分正常启动执行
+   > 1. 是否编译的依赖的so没有导过去
+   > 2. **哪部分需要调试，就将哪部分执行文件单独拿出来使用gdb执行，其他部分正常启动执行**
 
    > 补充：后台使用systemctl start jyn*启动的是三个服务，CZ控制，ZDFY主动防御、safed安全三个。一个界面只展示两个，没有展示三个
 
-10. 使用systemctl来启动某些服务
+11. 使用systemctl来启动某些服务
 
     > 有些可执行文件需要通过 **`systemctl`** 启动是因为它们作为 **服务（Service）** 或 **守护进程（Daemon）** 来运行，这种方式适用于在后台长期运行且需要稳定管理的程序
 
-11. <存疑>从安装包安装的软件，对其代码是不能进行gdb调试的，因为其是release模式而不是debug模式，所以不具备调试条件
 12. 修改完JYNSAFED不仅需要把JYNSAFED转出，还需要把lib生成的动态库也转出，当gdb遇到找不到文件时就是找不到编译符号
+
 13. 使用sudo或直接启动可执行文件时，使用ctrl+z关闭执行文件时记得使用ps查看并kill后台进程
 
 
 
-#### 2.8 打包
-
-1. 在/opt/apps/etc/plugin.conf 文件下添加插件配置信息，name字段、path字段就是打包的动态库文件、message字段为net_protect_c，收到处理的字段名为NetProtectC
-
-2. EXPORT
-
-   > **`PLUGIN_EXPORT=`**：
-   >
-   > - 它定义了一个宏 `PLUGIN_EXPORT`，其值为：
-   >   `extern "C" __attribute__((visibility("default")))`。
-   > - 在代码中，如果用到 `PLUGIN_EXPORT`，就会被替换为这个具体内容。
-   >
-   > **`extern "C"`**：
-   >
-   > - 用于 **C++** 代码，告诉编译器使用 **C 的符号命名规则（C linkage）**。
-   > - 这是为了使编译后的符号能被 C 编译器或其他语言更容易找到（避免 C++ 名字修饰/mangling）。
-   >
-   > **`__attribute__((visibility("default")))`**：
-   >
-   > - 这是 **GCC/Clang 特定的语法**，用于控制符号的可见性。
-   >
-   > - `visibility("default")`
-   >
-   >    表示：
-   >
-   >   - 符号是默认可见的，可以从共享库外部访问。
-   >   - 这是导出符号（如插件 API）时常用的设置。
-
-
-##### 2.8.1 打包测试流程
+#### 2.9 打包
 
 1. 插件的打包配置
 
@@ -403,7 +401,7 @@ SELECT * FROM TABLE    #类似于sql语句
    > 1. fetch操作拉取远端提交记录
    > 2. pull操作包含fetch和merge操作
 
-3. 系统打包环境：192.168.0.40 、ssh进入服务器（系统服务器将会执行打包脚本适配不同系统的环境包）在系统打包环境下 pull仓库，同步代码后进行编译。编译后执行脚本开始打包
+3. 系统打包环境：`192.168.0.40` 、ssh进入服务器（系统服务器将会执行打包脚本适配不同系统的环境包）在系统打包环境下 pull仓库，同步代码后进行编译。编译后执行脚本开始打包
 
    ```
    #1. SSH连接
@@ -419,7 +417,7 @@ SELECT * FROM TABLE    #类似于sql语句
    /opt/python-3.6.15/bin/python3.6 ./main.py -i NewPacket -n chenxinsd -v V708
    ```
 
-4. 本地通过192.168.1.6(共用的包环境),拉取最新的包进行安装测试
+4. 本地通过`192.168.1.6`(共用的包环境),拉取最新的包进行安装测试
 
    ```
    public share #账号密码
@@ -436,12 +434,12 @@ SELECT * FROM TABLE    #类似于sql语句
 6. 中控(ip变更、要最新ip)账号密码
 
    ```
-   admin	vsecure2020
+   admin	vsecure2020		#中控账号密码
    ```
 
 
 
-#### 2.9 安装
+#### 2.10 安装
 
 1. qt版本build报错，重新安装qmake   
 
@@ -481,7 +479,7 @@ SELECT * FROM TABLE    #类似于sql语句
 
 
 
-#### 2.10 项目管理
+#### 2.11 项目管理
 
 1. 使用git
 
@@ -529,7 +527,7 @@ SELECT * FROM TABLE    #类似于sql语句
 
 3. git如何确认与远端的差异
 
-   > git pull 自动merge? 如果有冲突修改完冲突之后再add. commit才算是merge了？
+   > git pull是从远程仓库拉代码并merge到你的本地仓库，pull是两个命令的合（fetch和merge）
 
    ```
    git fetch：更新远程分支信息，但不改变本地分支。
@@ -562,7 +560,7 @@ SELECT * FROM TABLE    #类似于sql语句
    >
    > pull将会拉取远端修改记录与本地做比较，从而会有冲突。解决完冲突完成本地合并（有冲突的文件如果已经add或者commit需要重新addcommit），再push远端将会有合并记录和commit记录
 
-6. git add. git commit git pull git push
+6. git add. git commit git pull git push的理解
 
    > pull是为了本地 commit 和远程commit 的对比记录,git 是按照文件的行数操作进行对比的,如果同时操作了某文件的同一行（在两个人操作同一个分支才会冲突）那么就会产生冲突,git 也会把这个冲突给标记出来,这个时候就需要先把和你冲突的那个人拉过来问问保留谁的代码,然后在 git add && git commit && git pull 这三连,再次 pull 一次是为了防止再你们协商的时候另一个人给又提交了一版东西,如果真发生了那流程重复一遍,通常没有冲突的时候就直接给你合并了,不会把你的代码给覆盖掉
 
@@ -593,9 +591,32 @@ SELECT * FROM TABLE    #类似于sql语句
    git checkout .   #丢弃工作区的改动，如果还需要这些改动不要执行这句
    ```
 
+8. 关于git clone远程拉仓库
+
+   ```
+   使用git clone就可以直接把仓库拉到本地，并同步log，并把当前作为本地git仓库
+   使用git clone git@时需要配公钥到github上
+   使用git clone http@时不需要配公钥，根据仓库的类型可以允许克隆,但是需要在github上给用户权限才能push
+   ```
+
+9. 关于git log展示版本信息
+
+   ```
+   (origin/master, origin/HEAD) 说明：
+   	远程仓库的 HEAD 当前指向 master 分支。
+   	origin/master 是远程仓库 origin 上的 master 分支的最新提交。
+   (HEAD -> master) 表示：
+   	当前 HEAD 指向本地的 master 分支，意味着你正在 master 分支上工作。
+   	当你提交新的更改时，master 分支的指针会随之移动到新的提交，而 HEAD 也会继续跟随指向 master 分支。
+   ```
+
+10. git push时如果检测到某次commit有error(比如有文件大于100M)，那么就需要本地版本回溯然后再解决问题，不然历史提交记录永远会保存这次的提交信息，导致后续永远push错误
 
 
-#### 2.11 改BUG
+
+#### 2.12 改BUG
+
+##### 2.12.1 技巧
 
 1. 确定bug在哪个模块
 
@@ -606,6 +627,34 @@ SELECT * FROM TABLE    #类似于sql语句
 3. 若还找不到，查看该模块的实现架构，具体实现逻辑
 
 
+
+##### 2.12.2 具体bug具体分析
+
+1. 隔离区、信任区页面bug
+
+   > FramelessWindow页面的主框架、主页面。里面包含了点击隔离信任区后的槽函数，展示对应dialog
+   >
+   > TableOfContents页码单独分离出来实现调页
+
+2. 设置界面bug
+
+   > 思路：将ui传来的配置保存下来。如果点击取消，就不会保存这次的配置，那么下次打开就还是之前的
+   >
+   > cpp逻辑剖析：
+   >
+   > 1. 槽函数updateXXX：ui界面点击保存后会触发该槽函数，将传来的结构体转为protobuffer，再将该protobuffer传递(send)给IPC进行转发给对应处理模块进行后续处理
+   >
+   > 2. fromxxx：负责将ui传来的结构体转换未protobuffer
+   >
+   > 3. toxxx：负责将服务端/后台新的配置信息从protobuffer转为对象结构体，并将结构体emit发出供settingDialog接受响应
+   >
+   > 4. 信号函数sigXXX：将新的配置信息发送，供setting/trustAndIso/界面接收
+   >
+   > 5. send和recive都是通过类似于插件的模型moudle进行对其他模块的数据发送和接受(通过key字段和TerminalConfigSeesion的protobuffer字段)。
+   >
+   >    > 接收时会根据TerminalConfigSeesion的type字段区分，再根据info的key字段区分不同的模块的要emit信息，再调用不同的emit
+   >
+   > 解决：将每次下发或者保存的配置保存下来，在界面打开settingDialog的时候同一emit一遍信号更改设置界面
 
 ### 三、技术问题
 
@@ -770,113 +819,121 @@ SELECT * FROM TABLE    #类似于sql语句
     > 1. **`exec()`**：以 **模态对话框** 的方式显示，阻塞主线程，用户必须关闭对话框后才能继续与主程序交互。
     > 2. **`show()`**：以 **非模态** 方式显示，不阻塞主线程，用户可以同时操作其他窗
 
+29. fork分离进程  、  daemon守护进程
 
+    > 1. 父子进程从 `fork()` 之后的代码开始**并行运行**
+    > 2. daemon用于将当前进程变成 **守护进程**，即后台独立运行且与控制终端断开的进程
+
+    ```c++
+    void executeCommand(const std::string &command)
+        {
+            pid_t pid = fork();
+            if (pid < 0) {
+                // 错误处理
+                LOG(ERROR) << "Fork failed.";
+                return;
+            } else if (pid > 0) {
+                // 主进程：可以直接返回，不需要执行任何操作
+                std::cout << "主进程！" << pid << std::endl;
+                return;
+            } else {
+                // 子进程
+                becomeDaemon();
+                // 分解命令为字符串数组
+                const char *argv[] = {"/bin/sh", "-c", command.c_str(), nullptr};
+                // 睡眠1秒
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                // 执行命令
+                if (execve("/bin/sh", (char *const *)argv, environ) == -1) {
+                    LOG(INFO) << "Software uninstallation, error: execution error.";
+                }
+                 exit(0);
+            }
+        }
+    ```
+
+    ```c++
+    bool becomeDaemon()
+        {
+            if (chdir("/") == -1) {
+                return false;
+            }
+    
+            if (daemon(0, 0) != 0) {
+                std::cerr << "Failed to daemonize." << std::endl;
+                return false;
+            }
+    
+            std::cout << "Daemon started." << std::endl;
+            return true;
+        }
+    
+    ```
+
+    > ```
+    > #include <unistd.h>
+    > 
+    > int daemon(int nochdir, int noclose);
+    > ```
+    >
+    > **`nochdir`**：
+    >
+    > - 如果为 **0**，将工作目录更改为根目录 (`/`)。
+    > - 如果为 **1**，则保持当前工作目录不变。
+    >
+    > **`noclose`**：
+    >
+    > - 如果为 **0**，则关闭标准输入 (`stdin`)、标准输出 (`stdout`)、标准错误 (`stderr`)，并将它们重定向到 `/dev/null`。
+    > - 如果为 **1**，保持标准输入/输出/错误流不变。
+
+30. 关于EXPORT
+
+    ```
+    #cmakelist中定义：
+    target_compile_definitions(${BIN_NAME} PRIVATE "PLUGIN_EXPORT=extern \"C\" __attribute__((visibility(\"default\")))")
+    #cpp中：
+    PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()
+    {
+        return std::unique_ptr<CJYNetProtectionPluginImpl>(new CJYNetProtectionPluginImpl());
+    }
+    ```
+
+    > **`PLUGIN_EXPORT=`**：
+    >
+    > - 它定义了一个宏 `PLUGIN_EXPORT`，其值为：
+    >   `extern "C" __attribute__((visibility("default")))`。
+    > - 在代码中，如果用到 `PLUGIN_EXPORT`，就会被替换为这个具体内容。
+    >
+    > **`extern "C"`**：
+    >
+    > - 用于 **C++** 代码，告诉编译器使用 **C 的符号命名规则（C linkage）**。
+    > - 这是为了使编译后的符号能被 C 编译器或其他语言更容易找到（避免 C++ 名字修饰/mangling）。
+    >
+    > **`__attribute__((visibility("default")))`**：
+    >
+    > - 这是 **GCC/Clang 特定的语法**，用于控制符号的可见性。
+    >
+    > - `visibility("default")`
+    >
+    >   表示：
+    >
+    >   - 符号是默认可见的，可以从共享库外部访问。
+    >   - 这是导出符号（如插件 API）时常用的设置。
 
 # 未完成笔记
 
 #### 1. 项目部分
 
-1. 项目通信部分逻辑是什么
+1. 项目通信部分逻辑是什么?
 
-2. C++与UI之间的交互？SendToUI如何实现的
+   > 看safed->core->plugin/message相关的cpp
 
-3. 项目的架构
+2. 助手与UI之间的交互？助手与服务端的交互都是如何实现的
 
-4. 隔离区、信任区页面bug
+3. 整个项目的线程和进程
 
-   > FramelessWindow页面的主框架、主页面。里面包含了点击隔离信任区后的槽函数，展示对应dialog
-   >
-   > TableOfContents页码单独分离出来实现调页
-
-5. git
-
-   ```
-   使用git clone就可以直接把仓库拉到本地，并同步log，并把当前作为本地git仓库
-   使用git clone git@时需要配公钥到github上
-   使用git clone http@时不需要配公钥，根据仓库的类型可以允许克隆,但是需要在github上给用户权限才能push
-   ```
-
-6. git log展示版本信息
-
-   ```
-   (origin/master, origin/HEAD) 说明：
-   	远程仓库的 HEAD 当前指向 master 分支。
-   	origin/master 是远程仓库 origin 上的 master 分支的最新提交。
-   (HEAD -> master) 表示：
-   	当前 HEAD 指向本地的 master 分支，意味着你正在 master 分支上工作。
-   	当你提交新的更改时，master 分支的指针会随之移动到新的提交，而 HEAD 也会继续跟随指向 master 分支。
-   ```
-
-7. git push时如果检测到某次commit有error(比如有文件大于100M)，那么就需要本地版本回溯然后再解决问题，不然历史提交记录永远会保存这次的提交信息，导致后续永远push错误
 
 #### 2. 代码部分
-
-1. fork分离进程  、  daemon守护进程
-
-   > 1. 父子进程从 `fork()` 之后的代码开始**并行运行**
-   > 2. daemon用于将当前进程变成 **守护进程**，即后台独立运行且与控制终端断开的进程
-
-   ```c++
-   void executeCommand(const std::string &command)
-       {
-           pid_t pid = fork();
-           if (pid < 0) {
-               // 错误处理
-               LOG(ERROR) << "Fork failed.";
-               return;
-           } else if (pid > 0) {
-               // 主进程：可以直接返回，不需要执行任何操作
-               std::cout << "主进程！" << pid << std::endl;
-               return;
-           } else {
-               // 子进程
-               becomeDaemon();
-               // 分解命令为字符串数组
-               const char *argv[] = {"/bin/sh", "-c", command.c_str(), nullptr};
-               // 睡眠1秒
-               std::this_thread::sleep_for(std::chrono::seconds(1));
-               // 执行命令
-               if (execve("/bin/sh", (char *const *)argv, environ) == -1) {
-                   LOG(INFO) << "Software uninstallation, error: execution error.";
-               }
-                exit(0);
-           }
-       }
-   ```
-
-   ```c++
-   bool becomeDaemon()
-       {
-           if (chdir("/") == -1) {
-               return false;
-           }
-   
-           if (daemon(0, 0) != 0) {
-               std::cerr << "Failed to daemonize." << std::endl;
-               return false;
-           }
-   
-           std::cout << "Daemon started." << std::endl;
-           return true;
-       }
-   
-   ```
-
-   > ```
-   > #include <unistd.h>
-   > 
-   > int daemon(int nochdir, int noclose);
-   > ```
-   >
-   > **`nochdir`**：
-   >
-   > - 如果为 **0**，将工作目录更改为根目录 (`/`)。
-   > - 如果为 **1**，则保持当前工作目录不变。
-   >
-   > **`noclose`**：
-   >
-   > - 如果为 **0**，则关闭标准输入 (`stdin`)、标准输出 (`stdout`)、标准错误 (`stderr`)，并将它们重定向到 `/dev/null`。
-   > - 如果为 **1**，保持标准输入/输出/错误流不变。
 
 2. md5:MD5（Message-Digest Algorithm 5）是一种广泛使用的加密哈希函数，能够将任意长度的输入数据（通常称为消息）转换为固定长度的输出，具体来说是 128 位（16 字节）长的哈希值。
 
