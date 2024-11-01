@@ -1,6 +1,6 @@
 
 
-### 一、注意事项
+## 一、注意事项
 
 1. 时间转换，修改为98版本的
 
@@ -22,7 +22,7 @@
 
 
 
-### 二、项目框架
+## 二、项目框架
 
 #### 2.1 客户端层次
 
@@ -32,13 +32,18 @@
    1. UI界面层
    2. UI moudle层
    3. 插件层/助手层(safed)：功能的主要逻辑，负责与UI和服务端(中控)之间的信息传输、不同插件(后台功能)的实现
-   4. ZDFY和GJCZ层：ZDFY主要负责系统防护和数据防护；GJCZ主要是和查杀有关的；两个都是开启系统后就在后台启动。记录的数据通过插件层zdfy和gjcz的中转到达UI和服务端
+   4. ZDFY和GJCZ层：ZDFY主要负责系统防护和数据防护；GJCZ主要是和扫描有关的；两个都是开启系统后就在后台启动。记录的数据通过插件层zdfy和gjcz的中转到达UI和服务端
    ```
 
 2. 组件(`modules/component`)主要是一些共用的功能模块，插件(`plugins`)是单独的可以增加、去掉的模块。比如不同的插件都可以使用组件里的认证、防护日志、任务管理、定时任务、更新等
 
 3. `include`文件夹里面主要包含的是定义的头文件，把复杂的头文件/接口摘出来
+
 4. `common`文件夹里面主要包含的是整个项目封装好的工具类，比如`nlohman`(`json`文件)、`thread`(线程)、`utils`(工具包，各种时间、类型转换)、`epoll`(`io`相关)
+
+5. 组件实现方式与插件类似，都是接口`impl`和实现分离。
+
+
 
 #### 2.2  数据传输
 
@@ -656,7 +661,7 @@
    >
    > 解决：将每次下发或者保存的配置保存下来，在界面打开settingDialog的时候同一emit一遍信号更改设置界面
 
-### 三、技术问题
+## 三、技术问题
 
 1. 停止暴力破解插件时，不仅要停止外层的检查日志循环，也要停止行的检测，所以需要两个停止变量。
 
@@ -932,8 +937,52 @@
 
 3. 整个项目的线程和进程
 
+4. 关于扫描多任务下发bug
+
+   思路：查看是否加入队列，如果加入队列，那么看分发消息的情况
+
+   代码分析：
+
+   ```
+   1. 涉及component下面的task_manager、termial_details组件
+   2. impl定义组件的接口，包括初始化、任务分发(publish)等
+   3. task_manager组件：
+   	1. TaskManagerConfigInfo 优先级任务队列配置信息
+   	2. CTaskManagerConfig 管理配置信息，包括从config文件下加载、map存储、匹配
+   	3. TaskManagerInfo	任务的信息
+   	4. CTaskManager	管理任务队列，通过key找任务
+   4. task_manager_component_impl:任务管理组件的接口，包括start、stop、等，启动时会开启一个线程，每秒检测是否有新任务传来，将新任务信息传递给对应插件
+   5. termial_details_component_impl组件：接受中控的下发请求信息，并尝试交付给m_pTaskManager的taskExecutionBegins函数进行任务执行，有过有正在执行的任务，那么清除低优先级任务后添加到队列中，如果没有就直接开启执行(交付给obtainDistributionTask循环检测)
+   ```
+
+   解决：
+
+   1. 发现是有扫描任务插入队列后就会有一次关闭操作。
+   2. 解决1： 在删除时判断是否为begin状态，如果不是begin那么就不改为end
+   3. 解决2：查看scan_flow那块，execScan，看着看函数为什么会返回false 
+
+5. 组件`component`里面实现了多个组件，通过`general_operator_impl`定义创建不同的`shared`类型的组件指针
+
+6. 不管是组件还是插件的接口impl，都继承`IGeneralOperator`(位于`common/framework`)，实现消息传输。不同的是插件是独立的，每个都继承于通信类。而不同模块之间通过一个`impl`公用接口实现通信
+
+7. 组件/插件开启时使用线程
+
+   ```
+   JYThread::autoRun(std::bind(&CTaskManagerComponentImpl::taskQueueDistribution, this));
+   ```
+
+8. 使用GDB调试：遇到某个函数执行，但是又不知道是那部分在调用这个函数时，使用`gdb`在这个函数打上断点，执行到这个函数时，执行`bt`查看栈，就可以看到调用函数一层一层的顺序了。
+
 
 #### 2. 代码部分
 
-2. md5:MD5（Message-Digest Algorithm 5）是一种广泛使用的加密哈希函数，能够将任意长度的输入数据（通常称为消息）转换为固定长度的输出，具体来说是 128 位（16 字节）长的哈希值。
+1. md5:MD5（Message-Digest Algorithm 5）是一种广泛使用的加密哈希函数，能够将任意长度的输入数据（通常称为消息）转换为固定长度的输出，具体来说是 128 位（16 字节）长的哈希值。
+
+2. Json格式的是vector吗
+
+   ```
+   std::vector<nlohmann::json> tasks = jsonData["tasks"];
+   ```
+
+   
 
