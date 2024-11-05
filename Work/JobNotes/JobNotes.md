@@ -301,6 +301,58 @@
 
 
 
+##### 2.4.4 消息队列/message_center
+
+用于消息的订阅和发布，提前订阅好(subscribe)，就可以根据key执行发布(publish)；比如任务队列中，从任务队列中获取到任务，将key和value封装为Buddle，通过publish从消息处理队列中(m_handlers)执行绑定过的函数(包括向组件(terminal_detatil)中执行中控下发信息填写命令、向插件(Scan)中执行扫描任务等)。
+
+1. 实现：封装一个任务队列，里面保存的是处理函数。发布时使用线程池多线程执行
+
+```
+#MessageHandler 是一个可以接受指向 IBundle 类型的指针 pBundle 的函数的类型别名
+using MessageHandler = std::function<void(IBundle *pBundle)>;
+#第二个参数是一个处理消息的回调函数，类型为之前定义的 MessageHandler
+virtual void subscribe(const std::string &messageType, MessageHandler handler) = 0;
+
+#消息队列，使用时用多线程并行处理
+std::unordered_multimap<std::string, MessageHandler> m_handlers;
+```
+
+2. 订阅：提前将key和处理函数加入消息队列中
+
+```
+#subsrcibe实现：
+void CMessageCenter::subscribe(const std::string &messageType, MessageHandler handler)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_handlers.insert({messageType, handler});
+}
+
+#实际订阅使用时可以用lambda
+m_pMessageCenter->subscribe("REPORT_USER_INFO", [this](IBundle *pBundle) {
+        registerResetRequest(pBundle);
+});
+```
+
+3. 发布：需要发送时，根据key，执行key对应的处理函数
+
+```
+#m_Pool是线程池，在message_center初始化时就创建好了。把处理函数放到线程池
+m_pPool->submit([this, pBundle]() {
+        std::string messageType = BundleHelper::getBundleAString(pBundle, JYMessageBundleKey::JYMessageType, "");
+        if (messageType.empty()) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(m_mutex);
+        const auto &range = m_handlers.equal_range(messageType);
+        for (auto it = range.first; it != range.second; ++it) {
+            it->second(pBundle);
+        }
+        pBundle->release();
+    });
+```
+
+
+
 #### 2.5 日志
 
 1. 导入qlog库，使用LOG日志记录
@@ -700,7 +752,17 @@
    1. 发现是有扫描任务插入队列后就会有一次关闭操作。实际上由于任务队列排队机制，当有扫描正在执行，第二次的扫描只会进行排队，而不会进入scan插件执行扫描
    2. `taskExecutionBegins`里面插入队列返回值报错，插入执行任务应该返回true执行scan，插入排队任务应返回false。
 
-   
+4. 关于信息填写弹窗bug:
+
+   要求：中控下发信息填写任务，只有一个弹窗，当下发多个任务只执行最后的任务
+
+   原因：publish时，由于对应字段的data为空，导致第二次弹窗失败。且由于任务队列是map，不能同时存在多个相同key的任务
+
+   解决：
+
+   1. 修改任务队列为mutilmap，并使用锁
+   2. 修改了taskBegain处的逻辑，一个任务、多个任务如何处理
+   3. 第二次从队列中取出并通过MessageCenter向terminal_datils发送Buddle时，不给Buddle赋值data，只赋type
 
 
 
@@ -986,17 +1048,43 @@
 
 6. `component`下的`component_manager`是把所有组件的imp接口管理到一起，一起初始化`init`和`start`
 
-7. 任务管理也不一定非得是扫描任务！
+7. github报错：`ssh: connect to host github.com port 22: Connection refused fatal`
+
+   原因：`dns`被污染，导致解析`github.com`域名解析出来是本地`127.0.0.1`
+
+   解决：在`host`文件中加入域名映射：`140.82.113.4 github.com`
+
+8. 总结关于MessageCenter的东西
+
+   ```
+   #MessageCenter需要看一看
+   MessageCenter：subscribe和pubsh！
+   ```
+
+   > terminal_details里subscribe(订阅了)  REPORT_USER_INFO字段以及处理函数
+   >
+   > 通过bundle把key传递给task_manager的执行线程，当取出key符合时，就执行对应的处理函数
 
 
 #### 2. 代码部分
 
 1. md5:MD5（Message-Digest Algorithm 5）是一种广泛使用的加密哈希函数，能够将任意长度的输入数据（通常称为消息）转换为固定长度的输出，具体来说是 128 位（16 字节）长的哈希值。
 
-2. Json格式的是vector吗
+2. Json格式的是vector吗：是的
 
    ```
+   #假设jsonData对象为
+   "tasks": [
+       {"task_id": 1, "task_name": "Task One"},
+       {"task_id": 2, "task_name": "Task Two"}
+     ]
+   
    std::vector<nlohmann::json> tasks = jsonData["tasks"];
+   #每一个vector就是{"task_id": 1, "task_name": "Task One"},
+   #遍历 tasks vector，输出每个任务的内容
+   for (const auto& task : tasks) {
+      std::cout << "Task ID: " << task["task_id"] << ", Task Name: " << task["task_name"] << std::endl;
+   }
    ```
 
 3. `using` 定义函数签名和回调函数
@@ -1004,15 +1092,8 @@
    ```
    using MessageHandler = std::function<void(IBundle *pBundle)>;
    #MessageHandler 是一个可以接受指向 IBundle 类型的指针 pBundle 的函数的类型别名
-   virtual void subscribe(const std::string &messageType, MessageHandler handler) = 0;
-   #第二个参数是一个处理消息的回调函数，类型为之前定义的 MessageHandler
-   
-   #实际使用时可以用lambda
-   m_pMessageCenter->subscribe("REPORT_USER_INFO", [this](IBundle *pBundle) {
-           registerResetRequest(pBundle);
-   });
    ```
-
+   
 4. `unordered_multimap`的`equal_range`函数
 
    ```
@@ -1023,4 +1104,11 @@
    	#第二个元素是指向第一个不匹配元素的迭代器（即结束位置）。
    ```
 
+5. 容器(`multimap`)加锁
+
+   ```
+   #map和multimap使用的都是<map>头文件
+   ```
+
    
+
