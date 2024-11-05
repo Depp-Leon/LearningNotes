@@ -20,6 +20,8 @@
 
    > 比如暴力破解类和时间转换类
 
+6. SDK版本：SDK版本是指开发者在开发应用时所使用的SDK的版本号。每个SDK版本都有其特定的功能和API
+
 
 
 ## 二、项目框架
@@ -217,19 +219,27 @@
 
    kongbin代码属于是类的聚合，定义一个总类，里面包含功能类和CGeneralOperator(与前端交互类)实现功能互用
 
-2. ZySingketon.h 实现了单例模式的模板类。
+2. `ZySingketon.h` 实现了单例模式的模板类。
 
    ```
    class CZDFYManage : public CommonUtils::CSingleton<CZDFYManage>   #实现了单例
    ```
 
-3. 插件对象，子对象可以当作父类传入
+3. 插件对象，子类可以当作父类传入
 
-4. 普通日志输出不出来是因为上报日志的顺序不对，时间和类型的顺序搞反了
+4. 组件`component`里面实现了多个组件，通过`general_operator_impl`定义创建不同的`shared`类型的组件指针
 
-   详情日志输出不出来也是因为发送的第一个字段是时间而不是类型！
+5. 不管是组件还是插件的接口impl，都继承`IGeneralOperator`(位于`common/framework`)，实现消息传输。不同的是插件是独立的，每个都继承于通信类。而不同模块之间通过一个`impl`公用接口实现通信
 
-##### 2.4.1 更新组件/Upgrade
+6. 组件/插件开启时使用线程
+
+   ```
+   JYThread::autoRun(std::bind(&CTaskManagerComponentImpl::taskQueueDistribution, this));
+   ```
+
+
+
+##### 2.4.1 更新组件/upgrade
 
 更新组件分为软件更新和病毒库更新
 
@@ -251,7 +261,7 @@
 
 
 
-##### 2.4.1 扫描插件/Scan
+##### 2.4.1 扫描插件/scan
 
 关于隔离区数据上报与中控的逻辑：版本号初始可能为空，每次收到中控下发指令比较并保存该版本号，如果说版本号不同那么就上报所有隔离区数据
 
@@ -268,6 +278,25 @@
 8. app_scan: 扫描服务
 8. post: 上报服务，(上报client_action)
 # 4-9全部作为flow的成员对象进行任务处理调度
+```
+
+
+
+##### 2.4.3 任务队列/task_manager
+
+所有中控下发的扫描任务都通过`Scan`插件接收，放到(`task_manager`组件)任务队列，若没有正在执行的任务时直接执行，否则等待`task_manager`组件根据队列给`Scan`插件下发任务。
+
+```
+1. 涉及component下面的task_manager、termial_details组件
+2. impl定义组件的接口，包括初始化、任务分发(publish)等
+3. task_manager组件：
+	1. TaskManagerConfigInfo 优先级任务队列配置信息
+	2. CTaskManagerConfig 管理配置信息，包括从config文件下加载、map存储、匹配
+	3. TaskManagerInfo	任务的信息
+	4. CTaskManager	管理任务队列，通过key找任务
+4. 下发执行：task_manager_component_impl:任务管理组件的接口，包括start、stop、等，启动时会开启一个线程(obtainDistributionTask)，每秒遍历任务队列，将end字段的任务移除队列，如果没有正在执行的任务，那就从task_manager的队列中取出任务发送(publish)给Scan插件(/通过MessageCenter发送)。
+5. 接收入队：Scan插件：接受中控的下发请求信息(插件中的onMessageNotify)，并尝试交付给m_pTaskManager的taskExecutionBegins函数进行任务执行，有过有正在执行的任务，那么清除低优先级任务后添加到队列中，如果没有就直接返回true开启执行
+6. 执行扫描：在scan插件中：impl接口类中继承了CPluginHelper(其继承于Cplugin，实现插件的初始化、开启、结束等)，init初始化插件需要传入IGeneralOperator通信父类，而组件的CGeneralOperatorAdapter继承于IGeneralOperator，所以可以传入子类代替父类，从而在scan插件接受到执行扫描任务时(通过onNewNotify)通过scan_task任务分发，通过scan_flow执行不同的scan任务，并检测该任务是否正在运行(退出不执行扫描)、是否成功结束(将任务状态字段改为end)
 ```
 
 
@@ -351,7 +380,11 @@
 
 7. quit ：退出
 
-8. 当打印数据类型是原子类型时，比如atmoc_bool
+8. c/C：可以跳过当前断点要操作的内容，继续执行
+
+9. 使用GDB调试：遇到某个函数执行，但是又不知道是那部分在调用这个函数时，使用`gdb`在这个函数打上断点，执行到这个函数时，执行`bt`查看栈，就可以看到调用函数一层一层的顺序了。
+
+10. 当打印数据类型是原子类型时，比如atmoc_bool
 
    ```
    (gdb) p m_reportLog
@@ -361,11 +394,11 @@
    > 1. `_M_base` 和 `_M_i` 是 `std::atomic` 或其他标准库类型的内部表示。它们通常用于实现原子操作和存储状态。
    > 2. `_S_alignment` 是一个静态成员，表示这个类型在内存中的对齐要求。在这里，对齐为 `1` 字节，意味着该类型的对象在内存中必须以 1 字节对齐，这通常适用于 `bool` 类型。
 
-9. 为什么启动有些服务需要sudo，有些不需要？
+11. 为什么启动有些服务需要sudo，有些不需要？
 
-   > 需要sudo的话，这个服务一般涉及对文件/的操作等
+    > 需要sudo的话，这个服务一般涉及对文件/的操作等
 
-10. gdb调试报错：
+12. gdb调试报错：
 
    > 1. 是否编译的依赖的so没有导过去
    > 2. **哪部分需要调试，就将哪部分执行文件单独拿出来使用gdb执行，其他部分正常启动执行**
@@ -637,29 +670,39 @@
 
 1. 隔离区、信任区页面bug
 
-   > FramelessWindow页面的主框架、主页面。里面包含了点击隔离信任区后的槽函数，展示对应dialog
-   >
-   > TableOfContents页码单独分离出来实现调页
+   `FramelessWindow`页面的主框架、主页面。里面包含了点击隔离信任区后的槽函数，展示对应`dialog`
+   
+   `TableOfContents`页码单独分离出来实现调页
 
 2. 设置界面bug
 
-   > 思路：将ui传来的配置保存下来。如果点击取消，就不会保存这次的配置，那么下次打开就还是之前的
-   >
-   > cpp逻辑剖析：
-   >
-   > 1. 槽函数updateXXX：ui界面点击保存后会触发该槽函数，将传来的结构体转为protobuffer，再将该protobuffer传递(send)给IPC进行转发给对应处理模块进行后续处理
-   >
-   > 2. fromxxx：负责将ui传来的结构体转换未protobuffer
-   >
-   > 3. toxxx：负责将服务端/后台新的配置信息从protobuffer转为对象结构体，并将结构体emit发出供settingDialog接受响应
-   >
-   > 4. 信号函数sigXXX：将新的配置信息发送，供setting/trustAndIso/界面接收
-   >
-   > 5. send和recive都是通过类似于插件的模型moudle进行对其他模块的数据发送和接受(通过key字段和TerminalConfigSeesion的protobuffer字段)。
-   >
-   >    > 接收时会根据TerminalConfigSeesion的type字段区分，再根据info的key字段区分不同的模块的要emit信息，再调用不同的emit
-   >
-   > 解决：将每次下发或者保存的配置保存下来，在界面打开settingDialog的时候同一emit一遍信号更改设置界面
+   思路：将ui传来的配置保存下来。如果点击取消，就不会保存这次的配置，那么下次打开就还是之前的
+
+   cpp逻辑剖析：
+
+   ```
+   1. 槽函数updateXXX：ui界面点击保存后会触发该槽函数，将传来的结构体转为protobuffer，再将该protobuffer传递(send)给IPC进行转发给对应处理模块进行后续处理
+   2. fromxxx：负责将ui传来的结构体转换未protobuffer
+   3. toxxx：负责将服务端/后台新的配置信息从protobuffer转为对象结构体，并将结构体emit发出供settingDialog接受响应
+   4. 信号函数sigXXX：将新的配置信息发送，供setting/trustAndIso/界面接收
+   5. send和recive都是通过类似于插件的模型moudle进行对其他模块的数据发送和接受(通过key字段和TerminalConfigSeesion的protobuffer字段)。
+   #接收时会根据TerminalConfigSeesion的type字段区分，再根据info的key字段区分不同的模块的要emit信息，再调用不同的emit
+   ```
+
+   解决：将每次下发或者保存的配置保存下来，在界面打开`settingDialog`的时候统一`emit`一遍信号更改设置界面
+
+3. 关于扫描多任务下发bug
+
+   思路：查看是否加入队列，如果加入队列，那么看分发消息的情况
+
+   解决：
+
+   1. 发现是有扫描任务插入队列后就会有一次关闭操作。实际上由于任务队列排队机制，当有扫描正在执行，第二次的扫描只会进行排队，而不会进入scan插件执行扫描
+   2. `taskExecutionBegins`里面插入队列返回值报错，插入执行任务应该返回true执行scan，插入排队任务应返回false。
+
+   
+
+
 
 ## 三、技术问题
 
@@ -935,43 +978,15 @@
 
 2. 助手与UI之间的交互？助手与服务端的交互都是如何实现的
 
-3. 整个项目的线程和进程
+3. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
 
-4. 关于扫描多任务下发bug
+4. 整个项目的线程和进程
 
-   思路：查看是否加入队列，如果加入队列，那么看分发消息的情况
+5. 查看`.clang-format`如何设置，规格化工具
 
-   代码分析：
+6. `component`下的`component_manager`是把所有组件的imp接口管理到一起，一起初始化`init`和`start`
 
-   ```
-   1. 涉及component下面的task_manager、termial_details组件
-   2. impl定义组件的接口，包括初始化、任务分发(publish)等
-   3. task_manager组件：
-   	1. TaskManagerConfigInfo 优先级任务队列配置信息
-   	2. CTaskManagerConfig 管理配置信息，包括从config文件下加载、map存储、匹配
-   	3. TaskManagerInfo	任务的信息
-   	4. CTaskManager	管理任务队列，通过key找任务
-   4. task_manager_component_impl:任务管理组件的接口，包括start、stop、等，启动时会开启一个线程，每秒检测是否有新任务传来，将新任务信息传递给对应插件
-   5. termial_details_component_impl组件：接受中控的下发请求信息，并尝试交付给m_pTaskManager的taskExecutionBegins函数进行任务执行，有过有正在执行的任务，那么清除低优先级任务后添加到队列中，如果没有就直接开启执行(交付给obtainDistributionTask循环检测)
-   ```
-
-   解决：
-
-   1. 发现是有扫描任务插入队列后就会有一次关闭操作。
-   2. 解决1： 在删除时判断是否为begin状态，如果不是begin那么就不改为end
-   3. 解决2：查看scan_flow那块，execScan，看着看函数为什么会返回false 
-
-5. 组件`component`里面实现了多个组件，通过`general_operator_impl`定义创建不同的`shared`类型的组件指针
-
-6. 不管是组件还是插件的接口impl，都继承`IGeneralOperator`(位于`common/framework`)，实现消息传输。不同的是插件是独立的，每个都继承于通信类。而不同模块之间通过一个`impl`公用接口实现通信
-
-7. 组件/插件开启时使用线程
-
-   ```
-   JYThread::autoRun(std::bind(&CTaskManagerComponentImpl::taskQueueDistribution, this));
-   ```
-
-8. 使用GDB调试：遇到某个函数执行，但是又不知道是那部分在调用这个函数时，使用`gdb`在这个函数打上断点，执行到这个函数时，执行`bt`查看栈，就可以看到调用函数一层一层的顺序了。
+7. 任务管理也不一定非得是扫描任务！
 
 
 #### 2. 代码部分
@@ -984,5 +999,28 @@
    std::vector<nlohmann::json> tasks = jsonData["tasks"];
    ```
 
-   
+3. `using` 定义函数签名和回调函数
 
+   ```
+   using MessageHandler = std::function<void(IBundle *pBundle)>;
+   #MessageHandler 是一个可以接受指向 IBundle 类型的指针 pBundle 的函数的类型别名
+   virtual void subscribe(const std::string &messageType, MessageHandler handler) = 0;
+   #第二个参数是一个处理消息的回调函数，类型为之前定义的 MessageHandler
+   
+   #实际使用时可以用lambda
+   m_pMessageCenter->subscribe("REPORT_USER_INFO", [this](IBundle *pBundle) {
+           registerResetRequest(pBundle);
+   });
+   ```
+
+4. `unordered_multimap`的`equal_range`函数
+
+   ```
+   std::pair<iterator, iterator> equal_range(const Key& key);
+   #key：要查找的键。
+   #返回一个 std::pair：
+   	#第一个元素是指向第一个匹配元素的迭代器
+   	#第二个元素是指向第一个不匹配元素的迭代器（即结束位置）。
+   ```
+
+   
