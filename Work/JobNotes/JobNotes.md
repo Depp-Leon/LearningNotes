@@ -22,7 +22,13 @@
 
 6. SDK版本：SDK版本是指开发者在开发应用时所使用的SDK的版本号。每个SDK版本都有其特定的功能和API
 
+7. 一些常用单词
 
+   ```
+   1. parameter/param		参数
+   ```
+
+   
 
 ## 二、项目框架
 
@@ -33,7 +39,7 @@
    ```
    1. UI界面层
    2. UI moudle层
-   3. 插件层/助手层(safed)：功能的主要逻辑，负责与UI和服务端(中控)之间的信息传输、不同插件(后台功能)的实现
+   3. 插件层/助手层(safed)：功能的主要逻辑，里面包含了组件和插件，负责与UI和服务端(中控)之间的信息传输、不同插件(后台功能)的实现
    4. ZDFY和GJCZ层：ZDFY主要负责系统防护和数据防护；GJCZ主要是和扫描有关的；两个都是开启系统后就在后台启动。记录的数据通过插件层zdfy和gjcz的中转到达UI和服务端
    ```
 
@@ -274,9 +280,9 @@
 4. black： 黑名单模块
 5. trust: 白名单(信任区)模块
 6. isolate: 隔离区模块
-7. scan_count: 查杀任务计数模块
-8. app_scan: 扫描服务
-8. post: 上报服务，(上报client_action)
+7. scan_count: 查杀的状态、任务计数等信息
+8. app_scan: 扫描服务，根据扫描文件路径进行扫描
+8. post: 上报服务，(上报client_action到中控)
 # 4-9全部作为flow的成员对象进行任务处理调度
 ```
 
@@ -287,7 +293,7 @@
 所有中控下发的扫描任务都通过`Scan`插件接收，放到(`task_manager`组件)任务队列，若没有正在执行的任务时直接执行，否则等待`task_manager`组件根据队列给`Scan`插件下发任务。
 
 ```
-1. 涉及component下面的task_manager、termial_details组件
+1. 涉及component下面的task_manager组件
 2. impl定义组件的接口，包括初始化、任务分发(publish)等
 3. task_manager组件：
 	1. TaskManagerConfigInfo 优先级任务队列配置信息
@@ -728,9 +734,9 @@ m_pPool->submit([this, pBundle]() {
 
 2. 设置界面bug
 
-   思路：将ui传来的配置保存下来。如果点击取消，就不会保存这次的配置，那么下次打开就还是之前的
+   **思路**：将ui传来的配置保存下来。如果点击取消，就不会保存这次的配置，那么下次打开就还是之前的
 
-   cpp逻辑剖析：
+   **cpp逻辑剖析**：
 
    ```
    1. 槽函数updateXXX：ui界面点击保存后会触发该槽函数，将传来的结构体转为protobuffer，再将该protobuffer传递(send)给IPC进行转发给对应处理模块进行后续处理
@@ -741,24 +747,24 @@ m_pPool->submit([this, pBundle]() {
    #接收时会根据TerminalConfigSeesion的type字段区分，再根据info的key字段区分不同的模块的要emit信息，再调用不同的emit
    ```
 
-   解决：将每次下发或者保存的配置保存下来，在界面打开`settingDialog`的时候统一`emit`一遍信号更改设置界面
+   **解决**：将每次下发或者保存的配置保存下来，在界面打开`settingDialog`的时候统一`emit`一遍信号更改设置界面
 
 3. 关于扫描多任务下发bug
 
-   思路：查看是否加入队列，如果加入队列，那么看分发消息的情况
+   **思路**：查看是否加入队列，如果加入队列，那么看分发消息的情况
 
-   解决：
+   **解决**：
 
    1. 发现是有扫描任务插入队列后就会有一次关闭操作。实际上由于任务队列排队机制，当有扫描正在执行，第二次的扫描只会进行排队，而不会进入scan插件执行扫描
    2. `taskExecutionBegins`里面插入队列返回值报错，插入执行任务应该返回true执行scan，插入排队任务应返回false。
 
 4. 关于信息填写弹窗bug:
 
-   要求：中控下发信息填写任务，只有一个弹窗，当下发多个任务只执行最后的任务
+   **要求**：中控下发信息填写任务，只有一个弹窗，当下发多个任务只执行最后的任务
 
-   原因：publish时，由于对应字段的data为空，导致第二次弹窗失败。且由于任务队列是map，不能同时存在多个相同key的任务
+   **原因**：publish时，由于对应字段的data为空，导致第二次弹窗失败。且由于任务队列是map，不能同时存在多个相同key的任务
 
-   解决：
+   **解决**：
 
    1. 修改任务队列为mutilmap，并使用锁
    2. 修改了taskBegain处的逻辑，一个任务、多个任务如何处理
@@ -1042,28 +1048,93 @@ m_pPool->submit([this, pBundle]() {
 
 3. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
 
-4. 整个项目的线程和进程
+4. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
 
-5. 查看`.clang-format`如何设置，规格化工具
+   ```
+   #下面两句如何实现的?
+   std::string msgType = BundleHelper::getBundleAString(pIn, JYMessageBundleKey::JYMessageType, "");
+   std::string msgData = BundleHelper::getBundleBinary4String(pIn, JYMessageBundleKey::JYMessageBinValue, "");
+   ```
 
-6. `component`下的`component_manager`是把所有组件的imp接口管理到一起，一起初始化`init`和`start`
+5. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能
 
-7. github报错：`ssh: connect to host github.com port 22: Connection refused fatal`
+6. 查看`.clang-format`如何设置，规格化工具
+
+7. `component`下的`component_manager`是把所有组件的imp接口管理到一起，一起初始化`init`和`start`
+
+8. github报错：`ssh: connect to host github.com port 22: Connection refused fatal`
 
    原因：`dns`被污染，导致解析`github.com`域名解析出来是本地`127.0.0.1`
 
-   解决：在`host`文件中加入域名映射：`140.82.113.4 github.com`
+   解决：在`host`文件中加入域名映射：`140.82.113.4 github.com
 
-8. 总结关于MessageCenter的东西
+9. 关于强力查杀bug
 
-   ```
-   #MessageCenter需要看一看
-   MessageCenter：subscribe和pubsh！
-   ```
+   **分析**：
 
-   > terminal_details里subscribe(订阅了)  REPORT_USER_INFO字段以及处理函数
-   >
-   > 通过bundle把key传递给task_manager的执行线程，当取出key符合时，就执行对应的处理函数
+   1. 使用`FULL_SCAN`字段下发任务，具体实现在`FULL_SCAN`任务处理那块找
+
+      ```
+      string strong_sign = 5; // 强力查杀标识，兼容老版本客户端，老版本执行全盘查杀，新版本解析此标识，1为强力查杀，0为全盘查杀
+      ```
+
+   2. `ScanFullTask`初始化时会`detach`一个线程：读取强力查杀留下的标记文件、如果含有强力查杀标记，那么就执行一次全盘扫描。
+
+      `task`函数：由于全盘和强力是同一个param，对其执行全盘扫描，并判断type是否是强力查杀，如果是那么将本次参数记录到`conf`文件中，供重启后执行扫描使用
+
+   3. 扫描最终执行的是给告警处置模块处理了？(通过gjcz的IPC)
+
+   **未完成部分**：
+
+   1. 没有进行病毒库升级                    -----需要创建升级任务放入队列 
+   2. 是否不允许终端暂停或停止、需要验证        ----------UI层实现
+   3. 扫描是否加入信任区文件          ---------应该是，因为全盘扫描从 /根目录下面同一扫
+   4. 发现病毒如何自动清除          ------auto_remove | auto_clear 字段 或者在HIpDip的界面处理逻辑上
+   5. 如何清除病毒后实现重启       ----------UI层实现
+
+   **解决思路**：当接收到强力查杀任务key后，往任务队列中插入病毒库升级任务和强力查杀任务进行排队，等到病毒库升级成功后再执行强力查杀任务。
+
+   1. 优先级：查看配置文件是否有病毒库升级任务
+   2. upgrade中是否像terminal_details一样，先订阅key和处理逻辑。方便任务队列调用
+   3. 在接收到强力查杀任务后，启动病毒库升级任务(需自己实现)，待其完成后实现强力查杀
+
+   **解决**：
+
+   1. 在强力查杀任务处，使用Task_managerBegain，传入key为VIRUS_LIB_UPGRADE ，value为UpgradeParam（其中类型为bool silent。0为不静默）
+
+   2. gdb调试，看卡哪里了
+
+      
+
+10. 关于组件大文件夹下的三个类及不同组件
+
+```
+CGeneralOperatorImp: 初始化创建不同组件的对象
+
+component_interface.h: 
+	组件的总接口CComponentInterface，继承于IComponentInterface(接口类，定义虚函数初始化、开启、停止、释放等);
+	内部含有CGeneralOperatorImp成员初始化对象;
+    自己定义单例模式获取自己这个组件对象、sendToUi向UI层发送消息这两个函数
+
+general_Operator_impl:
+	CGeneralOperatorAdapter继承于IGeneralOperator(运转通信总类)，要实现各类通信包括向UI层、中控发送消息等。
+	初始化函数中接收CGeneralOperatorImpl对象为自己的不同组件对象赋值。
+	
+ctrl_center组件，实现向中控的信息上报
+IPC组件(local_ser)：实现sendToUi，externalConnectState连接状态
+protect_logger组件：实现UI层面的日志上报
+authorize组件：实现各种认证、版本信息、病毒库信息、引擎信息等
+timed_tasks组件：实现定时任务
+task_manager组件：实现任务队列
+upgrade组件：实现软件和病毒库更新。没有在general_Operator_impl中定义。
+terminal_details组件：接收中控下发的填写用户信息、更新用户信息、授权、密码文件等功能。
+	1. 在init初始化时就通过messageCenter订阅，待任务队列到达他们时再pulish
+	2. registerResetRequest，接收到中控消息，任务队列中执行插入任务
+	3. registerResetResponse，收到UI层传来完成信息，任务队列中关闭掉任务
+```
+
+12. 插件是否也是通过general_Operator_impl这个里面的功能进行传输和上报的？
+
 
 
 #### 2. 代码部分
@@ -1108,6 +1179,27 @@ m_pPool->submit([this, pBundle]() {
 
    ```
    #map和multimap使用的都是<map>头文件
+   ```
+
+6. 关于文件的读写，如果写文件时文件名不存在，那么会创建一个。如果读文件时文件名不存在，那么会打开失败
+
+   ```
+   std::ofstream file(filePath, std::ios::out | std::ios::trunc);		#写文件
+   std::ifstream file(filePath);										#读文件
+   file.is_open()			#检测是否成功打开
+   file >> strValue;		#读文件，只针对ifstream类型
+   file << Base64Util::Base64Encode(strValue);		#写文件，只针对ofstream类型
+   ```
+
+7. 关于protobuffer的枚举类型指针，反向获取枚举类型名
+
+   ```
+   #获取枚举类型描述符
+   const google::protobuf::EnumDescriptor *descriptor = HmiToScan::VirusScan_ScanType_descriptor();
+   #通过枚举数值反向找该数值对应描述符
+   const google::protobuf::EnumValueDescriptor *enumValueDesc = descriptor->FindValueByNumber(static_cast<int>(scanMessage.scan_type()));、
+   #通过name()函数得到string类型的类型
+   enumValueDesc->name()
    ```
 
    
