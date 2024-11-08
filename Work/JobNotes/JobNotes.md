@@ -32,7 +32,7 @@
 
 ## 二、项目框架
 
-#### 2.1 客户端层次
+### 2.1 客户端层次
 
 1. 客户端整体框架层次分布
 
@@ -53,7 +53,7 @@
 
 
 
-#### 2.2  数据传输
+### 2.2  数据传输
 
 数据传输方式有`protobuffer`和`Json`格式，作为项目中的数据传输类型
 
@@ -200,7 +200,7 @@
 
 
 
-#### 2.3 通信原理
+### 2.3 通信原理
 
 1. IGeneralOperator有什么用，插件plugin**通信原理**？imessage和IPC？搞清楚IPC：上报中控、接收中控。发送UI，接收UI字段+流程
 
@@ -217,25 +217,27 @@
 
 
 
-#### 2.4 插件层/助手
+### 2.4 插件层/助手
 
-1. mingfei代码属于是让功能类继承CGeneralOperator,CGeneralOperator需要有参(IGeneralOperator)构造，然后在接口处初始化时直接让该功能类使用传来的IGeneralOperator进行构造。由于功能类继承于CGeneralOperator，所以可以使用其定义的函数进行与前端交互。
+#### 2.4.1 通述
+
+1. 组件(`modules/component`)主要是一些共用的功能模块，插件(`plugins`)是单独的可以增加、去掉的模块。比如不同的插件都可以使用组件里的认证、防护日志、任务管理、定时任务、更新等
+
+2. mingfei代码属于是让功能类继承CGeneralOperator,CGeneralOperator需要有参(IGeneralOperator)构造，然后在接口处初始化时直接让该功能类使用传来的IGeneralOperator进行构造。由于功能类继承于CGeneralOperator，所以可以使用其定义的函数进行与前端交互。
 
    > 接口类继承于CPluginHelper，该类继承于CPlugin和CGeneralOperator，所以接口类也可以使用插件类的函数和前端交互的函数
 
    kongbin代码属于是类的聚合，定义一个总类，里面包含功能类和CGeneralOperator(与前端交互类)实现功能互用
 
-2. `ZySingketon.h` 实现了单例模式的模板类。
+3. `ZySingketon.h` 实现了单例模式的模板类。
 
    ```
    class CZDFYManage : public CommonUtils::CSingleton<CZDFYManage>   #实现了单例
    ```
 
-3. 插件对象，子类可以当作父类传入
+4. 插件对象，子类可以当作父类传入
 
-4. 组件`component`里面实现了多个组件，通过`general_operator_impl`定义创建不同的`shared`类型的组件指针
-
-5. 不管是组件还是插件的接口impl，都继承`IGeneralOperator`(位于`common/framework`)，实现消息传输。不同的是插件是独立的，每个都继承于通信类。而不同模块之间通过一个`impl`公用接口实现通信
+5. 组件`component`里面实现了多个组件，通过`general_operator_impl`定义创建不同的`shared`类型的组件指针
 
 6. 组件/插件开启时使用线程
 
@@ -245,69 +247,31 @@
 
 
 
-##### 2.4.1 更新组件/upgrade
+#### 2.4.2 运转核心/core
 
-更新组件分为软件更新和病毒库更新
-
-1. `calback`(反馈)用来通信，与客户局端(前端界面)传递信息
-
-   ```
-   update_callback_interface.h接口
-   update_callback.h实现接口功能
-   ```
-
-2. `soft`软件更新
-
-   ```
-   download:下载文件
-   update_console_client更新用户界面
-   ```
-
-3. `virus`病毒库更新
-
-
-
-##### 2.4.1 扫描插件/scan
-
-关于隔离区数据上报与中控的逻辑：版本号初始可能为空，每次收到中控下发指令比较并保存该版本号，如果说版本号不同那么就上报所有隔离区数据
-
-扫描插件逻辑：
+##### 1. 组成部分
 
 ```
-1. imp:插件，封装为插件形式启动、关闭、接受ui点击/中控 下发的信号key和msg。#里面包含task和flow两个成员对象，task初始化任务列表、flow作为功能核心
-2. task_process: 工厂模式，任务类，当imp收到消息，则创建对应key的处理对象进行相应处理
-3. flow_controller: 功能核心，task使用imp初始化的flow进行flow的初始话，并调用flow的处理函数进行处理
-4. black： 黑名单模块
-5. trust: 白名单(信任区)模块
-6. isolate: 隔离区模块
-7. scan_count: 查杀的状态、任务计数等信息
-8. app_scan: 扫描服务，根据扫描文件路径进行扫描
-8. post: 上报服务，(上报client_action到中控)
-# 4-9全部作为flow的成员对象进行任务处理调度
+1. 组件管理component_manager:包括创建所有组件接口、启动接口
+2. 插件管理plugin_manager:包括加载conf文件配置、启动插件、注册消息订阅
+3. 插件配置plugin_config:负责从conf文件中读取插件配置
+4. 消息订阅message_center:消息的订阅和分发(组件和插件都使用)
+5. 核心接口core_impl:将main函数的功能封装为接口，包括启动组件和插件等功能
+6. 帮助类bussiness_helper:查看加载模块以及执行命令行等操作
+7. main:safed执行主函数
 ```
 
-
-
-##### 2.4.3 任务队列/task_manager
-
-所有中控下发的扫描任务都通过`Scan`插件接收，放到(`task_manager`组件)任务队列，若没有正在执行的任务时直接执行，否则等待`task_manager`组件根据队列给`Scan`插件下发任务。
+##### 2. 插件管理`plugin_manager`
 
 ```
-1. 涉及component下面的task_manager组件
-2. impl定义组件的接口，包括初始化、任务分发(publish)等
-3. task_manager组件：
-	1. TaskManagerConfigInfo 优先级任务队列配置信息
-	2. CTaskManagerConfig 管理配置信息，包括从config文件下加载、map存储、匹配
-	3. TaskManagerInfo	任务的信息
-	4. CTaskManager	管理任务队列，通过key找任务
-4. 下发执行：task_manager_component_impl:任务管理组件的接口，包括start、stop、等，启动时会开启一个线程(obtainDistributionTask)，每秒遍历任务队列，将end字段的任务移除队列，如果没有正在执行的任务，那就从task_manager的队列中取出任务发送(publish)给Scan插件(/通过MessageCenter发送)。
-5. 接收入队：Scan插件：接受中控的下发请求信息(插件中的onMessageNotify)，并尝试交付给m_pTaskManager的taskExecutionBegins函数进行任务执行，有过有正在执行的任务，那么清除低优先级任务后添加到队列中，如果没有就直接返回true开启执行
-6. 执行扫描：在scan插件中：impl接口类中继承了CPluginHelper(其继承于Cplugin，实现插件的初始化、开启、结束等)，init初始化插件需要传入IGeneralOperator通信父类，而组件的CGeneralOperatorAdapter继承于IGeneralOperator，所以可以传入子类代替父类，从而在scan插件接受到执行扫描任务时(通过onNewNotify)通过scan_task任务分发，通过scan_flow执行不同的scan任务，并检测该任务是否正在运行(退出不执行扫描)、是否成功结束(将任务状态字段改为end)
+loadPlugin：根据plugin.conf加载插件到map中
+enablePlugin：遍历map，依次启动插件的init和start，并注册消息订阅，触发消息时执行publishPlugin
+unloadPlugin：根据插件名称卸载插件
+disablePlugin: 停止所有插件，启动插件的stop和release
+publishPlugin：找到对应插件，执行对应插件的onNewNotify操作
 ```
 
-
-
-##### 2.4.4 消息队列/message_center
+##### 3. 消息队列/message_center
 
 用于消息的订阅和发布，提前订阅好(subscribe)，就可以根据key执行发布(publish)；比如任务队列中，从任务队列中获取到任务，将key和value封装为Buddle，通过publish从消息处理队列中(m_handlers)执行绑定过的函数(包括向组件(terminal_detatil)中执行中控下发信息填写命令、向插件(Scan)中执行扫描任务等)。
 
@@ -359,7 +323,116 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-#### 2.5 日志
+#### 2.4.3 组件/component
+
+##### 1. 组成部分
+
+1. 组件接口/抽象：
+
+   ```
+   1. CGeneralOperatorImp: 初始化创建不同组件的功能对象(非组件接口impl)；所有组件的接口使用组件功能类时都通过该类获取到功能对象
+   
+   2. CComponentInterface: 
+   	组件的总接口CComponentInterface，继承于IComponentInterface(接口类，定义虚函数初始化、开启、停止、释放等);所有的组件impl都继承于这个类。
+   	初始化时需要CGeneralOperatorImpl和IMessageCenter
+       自己定义模板返回创建组件接口impl对象、sendToUi向UI层发送消息这两个函数
+   
+   3. CGeneralOperatorAdapter:
+   	CGeneralOperatorAdapter继承于IGeneralOperator(运转通信总类)，要实现各类通信包括向UI层、中控发送消息等。
+   	初始化函数中接收CGeneralOperatorImpl对象为自己的不同组件对象赋值。重写IGeneralOperator的所有函数供插件使用
+   ```
+
+2. 组件和插件之间的交互：
+
+   ```
+   #插件启动时pluginInit需要接收IGeneralOperator(实际传输CGeneralOperatorAdapter)来实现使用组件的所有功能
+   #coreImpl: init时将组件和插件都初始化，插件使用组件初始化后的CGeneralOperatorAdapter
+   #插件继承CPluginHelper，该类继承于IPlugin(插件接口类)和CgeneralOperator(组件所有功能类，该类继承IGeneralOperator，并需要一个IGeneralOperator对象初始化，实际给插件初始化传输的是实际传输CGeneralOperatorAdapter)
+   ```
+
+3. 组件成员
+
+   ```
+   ctrl_center组件，实现向中控的信息上报
+   IPC组件(local_ser)：实现sendToUi，externalConnectState连接状态
+   protect_logger组件：实现UI层面的日志上报
+   authorize组件：实现各种认证、版本信息、病毒库信息、引擎信息等
+   timed_tasks组件：实现定时任务
+   task_manager组件：实现任务队列
+   upgrade组件：实现软件和病毒库更新。没有在general_Operator_impl中定义。
+   terminal_details组件：接收中控下发的填写用户信息、更新用户信息、授权、密码文件等功能。
+   	1. 在init初始化时就通过messageCenter订阅，待任务队列到达他们时再pulish
+   	2. registerResetRequest，接收到中控消息，任务队列中执行插入任务
+   	3. registerResetResponse，收到UI层传来完成信息，任务队列中关闭掉任务
+   ```
+
+   
+
+##### 2. 更新组件/upgrade
+
+更新组件分为软件更新和病毒库更新
+
+1. `calback`(反馈)用来通信，与客户局端(前端界面)传递信息
+
+   ```
+   update_callback_interface.h接口
+   update_callback.h实现接口功能
+   ```
+
+2. `soft`软件更新
+
+   ```
+   download:下载文件
+   update_console_client更新用户界面
+   ```
+
+3. `virus`病毒库更新
+
+
+
+##### 3. 任务队列/task_manager
+
+所有中控下发的扫描任务都通过`Scan`插件接收，放到(`task_manager`组件)任务队列，若没有正在执行的任务时直接执行，否则等待`task_manager`组件根据队列给`Scan`插件下发任务。
+
+```
+1. 涉及component下面的task_manager组件
+2. impl定义组件的接口，包括初始化、任务分发(publish)等
+3. task_manager组件：
+	1. TaskManagerConfigInfo 优先级任务队列配置信息
+	2. CTaskManagerConfig 管理配置信息，包括从config文件下加载、map存储、匹配
+	3. TaskManagerInfo	任务的信息
+	4. CTaskManager	管理任务队列，通过key找任务
+4. 下发执行：task_manager_component_impl:任务管理组件的接口，包括start、stop、等，启动时会开启一个线程(obtainDistributionTask)，每秒遍历任务队列，将end字段的任务移除队列，如果没有正在执行的任务，那就从task_manager的队列中取出任务发送(publish)给Scan插件(/通过MessageCenter发送)。
+5. 接收入队：Scan插件：接受中控的下发请求信息(插件中的onMessageNotify)，并尝试交付给m_pTaskManager的taskExecutionBegins函数进行任务执行，有过有正在执行的任务，那么清除低优先级任务后添加到队列中，如果没有就直接返回true开启执行
+6. 执行扫描：在scan插件中：impl接口类中继承了CPluginHelper(其继承于Cplugin，实现插件的初始化、开启、结束等)，init初始化插件需要传入IGeneralOperator通信父类，而组件的CGeneralOperatorAdapter继承于IGeneralOperator，所以可以传入子类代替父类，从而在scan插件接受到执行扫描任务时(通过onNewNotify)通过scan_task任务分发，通过scan_flow执行不同的scan任务，并检测该任务是否正在运行(退出不执行扫描)、是否成功结束(将任务状态字段改为end)
+```
+
+
+
+#### 2.4.4 插件/plugin
+
+##### 1. 扫描插件/scan
+
+关于隔离区数据上报与中控的逻辑：版本号初始可能为空，每次收到中控下发指令比较并保存该版本号，如果说版本号不同那么就上报所有隔离区数据
+
+扫描插件逻辑：
+
+```
+1. imp:插件，封装为插件形式启动、关闭、接受ui点击/中控 下发的信号key和msg。#里面包含task和flow两个成员对象，task初始化任务列表、flow作为功能核心
+2. task_process: 工厂模式，任务类，当imp收到消息，则创建对应key的处理对象进行相应处理
+3. flow_controller: 功能核心，task使用imp初始化的flow进行flow的初始话，并调用flow的处理函数进行处理
+4. black： 黑名单模块
+5. trust: 白名单(信任区)模块
+6. isolate: 隔离区模块
+7. scan_count: 查杀的状态、任务计数等信息
+8. app_scan: 扫描服务，根据扫描文件路径进行扫描
+8. post: 上报服务，(上报client_action到中控)
+# 4-9全部作为flow的成员对象进行任务处理调度
+```
+
+
+
+### 2.5 日志
 
 1. 导入qlog库，使用LOG日志记录
 
@@ -394,7 +467,7 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-#### 2.6 数据库
+### 2.6 数据库
 
 ##### 2.6.1 SQlite
 
@@ -416,13 +489,13 @@ m_pPool->submit([this, pBundle]() {
 
    
 
-#### 2.7 编译
+### 2.7 编译
 
 1. 详见**CMakelist**，打包so文件，即动态库
 
 
 
-#### 2.8 调试
+### 2.8 调试
 
 1. 使用"sudo gdb JYNSAFED"
 
@@ -473,7 +546,7 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-#### 2.9 打包
+### 2.9 打包
 
 1. 插件的打包配置
 
@@ -535,7 +608,7 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-#### 2.10 安装
+### 2.10 安装
 
 1. qt版本build报错，重新安装qmake   
 
@@ -575,7 +648,7 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-#### 2.11 项目管理
+### 2.11 项目管理
 
 1. 使用git
 
@@ -708,9 +781,13 @@ m_pPool->submit([this, pBundle]() {
 
 10. git push时如果检测到某次commit有error(比如有文件大于100M)，那么就需要本地版本回溯然后再解决问题，不然历史提交记录永远会保存这次的提交信息，导致后续永远push错误
 
+11. github报错：`ssh: connect to host github.com port 22: Connection refused fatal`
 
+    原因：`dns`被污染，导致解析`github.com`域名解析出来是本地`127.0.0.1`
 
-#### 2.12 改BUG
+    解决：在`host`文件中加入域名映射：`140.82.113.4 github.com
+
+### 2.12 改BUG
 
 ##### 2.12.1 技巧
 
@@ -925,20 +1002,20 @@ m_pPool->submit([this, pBundle]() {
 
 24. protobuf的msg使用二进制类型byte和一个type，就可以根据不同的type的message进行解析
 
-25. 关于QStackedWidget和QTabWidget的区别
+27. 关于`QStackedWidget`和`QTabWidget`的区别
 
-    > 1. QStackedWidget不提供直接的页面切换界面（没有标签栏）。QTabWidget提供带标签的界面，每个标签对应一个页面。
-    > 2. QStackedWidget必须通过代码手动切换页面 (`setCurrentIndex()` 或 `setCurrentWidget()`)。QTabWidget用户可以通过点击标签页直接切换页面。
+    1. `QStackedWidget`不提供直接的页面切换界面（没有标签栏）。`QTabWidget`提供带标签的界面，每个标签对应一个页面。
+    2. `QStackedWidget`必须通过代码手动切换页面 (`setCurrentIndex()` 或 `setCurrentWidget()`)。`QTabWidget`用户可以通过点击标签页直接切换页面。
 
 28. `exec()`和`show()`的区别
 
-    > 1. **`exec()`**：以 **模态对话框** 的方式显示，阻塞主线程，用户必须关闭对话框后才能继续与主程序交互。
-    > 2. **`show()`**：以 **非模态** 方式显示，不阻塞主线程，用户可以同时操作其他窗
+    1. **`exec()`**：以 **模态对话框** 的方式显示，阻塞主线程，用户必须关闭对话框后才能继续与主程序交互。
+    2. **`show()`**：以 **非模态** 方式显示，不阻塞主线程，用户可以同时操作其他窗
 
-29. fork分离进程  、  daemon守护进程
+29. `fork`分离进程  、  `daemon`守护进程
 
-    > 1. 父子进程从 `fork()` 之后的代码开始**并行运行**
-    > 2. daemon用于将当前进程变成 **守护进程**，即后台独立运行且与控制终端断开的进程
+    1. 父子进程从 `fork()` 之后的代码开始**并行运行**
+    2. `daemon`用于将当前进程变成 **守护进程**，即后台独立运行且与控制终端断开的进程
 
     ```c++
     void executeCommand(const std::string &command)
@@ -986,20 +1063,20 @@ m_pPool->submit([this, pBundle]() {
     
     ```
 
-    > ```
-    > #include <unistd.h>
-    > 
-    > int daemon(int nochdir, int noclose);
-    > ```
-    >
+    ```
+    #include <unistd.h>
+    
+    int daemon(int nochdir, int noclose);
+    ```
+
     > **`nochdir`**：
-    >
+    > 
     > - 如果为 **0**，将工作目录更改为根目录 (`/`)。
     > - 如果为 **1**，则保持当前工作目录不变。
-    >
-    > **`noclose`**：
-    >
-    > - 如果为 **0**，则关闭标准输入 (`stdin`)、标准输出 (`stdout`)、标准错误 (`stderr`)，并将它们重定向到 `/dev/null`。
+    > 
+    >**`noclose`**：
+    > 
+    >- 如果为 **0**，则关闭标准输入 (`stdin`)、标准输出 (`stdout`)、标准错误 (`stderr`)，并将它们重定向到 `/dev/null`。
     > - 如果为 **1**，保持标准输入/输出/错误流不变。
 
 30. 关于EXPORT
@@ -1014,27 +1091,119 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-    > **`PLUGIN_EXPORT=`**：
-    >
-    > - 它定义了一个宏 `PLUGIN_EXPORT`，其值为：
-    >   `extern "C" __attribute__((visibility("default")))`。
-    > - 在代码中，如果用到 `PLUGIN_EXPORT`，就会被替换为这个具体内容。
-    >
-    > **`extern "C"`**：
-    >
-    > - 用于 **C++** 代码，告诉编译器使用 **C 的符号命名规则（C linkage）**。
-    > - 这是为了使编译后的符号能被 C 编译器或其他语言更容易找到（避免 C++ 名字修饰/mangling）。
-    >
-    > **`__attribute__((visibility("default")))`**：
-    >
-    > - 这是 **GCC/Clang 特定的语法**，用于控制符号的可见性。
-    >
-    > - `visibility("default")`
-    >
-    >   表示：
-    >
-    >   - 符号是默认可见的，可以从共享库外部访问。
-    >   - 这是导出符号（如插件 API）时常用的设置。
+    1. **`PLUGIN_EXPORT=`**：
+       - 它定义了一个宏 `PLUGIN_EXPORT`，其值为：
+         `extern "C" __attribute__((visibility("default")))`。
+       - 在代码中，如果用到 `PLUGIN_EXPORT`，就会被替换为这个具体内容。
+
+    2. **`extern "C"`**：
+       - 用于 **C++** 代码，告诉编译器使用 **C 的符号命名规则（C linkage）**。
+       - 这是为了使编译后的符号能被 C 编译器或其他语言更容易找到（避免 C++ 名字修饰/mangling）。
+
+    3. **`__attribute__((visibility("default")))`**：
+
+       - 这是 **GCC/Clang 特定的语法**，用于控制符号的可见性。
+
+       - `visibility("default")`
+
+         表示：
+
+         - 符号是默认可见的，可以从共享库外部访问。
+         - 这是导出符号（如插件 API）时常用的设置。
+
+31. Json格式的是vector吗：是的
+
+    ```
+    #假设jsonData对象为
+    "tasks": [
+        {"task_id": 1, "task_name": "Task One"},
+        {"task_id": 2, "task_name": "Task Two"}
+      ]
+    
+    std::vector<nlohmann::json> tasks = jsonData["tasks"];
+    #每一个vector就是{"task_id": 1, "task_name": "Task One"},
+    #遍历 tasks vector，输出每个任务的内容
+    for (const auto& task : tasks) {
+       std::cout << "Task ID: " << task["task_id"] << ", Task Name: " << task["task_name"] << std::endl;
+    }
+    ```
+
+32. `using` 定义函数签名和回调函数
+
+    ```
+    using MessageHandler = std::function<void(IBundle *pBundle)>;
+    #MessageHandler 是一个可以接受指向 IBundle 类型的指针 pBundle 的函数的类型别名
+    ```
+
+33. `unordered_multimap`的`equal_range`函数
+
+    ```
+    std::pair<iterator, iterator> equal_range(const Key& key);
+    #key：要查找的键。
+    #返回一个 std::pair：
+    	#第一个元素是指向第一个匹配元素的迭代器
+    	#第二个元素是指向第一个不匹配元素的迭代器（即结束位置）。
+    ```
+
+34. 容器(`multimap`)加锁
+
+    ```
+    #map和multimap使用的都是<map>头文件
+    ```
+
+35. 关于文件的读写，如果写文件时文件名不存在，那么会创建一个。如果读文件时文件名不存在，那么会打开失败
+
+    ```
+    std::ofstream file(filePath, std::ios::out | std::ios::trunc);		#写文件
+    std::ifstream file(filePath);										#读文件
+    file.is_open()			#检测是否成功打开
+    file >> strValue;		#读文件，只针对ifstream类型
+    file << Base64Util::Base64Encode(strValue);		#写文件，只针对ofstream类型
+    ```
+
+36. 关于protobuffer的枚举类型指针，反向获取枚举类型名
+
+    ```c++
+    #获取枚举类型描述符
+    const google::protobuf::EnumDescriptor *descriptor = HmiToScan::VirusScan_ScanType_descriptor();
+    #通过枚举数值反向找该数值对应描述符
+    const google::protobuf::EnumValueDescriptor *enumValueDesc = descriptor->FindValueByNumber(static_cast<int>(scanMessage.scan_type()));、
+    #通过name()函数得到string类型的类型
+    enumValueDesc->name()
+    ```
+
+37. protobuffer打印出来为空
+
+    这可能是由于 `SerializeAsString()` 方法默认序列化到二进制格式，直接打印到日志时会因为它是不可读的二进制数据而显示为空，实际进行protobuffer转换是可以输出的。
+
+38. `static_assert(std::is_base_of<IComponentInterface, T>::value, "T must derive from IComponentInterface");`
+
+    >这条语句的作用是，**在编译时**强制要求 `T` 必须是 `IComponentInterface` 的派生类;如果 `T` 不是 `IComponentInterface` 的派生类，编译器会抛出错误，错误信息为 `T must derive from IComponentInterface`
+
+39. 组件接口父类分析
+
+    ```c++
+    《component_interface》
+    template<typename T>
+    # 返回类型为IComponentInterface的共享指针
+    static std::shared_ptr<IComponentInterface> createComponent(
+        std::shared_ptr<CGeneralOperatorImpl> pGeneralOpImpl,
+        std::shared_ptr<IMessageCenter> pMessageCenter)
+    {	
+       	#断言，确保T属于IComponentInterface的子类
+        static_assert(std::is_base_of<IComponentInterface, T>::value, "T must derive from IComponentInterface");
+        #返回使用子类构造初始化的共享指针
+        return std::make_shared<T>(pGeneralOpImpl, pMessageCenter);
+    }
+    ```
+
+    
+
+
+
+
+
+
 
 # 未完成笔记
 
@@ -1056,17 +1225,13 @@ m_pPool->submit([this, pBundle]() {
    std::string msgData = BundleHelper::getBundleBinary4String(pIn, JYMessageBundleKey::JYMessageBinValue, "");
    ```
 
-5. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能
+5. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能？线程池如何运转
 
 6. 查看`.clang-format`如何设置，规格化工具
 
-7. `component`下的`component_manager`是把所有组件的imp接口管理到一起，一起初始化`init`和`start`
+7. 插件、组件之间通信逻辑，画图梳理
 
-8. github报错：`ssh: connect to host github.com port 22: Connection refused fatal`
-
-   原因：`dns`被污染，导致解析`github.com`域名解析出来是本地`127.0.0.1`
-
-   解决：在`host`文件中加入域名映射：`140.82.113.4 github.com
+8. 组件之间通信都是靠`message_center`的发布-订阅模式进行传递消息并执行相应操作。给组件传递消息是通过`plugin_manager`的注册消息订阅以及对回调时对不同插件调用`onNewNotify`函数
 
 9. 关于强力查杀bug
 
@@ -1105,106 +1270,216 @@ m_pPool->submit([this, pBundle]() {
    2. gdb调试，看卡哪里了
 
 
-   **新问题**：
+   **11.7新问题**：
 
    1. 病毒升级卡在publish的锁那块，必须等强力扫描加入任务队列，才会解锁执行升级对应函数。强力扫描状态为begin，开始功能；病毒重新提交任务，状态为init，也开始功能。导致同步进行。
-   2. 初步诊断是线程池锁的问题
+      2. 原因：执行publish时对发布队列进行了加锁，所以当病毒升级任务需要publish时也需要锁，最终造成了死锁的情况。
 
-10. 关于组件大文件夹下的三个类及不同组件
+**11.8新问题解决思路**
 
-```
-CGeneralOperatorImp: 初始化创建不同组件的对象
+1. 使用句柄，把病毒升级的那部分功能摘出来，重新封装一个cpp，跟task_manager一样，单纯的功能类。不同的是需要使用CGeneralOperatorAdapter对象shared指针，获取句柄，升级前执行UI弹窗，升级后执行版本号升级。
+2. CGeneralOperatorImpl加入新对象。在CGeneralOperatorAdapter中加入新对象并加入新的执行病毒库升级函数
+3. 修改相应部分，到强力扫描插件处，直接执行该功能函数(这个不是多线程)，然后执行强力查杀。如果是多线程，那么就在执行病毒库升级前加入任务队列begain状态。
 
-component_interface.h: 
-	组件的总接口CComponentInterface，继承于IComponentInterface(接口类，定义虚函数初始化、开启、停止、释放等);
-	内部含有CGeneralOperatorImp成员初始化对象;
-    自己定义单例模式获取自己这个组件对象、sendToUi向UI层发送消息这两个函数
 
-general_Operator_impl:
-	CGeneralOperatorAdapter继承于IGeneralOperator(运转通信总类)，要实现各类通信包括向UI层、中控发送消息等。
-	初始化函数中接收CGeneralOperatorImpl对象为自己的不同组件对象赋值。
-	
-ctrl_center组件，实现向中控的信息上报
-IPC组件(local_ser)：实现sendToUi，externalConnectState连接状态
-protect_logger组件：实现UI层面的日志上报
-authorize组件：实现各种认证、版本信息、病毒库信息、引擎信息等
-timed_tasks组件：实现定时任务
-task_manager组件：实现任务队列
-upgrade组件：实现软件和病毒库更新。没有在general_Operator_impl中定义。
-terminal_details组件：接收中控下发的填写用户信息、更新用户信息、授权、密码文件等功能。
-	1. 在init初始化时就通过messageCenter订阅，待任务队列到达他们时再pulish
-	2. registerResetRequest，接收到中控消息，任务队列中执行插入任务
-	3. registerResetResponse，收到UI层传来完成信息，任务队列中关闭掉任务
-```
-
-12. 插件是否也是通过general_Operator_impl这个里面的功能进行传输和上报的？
 
 #### 2. 代码部分
 
 1. md5:MD5（Message-Digest Algorithm 5）是一种广泛使用的加密哈希函数，能够将任意长度的输入数据（通常称为消息）转换为固定长度的输出，具体来说是 128 位（16 字节）长的哈希值。
 
-2. Json格式的是vector吗：是的
+2. `enum class`是C++11的强枚举类型
 
    ```
-   #假设jsonData对象为
-   "tasks": [
-       {"task_id": 1, "task_name": "Task One"},
-       {"task_id": 2, "task_name": "Task Two"}
-     ]
+   enum class ThreadMode {
+           InnerMode,
+           NormalMode
+   };
+   #1. enum class 定义的枚举成员受限于枚举类型的作用域:必须用 ThreadMode::InnerMode 才能访问到枚举类型
+   #2. enum class 定义的枚举类型不会隐式转换为整数类型，需要显式转换
+   	如：ThreadMode mode = ThreadMode::InnerMode;
+   		int modeValue = static_cast<int>(mode);
+   #3. 可以指定底层类型，比如 enum class ThreadMode : int，表示 ThreadMode 使用 int 作为底层类型。默认底层类型是 int，也可以指定为其他整数类型（如 char、unsigned int 等）。
+   ```
+
+3. 对于原子类型，线程安全的方式读取该值使用`load()`函数;
+
+   `load()` 函数的作用是读取原子变量的当前值并返回。在多线程环境中，使用 `load()` 可以确保读取的值是线程安全的，即便其他线程可能同时在修改该变量。
+
+4. C++标准库的承诺-未来机制`std::promise`和 `std::future`，用于在线程之间传递值或状态，尤其是在异步编程中协助传递结果。实现在两个线程间同步任务完成状态
+
+   ```
+   #使用方式，没有返回值的
+   std::promise<void> _terminationPromise;
+   std::future<void> _terminationFuture;
+   ```
+
+   ```c++
+   //案例：
+   #include <iostream>
+   #include <thread>
+   #include <future>
    
-   std::vector<nlohmann::json> tasks = jsonData["tasks"];
-   #每一个vector就是{"task_id": 1, "task_name": "Task One"},
-   #遍历 tasks vector，输出每个任务的内容
-   for (const auto& task : tasks) {
-      std::cout << "Task ID: " << task["task_id"] << ", Task Name: " << task["task_name"] << std::endl;
+   void task(std::promise<void> taskPromise) {
+       std::cout << "Task is running..." << std::endl;
+       // 模拟一些工作
+       std::this_thread::sleep_for(std::chrono::seconds(2));
+       // 设置任务完成状态
+       taskPromise.set_value();
+       std::cout << "Task has completed." << std::endl;
+   }
+   
+   int main() {
+       // 创建一个 promise
+       std::promise<void> taskPromise;
+       // 从 promise 获得对应的 future
+       std::future<void> taskFuture = taskPromise.get_future();
+   
+       // 启动一个线程执行任务，并将 promise 传递进去
+       std::thread t(task, std::move(taskPromise));
+   
+       // 等待任务完成
+       taskFuture.get();  // 阻塞直到 taskPromise 设置了值
+       std::cout << "Main thread detected task completion." << std::endl;
+   
+       t.join();
+       return 0;
+   }
+   
+   ```
+
+   ```
+   #输出结果
+   Task is running...
+   Task has completed.
+   Main thread detected task completion.
+   ```
+
+5. 关于`std::nothrow` 
+
+   ```
+   int* p = new(std::nothrow) int[10000000000]; // 请求分配大量内存
+   ```
+
+   `std::nothrow` 是 C++ 标准库中的一个常量，用于控制内存分配失败时的行为。通常在使用 `new` 操作符进行内存分配时，分配失败会抛出 `std::bad_alloc` 异常。而使用 `std::nothrow`，可以使 `new` 操作符在分配失败时返回 `nullptr`，而不是抛出异常。
+
+6. 关于回调函数：回调函数（Callback Function）是一种通过函数指针、函数对象或 lambda 表达式传递到另一函数中的 **可调用对象**。回调函数可以理解为一个“回去调用”的函数，即某个函数 `A` 把函数 `B` 的地址传递给另一函数 `C`，然后 `C` 在适当的时机调用 `B`。
+
+   > 个人理解就是把函数指针/lambda/函数对象作为函数参数，在该函数内部可以执行传来的作为参数的函数
+
+7. 关于发布-订阅模式：使用了回调函数机制，订阅方使用`subscribe`将执行函数注册，插入到订阅-发布类的map中，当调用`publish`时，就会将执行函数发布/执行
+
+   1. 发布-订阅(message_center)类
+
+   ```c++
+   #发布-订阅类
+   #include <iostream>
+   #include <functional>
+   #include <vector>
+   #include <string>
+   class Publisher {
+   public:
+       // 定义回调类型，接受字符串作为参数
+       using Callback = std::function<void(const std::string&)>;
+   
+       // 订阅事件（注册回调）
+       void subscribe(const Callback& callback) {
+           callbacks_.push_back(callback);
+       }
+   
+       // 发布事件（调用所有已注册的回调）
+       void publish(const std::string& message) {
+           for (const auto& callback : callbacks_) {
+               callback(message); // 执行回调，传递消息
+           }
+       }
+   private:
+       std::vector<Callback> callbacks_; // 存储所有的回调
+   };
+   ```
+
+   2. 注册订阅
+
+   ```
+   m_pMessageCenter->subscribe("REPORT_USER_INFO", [this](IBundle *pBundle) {
+           registerResetRequest(pBundle);
+   });
+   ```
+
+   回调函数可以通过 **闭包** 或 **绑定对象的成员函数** 来捕获并访问订阅者类的成员变量，`std::bind` 或 lambda 表达式可以确保回调在被调用时持有 `this` 指针，从而能够访问订阅者类的成员变量。
+
+   > 类似于在类中开启线程，需要使用bind或者lambda传递this指针
+
+   3. 发布
+
+   ```
+   m_pMessageCenter->publish(pPublishBundle);
+   ```
+
+   只需要传递`map`中的`key`，就会根据`key`找到对应回调函数并执行
+
+8. 闭包：闭包是 **函数和它的捕获上下文的组合**，这个上下文允许闭包函数在被调用时访问定义它时所在作用域中的变量，即便该作用域已超出生命周期。
+
+   举例：在 C++ 中，lambda 表达式可以捕获当前作用域中的变量，因此 lambda 可以作为闭包的一个具体实现。
+
+   1. 按值捕获 (`[=]`)：复制变量值到闭包中。
+   2. 按引用捕获 (`[&]`)：捕获变量的引用，使得闭包可以访问和修改原变量。
+   3. 捕获 `this` 指针 (`[this]`)：捕获 lambda 所在对象的 `this` 指针，以便在 lambda 中访问对象的成员。
+
+9. 句柄：**句柄（handle）** 是一种特殊的指针或引用，用来标识和管理资源的访问。句柄通常不直接提供对资源的底层访问，句柄广泛用于资源管理，比如文件、内存、线程、网络连接等。句柄本质上是一种间接引用，指向一个资源或对象而不暴露其内部实现细节。
+
+   **案例**：当组件的某个功能需要使用到其他组件的功能，该组件接收功能总类的句柄，通过该总类执行其他组件的功能。而总类中又有该组件的一些功能，在使用时需要先把this(当前对象)传递给该组件作为句柄
+
+   **问题**：注意循环引用的问题导致双方对象无法释放。
+
+   ```c++
+   #include <iostream>
+   #include <memory>
+   
+   class Manager; // 前向声明 Manager
+   
+   class Worker {
+   public:
+       // 设置 Manager 的句柄（std::weak_ptr 以避免循环引用）
+       void setManagerHandle(std::shared_ptr<Manager> manager) {
+           this->managerHandle = manager;
+       }
+       // 执行任务并尝试访问 Manager 的功能
+       void performTask() {
+           if (auto mgr = managerHandle.lock()) { // 使用 lock() 将 weak_ptr 转换为 shared_ptr
+               std::cout << "Worker is performing a task and accessing Manager's function." << std::endl;
+               mgr->managerFunction();
+           } else {
+               std::cout << "Manager is no longer available." << std::endl;
+           }
+       }
+   private:
+       std::weak_ptr<Manager> managerHandle; // 使用 weak_ptr 防止循环引用
+   };
+   
+   class Manager : public std::enable_shared_from_this<Manager> {
+   public:
+       Manager() {
+           worker = std::make_shared<Worker>(); // 创建 Worker 实例
+           worker->setManagerHandle(shared_from_this()); // 将自身句柄传递给 Worker
+       }
+       void managerFunction() {
+           std::cout << "Manager's function is called by Worker." << std::endl;
+       }
+       void startWork() {
+           worker->performTask(); // 通过 Worker 执行任务
+       }
+   private:
+       std::shared_ptr<Worker> worker; // 持有 Worker 的 shared_ptr
+   };
+   
+   int main() {
+       auto manager = std::make_shared<Manager>();
+       manager->startWork(); // Manager 调用 Worker 的函数，Worker 访问 Manager 的方法
+       return 0;
    }
    ```
 
-3. `using` 定义函数签名和回调函数
-
-   ```
-   using MessageHandler = std::function<void(IBundle *pBundle)>;
-   #MessageHandler 是一个可以接受指向 IBundle 类型的指针 pBundle 的函数的类型别名
-   ```
-   
-4. `unordered_multimap`的`equal_range`函数
-
-   ```
-   std::pair<iterator, iterator> equal_range(const Key& key);
-   #key：要查找的键。
-   #返回一个 std::pair：
-   	#第一个元素是指向第一个匹配元素的迭代器
-   	#第二个元素是指向第一个不匹配元素的迭代器（即结束位置）。
-   ```
-
-5. 容器(`multimap`)加锁
-
-   ```
-   #map和multimap使用的都是<map>头文件
-   ```
-
-6. 关于文件的读写，如果写文件时文件名不存在，那么会创建一个。如果读文件时文件名不存在，那么会打开失败
-
-   ```
-   std::ofstream file(filePath, std::ios::out | std::ios::trunc);		#写文件
-   std::ifstream file(filePath);										#读文件
-   file.is_open()			#检测是否成功打开
-   file >> strValue;		#读文件，只针对ifstream类型
-   file << Base64Util::Base64Encode(strValue);		#写文件，只针对ofstream类型
-   ```
-
-7. 关于protobuffer的枚举类型指针，反向获取枚举类型名
-
-   ```
-   #获取枚举类型描述符
-   const google::protobuf::EnumDescriptor *descriptor = HmiToScan::VirusScan_ScanType_descriptor();
-   #通过枚举数值反向找该数值对应描述符
-   const google::protobuf::EnumValueDescriptor *enumValueDesc = descriptor->FindValueByNumber(static_cast<int>(scanMessage.scan_type()));、
-   #通过name()函数得到string类型的类型
-   enumValueDesc->name()
-   ```
-
-8. protobuffer打印出来为空
-
-   这可能是由于 `SerializeAsString()` 方法默认序列化到二进制格式，直接打印到日志时会因为它是不可读的二进制数据而显示为空。
-
+   10. 向前声明和使用头文件的区别
+       1. **减少依赖**：使用向前声明，你不需要直接包含其他头文件。这可以减少类之间的直接依赖，有助于减少编译时间和避免循环依赖。例如，在 `Worker.h` 中向前声明 `Manager`，这样你可以避免包含 `Manager.h`，从而减少编译开销。
+       2. **完整定义**：如果你需要使用类的具体实现（如访问成员、调用函数、创建实例等），则必须包含该类的头文件，以便编译器了解该类的具体结构。**向前声明只让编译器知道类型的名称，但不提供任何方法或成员的信息**。
+       3. **避免循环依赖**：在两个类相互引用的情况下，使用向前声明可以打破循环依赖。例如，`Manager` 和 `Worker` 互相依赖时，使用向前声明可以避免直接包含彼此的头文件。
