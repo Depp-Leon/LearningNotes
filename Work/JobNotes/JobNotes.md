@@ -643,8 +643,19 @@ m_pPool->submit([this, pBundle]() {
 
 5. 开启流程：
 
-   > 1. 前端界面：/opt/apps/chenxin/bin/JYNRRJJH2   ，必须用sudo启动(正常不应该是使用sudo)
-   > 2. 后端中控+防护+主防：systremctl start jyn*     #JYNSAFED防护模块 、JYNGJCZ2中控模块、JYNZDFY主防模块
+   1. 前端界面：/opt/apps/chenxin/bin/JYNRRJJH2   ，必须用sudo启动(正常不应该是使用sudo)
+
+   2. 后端中控+防护+主防：systremctl start jyn*     #JYNSAFED防护模块 、JYNGJCZ2中控模块、JYNZDFY主防模块
+
+      ```
+      #主动启动服务，适用于调试，看日志
+      cd /opt/apps/chenxinsd/bin
+      ./JYNRJJH2
+      sudo ./JYNSAFED
+      sudo ./JYNGJCZ show 
+      ```
+
+      
 
 
 
@@ -1229,7 +1240,7 @@ m_pPool->submit([this, pBundle]() {
 
 6. 查看`.clang-format`如何设置，规格化工具
 
-7. 插件、组件之间通信逻辑，画图梳理
+7. 插件、组件之间通信逻辑，画图梳理。总结关系
 
 8. 组件之间通信都是靠`message_center`的发布-订阅模式进行传递消息并执行相应操作。给组件传递消息是通过`plugin_manager`的注册消息订阅以及对回调时对不同插件调用`onNewNotify`函数
 
@@ -1281,7 +1292,9 @@ m_pPool->submit([this, pBundle]() {
 2. CGeneralOperatorImpl加入新对象。在CGeneralOperatorAdapter中加入新对象并加入新的执行病毒库升级函数
 3. 修改相应部分，到强力扫描插件处，直接执行该功能函数(这个不是多线程)，然后执行强力查杀。如果是多线程，那么就在执行病毒库升级前加入任务队列begain状态。
 
+**11.9问题**
 
+1. operator使用句柄时，没有接收指针类型的拷贝构造。
 
 #### 2. 代码部分
 
@@ -1425,7 +1438,18 @@ m_pPool->submit([this, pBundle]() {
    2. 按引用捕获 (`[&]`)：捕获变量的引用，使得闭包可以访问和修改原变量。
    3. 捕获 `this` 指针 (`[this]`)：捕获 lambda 所在对象的 `this` 指针，以便在 lambda 中访问对象的成员。
 
-9. 句柄：**句柄（handle）** 是一种特殊的指针或引用，用来标识和管理资源的访问。句柄通常不直接提供对资源的底层访问，句柄广泛用于资源管理，比如文件、内存、线程、网络连接等。句柄本质上是一种间接引用，指向一个资源或对象而不暴露其内部实现细节。
+9. 句柄：**句柄（handle）** 是一种特殊的指针或引用，通常指一个**可以访问或操作其他对象的“引用”或“指针”**,用来标识和管理资源的访问。句柄通常不直接提供对资源的底层访问，句柄广泛用于资源管理，比如文件、内存、线程、网络连接等。句柄本质上是一种间接引用，指向一个资源或对象而不暴露其内部实现细节。
+
+   ```c++
+   #指针
+   int* handle = new int(5); // handle 是指向动态分配的 int 的句柄
+   std::cout << *handle << std::endl; // 使用句柄访问数据
+   delete handle; // 删除资源
+   
+   #智能指针
+   std::shared_ptr<int> handle = std::make_shared<int>(5); // handle 是 shared_ptr 句柄
+   std::cout << *handle << std::endl; // 使用句柄访问数据
+   ```
 
    **案例**：当组件的某个功能需要使用到其他组件的功能，该组件接收功能总类的句柄，通过该总类执行其他组件的功能。而总类中又有该组件的一些功能，在使用时需要先把this(当前对象)传递给该组件作为句柄
 
@@ -1479,7 +1503,80 @@ m_pPool->submit([this, pBundle]() {
    }
    ```
 
-   10. 向前声明和使用头文件的区别
-       1. **减少依赖**：使用向前声明，你不需要直接包含其他头文件。这可以减少类之间的直接依赖，有助于减少编译时间和避免循环依赖。例如，在 `Worker.h` 中向前声明 `Manager`，这样你可以避免包含 `Manager.h`，从而减少编译开销。
-       2. **完整定义**：如果你需要使用类的具体实现（如访问成员、调用函数、创建实例等），则必须包含该类的头文件，以便编译器了解该类的具体结构。**向前声明只让编译器知道类型的名称，但不提供任何方法或成员的信息**。
-       3. **避免循环依赖**：在两个类相互引用的情况下，使用向前声明可以打破循环依赖。例如，`Manager` 和 `Worker` 互相依赖时，使用向前声明可以避免直接包含彼此的头文件。
+10. 向前声明和使用头文件的区别
+    1. **减少依赖**：使用向前声明，你不需要直接包含其他头文件。这可以减少类之间的直接依赖，有助于减少编译时间和避免循环依赖。例如，在 `Worker.h` 中向前声明 `Manager`，这样你可以避免包含 `Manager.h`，从而减少编译开销。
+    2. **完整定义**：如果你需要使用类的具体实现（如访问成员、调用函数、创建实例等），则必须包含该类的头文件，以便编译器了解该类的具体结构。**向前声明只让编译器知道类型的名称，但不提供任何方法或成员的信息**。
+    3. **避免循环依赖**：在两个类相互引用的情况下，使用向前声明可以打破循环依赖。例如，`Manager` 和 `Worker` 互相依赖时，使用向前声明可以避免直接包含彼此的头文件。
+
+11. 为什么头文件有的需要加上文件夹前缀
+
+12. 为什么只能传递IGeneralOperator，而不能传递CGeneralOperatorAdapter？
+
+13. 代码整体缩进或者右移：选中代码->`ctrl+[`  / `ctrl+]`
+
+14. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
+
+    ```c++
+    // A.h
+    class B;  // 前向声明B
+    class A {
+        B* b;  // 这里我们不需要完整的B类，只需要声明指针
+    public:
+        void doSomething();
+    };
+    
+    // B.h
+    class A;  // 前向声明A
+    class B {
+        A* a;  // 同样，使用A的指针，不需要完整的A类
+    public:
+        void doSomethingElse();
+    };
+    
+    ```
+
+14. 智能指针循环依赖问题
+
+    ```c++
+    class A;
+    class B;
+    
+    class A {
+    public:
+        std::shared_ptr<B> b;
+    };
+    
+    class B {
+    public:
+        std::shared_ptr<A> a;
+    };
+    
+    void createCycle() {
+        auto a = std::make_shared<A>();
+        auto b = std::make_shared<B>();
+        a->b = b;
+        b->a = a;
+        // 循环引用导致内存泄漏
+    }
+    ```
+
+15. 句柄传递`this`的智能指针问题
+
+    1. 如果在母类中直接传递`this`裸指针，一旦母类析构，则在使用该`this`指针的类就会造成**指针失效**
+
+    2. 如果使用`this`创建`make_shared`后传递，会将 `this` 指针当作一个新对象的起点进行管理，并且会在 `shared_ptr` 的引用计数归零时自动删除该对象。这对一个已经在其他地方管理生命周期的对象（例如，栈上或由另一个指针管理的对象）是危险的，因为它会导致对象的**双重销毁**。
+
+       >  但是我使用的是make_shared，重写了构造函数。相当于把主类的成员共享对象指针++。当我析构主类的使用句柄的对象时，一样会使指针--，在类里面的句柄所以没问题。
+
+    3. 让母类继承 `std::enable_shared_from_this`，并在对象本身被 `shared_ptr` 管理时使用 `shared_from_this()` 来安全地生成 `shared_ptr`。
+
+       ```c++
+       #只适用于下面这种，已经被shared_ptr管理的对象中使用，否则会抛出 std::bad_weak_ptr 异常
+       std::shared_ptr<MyClass> p = std::make_shared<MyClass>();
+       p->show();  // 在成员函数中使用 shared_from_this
+       ```
+
+16. `shared_ptr`作为函数参数传递：
+    1. **`std::shared_ptr<T>`**：只能传递 `shared_ptr` 类型对象，除非使用 `std::make_shared` 生成 `shared_ptr`或者`shared_from_this()` 将类本身被创建时的`shared`指针传递，否则不能传递临时对象(指针)。
+    2. **`std::shared_ptr<T>`**：传递 `shared_ptr` 意味着函数将共享该对象的所有权。每次传递 `shared_ptr` 参数，引用计数会增加，直到离开作用域或显式释放才会减少
+
