@@ -38,9 +38,14 @@
 
    ```
    1. UI界面层
-   2. UI moudle层
-   3. 插件层/助手层(safed)：功能的主要逻辑，里面包含了组件和插件，负责与UI和服务端(中控)之间的信息传输、不同插件(后台功能)的实现
-   4. ZDFY和GJCZ层：ZDFY主要负责系统防护和数据防护；GJCZ主要是和扫描有关的；两个都是开启系统后就在后台启动。记录的数据通过插件层zdfy和gjcz的中转到达UI和服务端
+   2. UI moudle层:通过IPC与助手通信，并使用信号槽与UI层建立通信
+   3. 组件层与插件层合称为助手层(safed)
+      组件层(component): 主要复用的功能，包括与UI和中控之间信息交换、升级、任务队列等功能
+      插件层(plugin)：不同独立的功能封装为一个插件，使用组件的功能与UI和中控进行信息交换。
+   4. ZDFY和GJCZ层：助手调用这两个执行文件的功能
+   	ZDFY主要负责系统防护和数据防护；
+   	GJCZ是实现扫描功能(插件scan只是调度GJCZ)；
+   	两个可执行文件开启系统后就在后台启动。
    ```
 
 2. 组件(`modules/component`)主要是一些共用的功能模块，插件(`plugins`)是单独的可以增加、去掉的模块。比如不同的插件都可以使用组件里的认证、防护日志、任务管理、定时任务、更新等
@@ -337,7 +342,7 @@ m_pPool->submit([this, pBundle]() {
    	初始化时需要CGeneralOperatorImpl和IMessageCenter
        自己定义模板返回创建组件接口impl对象、sendToUi向UI层发送消息这两个函数
    
-   3. CGeneralOperatorAdapter:
+   3. CGeneralOperatorAdapter: 向插件层提供组件的功能，在core下面的插件管理，将该类传递作为插件初始化参数。
    	CGeneralOperatorAdapter继承于IGeneralOperator(运转通信总类)，要实现各类通信包括向UI层、中控发送消息等。
    	初始化函数中接收CGeneralOperatorImpl对象为自己的不同组件对象赋值。重写IGeneralOperator的所有函数供插件使用
    ```
@@ -353,14 +358,14 @@ m_pPool->submit([this, pBundle]() {
 3. 组件成员
 
    ```
-   ctrl_center组件，实现向中控的信息上报
-   IPC组件(local_ser)：实现sendToUi，externalConnectState连接状态
-   protect_logger组件：实现UI层面的日志上报
+   ctrl_center组件，实现向中控发送信息(asyncReport)
+   local_service组件：实现接收UI层和中控的消息(插入消息队列，依次调用回调);向UI层发送信息
+   protect_logger组件：实现UI层面的日志上报和详细日志上报(recordProtectionLogs)
    authorize组件：实现各种认证、版本信息、病毒库信息、引擎信息等
-   timed_tasks组件：实现定时任务
-   task_manager组件：实现任务队列
-   upgrade组件：实现软件和病毒库更新。没有在general_Operator_impl中定义。
-   terminal_details组件：接收中控下发的填写用户信息、更新用户信息、授权、密码文件等功能。
+   timed_tasks组件：实现注册定时任务(registerTask)
+   task_manager组件：实现任务队列(添加、删除任务到任务队列)
+   upgrade组件：实现软件和病毒库更新。没有在general_Operator_impl中定义(插件用不了)。
+   terminal_details组件：资料组件；实现填写用户信息、更新用户信息、授权、密码文件等功能。
    	1. 在init初始化时就通过messageCenter订阅，待任务队列到达他们时再pulish
    	2. registerResetRequest，接收到中控消息，任务队列中执行插入任务
    	3. registerResetResponse，收到UI层传来完成信息，任务队列中关闭掉任务
@@ -425,8 +430,10 @@ m_pPool->submit([this, pBundle]() {
 5. trust: 白名单(信任区)模块
 6. isolate: 隔离区模块
 7. scan_count: 查杀的状态、任务计数等信息
-8. app_scan: 扫描服务，根据扫描文件路径进行扫描
-8. post: 上报服务，(上报client_action到中控)
+8. gjcz_scan: 负责与gjcz交互，gjcz实现查杀功能；包含：
+	1. app_scan: 扫描服务，根据扫描文件路径进行扫描
+    2. ScanPostman: 负责与gjcz之间通信(包括暂停、继续、清理等)
+9. post: 上报服务，(上报client_action到中控)
 # 4-9全部作为flow的成员对象进行任务处理调度
 ```
 
@@ -493,7 +500,19 @@ m_pPool->submit([this, pBundle]() {
 
 1. 详见**CMakelist**，打包so文件，即动态库
 
+2. 将编译好的文件移动到程序目录下
 
+   ```
+   cd Output/bin2.0/JingyunSd_linux_2/bin/X86_64/
+   
+   sudo cp cur_user JYNGJCZ2 JYNRJJH2 JYNRJJH2-UTRAY1 JYNSAFED JYNZDFY2 JYUpdateUI /opt/apps/chenxinsd/bin/
+   
+   sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libSysMonManage.so libZyAuthPlug.so libZyAVCache.so libZyScanPlug.so libZyUploadFile.so /opt/apps/chenxinsd/lib/modules/
+   
+   sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so /opt/apps/chenxinsd/lib/plugins/system/
+   ```
+
+   
 
 ### 2.8 调试
 
@@ -579,7 +598,7 @@ m_pPool->submit([this, pBundle]() {
    #2. 更新代码
    cd /home/work/workspace2/708/normal_develop/
    git pull
-   #3. 编译代码
+   #3. 编译代码,在build目录下
    make						
    #4. 在该文件夹下执行打包脚本，脚本将会打包不同的deb，并将包fetch-到公用环境192.168.1.6
    cd /home/work/workspace2/708/normal_develop/Output/bin2.0/py_make_packet  
@@ -606,7 +625,15 @@ m_pPool->submit([this, pBundle]() {
    admin	vsecure2020		#中控账号密码
    ```
 
+7. 测试远程ip、账号、密码
 
+   ```
+   192.168.2.14
+   root
+   Vsecure@2016
+   ```
+
+   
 
 ### 2.10 安装
 
@@ -643,9 +670,9 @@ m_pPool->submit([this, pBundle]() {
 
 5. 开启流程：
 
-   1. 前端界面：/opt/apps/chenxin/bin/JYNRRJJH2   ，必须用sudo启动(正常不应该是使用sudo)
+   1. 前端界面：`/opt/apps/chenxin/bin/JYNRRJJH2`   ，必须用sudo启动(正常不应该是使用sudo)
 
-   2. 后端中控+防护+主防：systremctl start jyn*     #JYNSAFED防护模块 、JYNGJCZ2中控模块、JYNZDFY主防模块
+   2. 后端中控+防护+主防：`systremctl start jyn*`     #JYNSAFED防护模块 、JYNGJCZ2中控模块、JYNZDFY主防模块
 
       ```
       #主动启动服务，适用于调试，看日志
@@ -1240,7 +1267,7 @@ m_pPool->submit([this, pBundle]() {
 
 6. 查看`.clang-format`如何设置，规格化工具
 
-7. 插件、组件之间通信逻辑，画图梳理。总结关系
+7. `core`与组件和插件之间的关系，画图梳理->类图建立
 
 8. 组件之间通信都是靠`message_center`的发布-订阅模式进行传递消息并执行相应操作。给组件传递消息是通过`plugin_manager`的注册消息订阅以及对回调时对不同插件调用`onNewNotify`函数
 
@@ -1286,13 +1313,13 @@ m_pPool->submit([this, pBundle]() {
    1. 病毒升级卡在publish的锁那块，必须等强力扫描加入任务队列，才会解锁执行升级对应函数。强力扫描状态为begin，开始功能；病毒重新提交任务，状态为init，也开始功能。导致同步进行。
       2. 原因：执行publish时对发布队列进行了加锁，所以当病毒升级任务需要publish时也需要锁，最终造成了死锁的情况。
 
-**11.8新问题解决思路**
+ **11.8新问题解决思路**
 
 1. 使用句柄，把病毒升级的那部分功能摘出来，重新封装一个cpp，跟task_manager一样，单纯的功能类。不同的是需要使用CGeneralOperatorAdapter对象shared指针，获取句柄，升级前执行UI弹窗，升级后执行版本号升级。
 2. CGeneralOperatorImpl加入新对象。在CGeneralOperatorAdapter中加入新对象并加入新的执行病毒库升级函数
 3. 修改相应部分，到强力扫描插件处，直接执行该功能函数(这个不是多线程)，然后执行强力查杀。如果是多线程，那么就在执行病毒库升级前加入任务队列begain状态。
 
-**11.9问题**
+ **11.9问题**
 
 1. operator使用句柄时，没有接收指针类型的拷贝构造。
 
@@ -1302,8 +1329,38 @@ m_pPool->submit([this, pBundle]() {
     1. autoShutoffDialog对象的init函数传入的force字段全是true，都会执行downTimer计时器启动操作：autoShutoffDialog对象初始化时连接计时器信号槽，槽函数中，当m_iCountDown<=0时就会执行关机/重启命令
     2. 分析问题：是否是因为界面exec未执行，导致以为是没有触发关机/重启操作。只要界面没有打开，它会默认在1分钟之后执行命令操作。
 
-11. 定时任务bug: 定时查杀和定时升级都可以下发到助手，只是时间比较慢。可以接收到。
-    1. 但是下发定时任务后，执行扫描时会有取消不掉的bug
+11. 软件卸载上报bug：在中控下发卸载指令后，执行卸载操作并增加执行卸载上报。中控下发的卸载 由强制卸载 和 非强制两种  强制是中控数据库直接把这个端的信息删了  非强制是端在收到卸载指令后  上报卸载 然后 中控再清除这个端的信息  
+
+    问题：为什么不在组件terminal_details中，而在upgrade插件中。
+
+    原因：detail是各种资料，不适合放在这个组件，放在upgrade插件下，一样通过ipc接收消息到插件。
+
+12. 启动safed出现下面这样的错误，需要把timedTask的数据库删掉
+
+    ```
+    0x00005555556eff27 in CDBTimedTasksOper::disposal (this=0x55555625cce0 <sdbTimedTasksOper>,
+    ```
+
+13. 中控下发暂停，ui界面文案显示bug：接收到中控下发的暂停扫描时，ui界面文案修改
+
+    中控暂停逻辑：当中控下发暂停扫描->scan插件收到pause任务->scan插件给gjcz发送任务，同时给UI发送状态信息
+
+    界面暂停逻辑：UI界面下发暂停->scan_moudle向scan插件发送信息->scan插件接收到任务->给gjcz发送
+
+    界面恢复逻辑：scan_moudle接收scan插件收到信息，通过信号槽响应到UI界面
+
+    > UI moudle层执行的各种操作都是通过插件(safed)层
+
+    问题：
+
+    1. 中控下发只给gjcz给暂停了，并没有给ui发送状态信息，导致gjcz暂停而字段没有更改。
+    2. 如果说在插件部分分情况处理，没有办法判断哪一次是中控下发，哪一次是UI界面
+    3. 想法：把UI界面的响应和中控的响应放一块，把界面的修改放到moudle发送的信号响应槽中。
+
+    处理：
+
+    1. 点击信号槽：如果是暂停，那就给助手发送暂停，如果是继续，就给助手发送继续
+    2. 与moudle建立信号槽：在槽函数中再将文字改变
 
 #### 2. 代码部分
 
@@ -1599,6 +1656,15 @@ m_pPool->submit([this, pBundle]() {
 
     ```
     git commit --amend
+    ```
+
+21. VScode快捷键：
+
+    ```
+    ctrl+p			#查找文件快捷键
+    ctrl + 左键	   #进入函数
+    ctrl + alt + -	#默认返回函数，这个-不能用小键盘上的
+    alt + leftarrow(左箭头)  #修改后的返回函数快捷键 
     ```
 
     
