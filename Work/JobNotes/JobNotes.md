@@ -793,7 +793,8 @@ m_pPool->submit([this, pBundle]() {
 
    ```
    git log 查看提交记录号
-   git reset --soft <记录号> #--soft：保留所有内容在暂存区（你可以直接 git commit）。不改动则不需要
+   git reset --soft <记录号> #--soft：保留所有内容在暂存区（你可以直接 git commit）
+   						 #若不加，则直接回退，不保存暂存区内容
    git status 查看状态
    git checkout .   #丢弃工作区的改动，如果还需要这些改动不要执行这句
    ```
@@ -1351,16 +1352,19 @@ m_pPool->submit([this, pBundle]() {
 
     > UI moudle层执行的各种操作都是通过插件(safed)层
 
-    问题：
+    **问题**：
 
     1. 中控下发只给gjcz给暂停了，并没有给ui发送状态信息，导致gjcz暂停而字段没有更改。
     2. 如果说在插件部分分情况处理，没有办法判断哪一次是中控下发，哪一次是UI界面
     3. 想法：把UI界面的响应和中控的响应放一块，把界面的修改放到moudle发送的信号响应槽中。
 
-    处理：
+    **解决**：
 
-    1. 点击信号槽：如果是暂停，那就给助手发送暂停，如果是继续，就给助手发送继续
-    2. 与moudle建立信号槽：在槽函数中再将文字改变
+    1. UI点击信号槽：如果是暂停，那就给助手发送暂停，如果是继续，就给助手发送继续
+    2. 助手收到消息向gjcz发送命令，同时向moudle发送响应
+    3. moudle接收消息与UI发送信号槽，从而改变UI文案
+
+
 
 #### 2. 代码部分
 
@@ -1665,6 +1669,71 @@ m_pPool->submit([this, pBundle]() {
     ctrl + 左键	   #进入函数
     ctrl + alt + -	#默认返回函数，这个-不能用小键盘上的
     alt + leftarrow(左箭头)  #修改后的返回函数快捷键 
+    ```
+
+22. ubuntu清屏快捷键
+
+    ```
+    ctrl + L		#等同于clear
+    ```
+
+23. 关于protobuffer
+
+    ```
+    #protobuffer中定义的结构体
+    message Person {
+        string name = 1;
+        int32 id = 2;
+    }
+    #proto自动生成的类
+    class Person {
+    public:
+        Person() {
+            name = "";
+            id = 0;
+        }
+        std::string name;
+        int id;
+    };
+    
+    Person person = { "John", 123 }; // 使用默认构造函数初始化，并通过列表初始化指定字段值
+    Person person;  // 使用默认构造函数，字段为默认值
+    Person person{}；/ 值初始化 的方式，这意味着该对象会被默认初始化为其类型的默认值。等同于上句
+    ```
+
+    1. 对于 **Protocol Buffers** 生成的类（如 `Person`），protobuf 会为每个字段提供默认值
+    2. protobuf 生成的 C++ 类支持列表初始化和通过构造函数进行初始化的功能，原因是 C++ 标准库支持了 **聚合初始化** 和 **初始化列表** 语法。
+    3. 如果你使用 `{}` 来初始化 `Person` 类型的对象，它会通过默认构造函数初始化对象，字段会被赋予其 **默认值**（例如，`name` 为 `""`，`id` 为 `0`）。对于普通 C++ 类，构造函数的默认行为可能不会自动为每个字段赋值，你必须手动初始化，除非你自己为其提供默认构造函数。
+
+    3. `Person person{};` 是一种使用 **统一初始化** 语法（uniform initialization）来初始化对象的方式，这种语法是 C++11 引入的。`Person person{};` 等价于 `Person person;`，但更明确地表示 **值初始化**
+
+    ```
+    #C++11值初始化
+    int d(20); 	
+    int age{20};
+    #C++11初始化列表
+    int c = {1001};
+    ```
+
+23. `git stash`:保存当前的工作进度（暂存区和工作区的改动）,然后做其他的动作(切换分支、拉取等)。然后可以再恢复，恢复时直接在当前进度恢复。`git stash` 非常适用于**中断当前工作并稍后恢复**的场景
+
+    > 当使用`stash`后，保存的文件将不会被`git`显示。即使用`git status`将提示无文件需要提交。
+    >
+    > 所以后面一定需要使用`stash apply`或者`stash pop`
+
+    ```
+    git stash		#保存工作区跟踪和暂存区的所有文件,保存为一条记录形式
+    git stash -u 	#保存工作区和暂存区的所有文件(包括未跟踪的，即新建的文件)
+    
+    git stash list	#列出所有的 stash 条目
+    git stash show stash@{0}	#根据 stash 标识符查看其具体内容(具体保存的操作过的文件)
+    git stash apply #恢复最新的 stash 内容并将它们应用到当前分支
+    git stash apply stash@{1}	#恢复指定的 stash 内容并将它们应用到当前分支
+    
+    git stash drop stash@{0}	#删除特定的 stash 条目(将会把保存的文件记录都删除)
+    git stash clear				#清空所有 stash 条目
+    
+    git stash pop	#恢复并删除 stash，当于 apply + drop 的组合
     ```
 
     
