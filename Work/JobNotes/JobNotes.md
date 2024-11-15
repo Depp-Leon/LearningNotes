@@ -1364,7 +1364,27 @@ m_pPool->submit([this, pBundle]() {
     2. 助手收到消息向gjcz发送命令，同时向moudle发送响应
     3. moudle接收消息与UI发送信号槽，从而改变UI文案
 
+14. 使用授权弹窗bug：当授权信息达到3次就会在下一次启动RJJH时弹窗
 
+    **思路**：
+
+    1. RJJH启动时都会向`safed`获取授权信息。`safed`在向RJJH发送数据时判断下是否超过三次，并加入一个判断字段。`RJJH`检测该字段来弹窗
+    2. 弹窗复用`Warnning`弹窗，在DLG_STATUS里面加个授权弹窗字段，在setStatus中加入该case选项。
+    3. 在`FramelessWindow`中，加入弹窗点击"更换中控"的信号槽，跳转到授权管理界面
+
+15. 病毒库升级单独拿出来
+
+    **思路**：
+
+    1. 病毒库升级只留内部的`terminalUpgradeVirusLibraryCenterMode`处理信息
+    2. 上报、通信UI在外层，在查杀那块调用
+    3. 内层需要获取版本号等，使用`callback`回调函数，在`general_operator_impl`中传递给它
+
+    **解决**：
+
+    1. 在scan插件下单独封装一个病毒库升级类。scan_flow_controller所有需要使用的升级函数都在这里面
+    2. taskExecutionBegins、notifyUIVirusLibraryUpgrade、detectingUpgradeClientConnectionStatus、terminalVersionInfoSync、taskExecutionCompleted、reportAction。这些是在插件直接拿出来用的。
+    3. callback：getAuthKeySNCode、virusLibraryVersion、checkDetectionAuthorization、sendMsgToUI、asyncReport这些是要作为callback参数传递的
 
 #### 2. 代码部分
 
@@ -1734,6 +1754,48 @@ m_pPool->submit([this, pBundle]() {
     git stash clear				#清空所有 stash 条目
     
     git stash pop	#恢复并删除 stash，当于 apply + drop 的组合
+    ```
+
+25. 回调函数、回调函数和句柄的区别
+
+25. 回调函数bind第二个参数是对象类型或者指针类型的区别
+
+    ```
+    auto boundFunc = std::bind(&CupdateVirusLibHelper::UsendMsgToUI, &m_updateVirusLib, std::placeholders::_1);
+    当你通过 boundFunc 调用时，std::bind 会自动将 m_updateVirusLib（即指向对象的指针）作为第一个参数传递给 UsendMsgToUI，而其他参数则通过 std::placeholders::_1 来传递。
+    ```
+
+    1. 当你传递 **对象的引用** 给 `std::bind` 时，回调函数会直接通过该对象引用访问对象的成员函数，这里不需要空指针检查，因为引用总是指向一个有效对象
+    2. 当你传递 **对象的指针** 给 `std::bind` 时，回调函数会通过该指针来访问对象的成员函数。需要特别注意的是，指针可能为 `nullptr`，因此你需要在回调函数中检查指针是否有效
+    3. **`std::bind`** 中的 **`std::placeholders`** 需要根据你要绑定的成员函数的参数数量来指定对应的占位符。每个占位符（如 `std::placeholders::_1`, `std::placeholders::_2`, ...）都会对应于你绑定函数的一个参数。
+
+26. 普通函数与成员函数取地址的区别
+
+    1. 对于普通函数，函数名本身就可以作为一个指向函数的指针
+
+    2. **成员函数** 是与特定的对象实例绑定的，因此它的行为与普通函数不同。成员函数指针不仅仅是函数的地址，还包含了**对象的上下文**，即它需要一个对象实例来调用
+
+    3. 在成员函数指针中，`&MyClass::processMessage` 表示获取 `processMessage` 成员函数的指针。这里的 `&` 是必要的，它用于表示 **成员函数的指针**。这是因为成员函数指针不仅仅是函数的地址，还需要知道哪个对象来调用该函数。
+
+       > **成员函数指针** 是一种特定类型的指针，它不仅指向函数本身，还需要知道哪个对象来调用该函数。
+       >
+       > **普通函数指针** 直接指向函数的实现，可以直接用函数名表示。
+
+27. 类的成员对象，在本类的构造时对其使用初始化列表
+    1. **成员对象的构造必须在初始化列表中进行**。
+    2. 构造函数体 **不会重新初始化成员对象**，它只会在初始化列表中调用成员对象的构造函数
+
+28. 问题：当你通过 `include_directories` 添加了某些头文件路径，这些头文件对应的 `.cpp` 文件是否需要在 `add_library` 中显式地列出，或者是否可以仅通过头文件路径来引用这些源文件
+
+    答：
+
+    1. 如果 `.cpp` 文件是你自己定义的，并且它们需要被编译成库的一部分，你必须将这些 `.cpp` 文件列出在 `add_library` 中。如果你仅通过 `include_directories` 引用了其他目录的头文件，而没有将对应的 `.cpp` 文件包含到 `add_library` 中，编译器将找不到这些源文件并报错
+    2. 如果你的代码依赖于外部库（比如系统库或第三方库），你可以通过 `target_link_libraries` 来指定这些库
+
+29. 查看修改的详细内容
+
+    ```
+    git show <commit-hash>
     ```
 
     
