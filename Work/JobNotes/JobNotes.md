@@ -41,7 +41,7 @@
    2. UI moudle层:通过IPC与助手通信，并使用信号槽与UI层建立通信
    3. 组件层与插件层合称为助手层(safed)
       组件层(component): 主要复用的功能，包括与UI和中控之间信息交换、升级、任务队列等功能
-      插件层(plugin)：不同独立的功能封装为一个插件，使用组件的功能与UI和中控进行信息交换。
+      插件层(plugin)：不同独立的功能封装为一个插件，使用组件的功能与UI和中控进行信息交换(用的其实还是组	件的功能，需要走组件)。
    4. ZDFY和GJCZ层：助手调用这两个执行文件的功能
    	ZDFY主要负责系统防护和数据防护；
    	GJCZ是实现扫描功能(插件scan只是调度GJCZ)；
@@ -507,7 +507,7 @@ m_pPool->submit([this, pBundle]() {
    
    sudo cp cur_user JYNGJCZ2 JYNRJJH2 JYNRJJH2-UTRAY1 JYNSAFED JYNZDFY2 JYUpdateUI /opt/apps/chenxinsd/bin/
    
-   sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libSysMonManage.so libZyAuthPlug.so libZyAVCache.so libZyScanPlug.so libZyUploadFile.so /opt/apps/chenxinsd/lib/modules/
+   sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libSysMonManage.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so /opt/apps/chenxinsd/lib/modules/
    
    sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so /opt/apps/chenxinsd/lib/plugins/system/
    ```
@@ -517,24 +517,17 @@ m_pPool->submit([this, pBundle]() {
 ### 2.8 调试
 
 1. 使用"sudo gdb JYNSAFED"
-
 2. 打断点：在目的函数名 b CJYNetProtectionPluginImpl::onNewNotify
-
 3. 执行：r
-
-4. 逐过程：n        /不能逐步骤s，因为逐步骤会进入调用的所有函数
-
-5. p 变量名：打印变量名的值，确认是否正确收到并解析
-
-6. bt：查看栈调用情况，如果程序崩溃可以通过栈查看那个地方有问题
-
-7. quit ：退出
-
-8. c/C：可以跳过当前断点要操作的内容，继续执行
-
-9. 使用GDB调试：遇到某个函数执行，但是又不知道是那部分在调用这个函数时，使用`gdb`在这个函数打上断点，执行到这个函数时，执行`bt`查看栈，就可以看到调用函数一层一层的顺序了。
-
-10. 当打印数据类型是原子类型时，比如atmoc_bool
+4. 逐过程：n       
+5. 逐步骤：s      /会进入到函数内部
+6. 完成当前函数：finish    /使用s进入到内部后，可以使用finish退出这个函数
+7. p 变量名：打印变量名的值，确认是否正确收到并解析
+8. bt：查看栈调用情况，如果程序崩溃可以通过栈查看那个地方有问题
+9. quit ：退出
+10. c/C：可以跳过当前断点要操作的内容，继续执行
+11. 使用GDB调试：遇到某个函数执行，但是又不知道是那部分在调用这个函数时，使用`gdb`在这个函数打上断点，执行到这个函数时，执行`bt`查看栈，就可以看到调用函数一层一层的顺序了。
+12. 当打印数据类型是原子类型时，比如atmoc_bool
 
    ```
    (gdb) p m_reportLog
@@ -1242,17 +1235,15 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-
-
 # 未完成笔记
 
 #### 1. 项目部分
 
-1. 项目通信部分逻辑是什么?
+1. 如何修改ubuntu下的权限，省的每次都得用sudo
 
-   > 看safed->core->plugin/message相关的cpp
+2. qt的moudle层如何与safed通信的？safed如何与中控通信的？
 
-2. 助手与UI之间的交互？助手与服务端的交互都是如何实现的
+   > RJJH下面的ipc文件夹下的IIPCBaseModelInterface，负责send和receive助手之间的数据
 
 3. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
 
@@ -1272,41 +1263,54 @@ m_pPool->submit([this, pBundle]() {
 
 8. 组件之间通信都是靠`message_center`的发布-订阅模式进行传递消息并执行相应操作。给组件传递消息是通过`plugin_manager`的注册消息订阅以及对回调时对不同插件调用`onNewNotify`函数
 
-9. 关于强力查杀bug
+9. 在40上面编写的包在本地安装后。当使用gdb调试，打断点发现打的路径是40上面的路径。所以需要在本地打对应的包移动并替换
 
-   **分析**：
+10. UI的FramelessWindow：构造函数内部除了建立信号槽以外，末尾部分调用了各model的请求函数，向safed/中控发出请求，并在内部有接收函数，进而刷新后台数据展示到界面
 
-   1. 使用`FULL_SCAN`字段下发任务，具体实现在`FULL_SCAN`任务处理那块找
+    ```
+    m_pTerminalInfoModel->requestTerminalInformation();
+    m_pScanModel->requestScanProcessResult();
+    m_pTerminalAuthModel->requestTerminalAuthorizeInfo();
+    m_pUIConfigModel->requestTerminalConfigInfo();
+    m_pProtectLogModel->slotRequestProtectLogInfo(10);
+    m_pUpgradeModel->terminalVersionInfoRequest();
+    ```
 
-      ```
-      string strong_sign = 5; // 强力查杀标识，兼容老版本客户端，老版本执行全盘查杀，新版本解析此标识，1为强力查杀，0为全盘查杀
-      ```
+11. 关于强力查杀bug
 
-   2. `ScanFullTask`初始化时会`detach`一个线程：读取强力查杀留下的标记文件、如果含有强力查杀标记，那么就执行一次全盘扫描。
+    **分析**：
 
-      `task`函数：由于全盘和强力是同一个param，对其执行全盘扫描，并判断type是否是强力查杀，如果是那么将本次参数记录到`conf`文件中，供重启后执行扫描使用
+    1. 使用`FULL_SCAN`字段下发任务，具体实现在`FULL_SCAN`任务处理那块找
 
-   3. 扫描最终执行的是给告警处置模块处理了？(通过gjcz的IPC)
+       ```
+       string strong_sign = 5; // 强力查杀标识，兼容老版本客户端，老版本执行全盘查杀，新版本解析此标识，1为强力查杀，0为全盘查杀
+       ```
 
-   **未完成部分**：
+    2. `ScanFullTask`初始化时会`detach`一个线程：读取强力查杀留下的标记文件、如果含有强力查杀标记，那么就执行一次全盘扫描。
 
-   1. 没有进行病毒库升级                    -----需要创建升级任务放入队列 
-   2. 是否不允许终端暂停或停止、需要验证        ----------UI层实现
-   3. 扫描是否加入信任区文件          ---------应该是，因为全盘扫描从 /根目录下面同一扫
-   4. 发现病毒如何自动清除          ------auto_remove | auto_clear 字段 或者在HIpDip的界面处理逻辑上
-   5. 如何清除病毒后实现重启       ----------UI层实现
+       `task`函数：由于全盘和强力是同一个param，对其执行全盘扫描，并判断type是否是强力查杀，如果是那么将本次参数记录到`conf`文件中，供重启后执行扫描使用
 
-   **解决思路**：当接收到强力查杀任务key后，往任务队列中插入病毒库升级任务和强力查杀任务进行排队，等到病毒库升级成功后再执行强力查杀任务。
+    3. 扫描最终执行的是给告警处置模块处理了？(通过gjcz的IPC)
 
-   1. 优先级：查看配置文件是否有病毒库升级任务
-   2. upgrade中是否像terminal_details一样，先订阅key和处理逻辑。方便任务队列调用
-   3. 在接收到强力查杀任务后，启动病毒库升级任务(需自己实现)，待其完成后实现强力查杀
+    **未完成部分**：
 
-   **解决**：
+    1. 没有进行病毒库升级                    -----需要创建升级任务放入队列 
+    2. 是否不允许终端暂停或停止、需要验证        ----------UI层实现
+    3. 扫描是否加入信任区文件          ---------应该是，因为全盘扫描从 /根目录下面同一扫
+    4. 发现病毒如何自动清除          ------auto_remove | auto_clear 字段 或者在HIpDip的界面处理逻辑上
+    5. 如何清除病毒后实现重启       ----------UI层实现
 
-   1. 在强力查杀任务处，使用Task_managerBegain，传入key为VIRUS_LIB_UPGRADE ，value为UpgradeParam（其中类型为bool silent。0为不静默）
+    **解决思路**：当接收到强力查杀任务key后，往任务队列中插入病毒库升级任务和强力查杀任务进行排队，等到病毒库升级成功后再执行强力查杀任务。
 
-   2. gdb调试，看卡哪里了
+    1. 优先级：查看配置文件是否有病毒库升级任务
+    2. upgrade中是否像terminal_details一样，先订阅key和处理逻辑。方便任务队列调用
+    3. 在接收到强力查杀任务后，启动病毒库升级任务(需自己实现)，待其完成后实现强力查杀
+
+    **解决**：
+
+    1. 在强力查杀任务处，使用Task_managerBegain，传入key为VIRUS_LIB_UPGRADE ，value为UpgradeParam（其中类型为bool silent。0为不静默）
+
+    2. gdb调试，看卡哪里了
 
 
    **11.7新问题**：
@@ -1372,13 +1376,17 @@ m_pPool->submit([this, pBundle]() {
     2. 弹窗复用`Warnning`弹窗，在DLG_STATUS里面加个授权弹窗字段，在setStatus中加入该case选项。
     3. 在`FramelessWindow`中，加入弹窗点击"更换中控"的信号槽，跳转到授权管理界面
 
+    **笔记**:
+
+    1. qt下的moudle工作原理：先向中控发送请求消息(通过助手),中控将对应的信息传递过来(通过助手的subscribe和publish)
+
 15. 病毒库升级单独拿出来
 
     **思路**：
 
     1. 病毒库升级只留内部的`terminalUpgradeVirusLibraryCenterMode`处理信息
     2. 上报、通信UI在外层，在查杀那块调用
-    3. 内层需要获取版本号等，使用`callback`回调函数，在`general_operator_impl`中传递给它
+    3. 内层需要获取版本号等其他组件功能，使用`callback`回调函数，在`general_operator_impl`中传递给它
 
     **解决**：
 
@@ -1798,4 +1806,84 @@ m_pPool->submit([this, pBundle]() {
     git show <commit-hash>
     ```
 
+31. 英语get、have、take常用口语的用法
+
+    ```
+    If you get something, then that means that the item was given to you. If you take something, then that means that you took it yourself and no one else was involved in you getting possession of the item. To get is to receive, to take is to retrieve.
+    ```
+
+32. in、for、of、to、等常用介词的使用方式
+
+33. git checkout 和git restore
+
+    1. git checkout的作用：1.切换分支；2.从某个分支或提交中恢复文件。
+
+    ```
+    git checkout ./ 		#作用是 将当前目录（./）下的所有文件还原为暂存区或最后一次提交的状态
+    git checkout 分支名称	 #作用是 切换分支
+    ```
+
+    2. git restore的作用：还原未暂存(未add)的修改
+
+    ```
+    git restore ./			#还原未暂存的修改
+    git restore file.txt	#还原特定文件
+    ```
+
+34. 通过逗号分割提取字符串
+
+    ```
+    std::istringstream stream(ipList);
+    std::string ip;
+    while (std::getline(stream, ip, ',')) {
+           // 去掉可能存在的空格
+           ip.erase(std::remove(ip.begin(), ip.end(), ' '), ip.end());
+           if (!ip.empty()) {
+               ips.push_back(ip);  // 将非空 IP 添加到结果中
+           }
+    }
+    ```
+
+35. 关于槽函数slot的访问权限(public protected private)
+    1. signal没有访问权限限制。
+    2. **访问权限只对外部代码的直接调用有效**，对信号-槽机制无影响(只要是槽函数就可以进行信号-槽机制的连接)。
+    3. 比如：private slot只能进行信号槽机制的连接，不可以在外面直接像调用成员函数一样调用该槽函数
+
+| 特性                 | `private slots`              | `protected slots`            | `public slots`             |
+| -------------------- | ---------------------------- | ---------------------------- | -------------------------- |
+| **访问权限**         | 类本身和友元可以访问         | 类本身、子类和友元可以访问   | 外部代码可以访问           |
+| **典型用途**         | 内部逻辑实现细节，不对外开放 | 需要子类继承、扩展的内部逻辑 | 提供对外接口，同时响应信号 |
+| **子类访问**         | 不可以                       | 可以                         | 可以                       |
+| **外部代码直接调用** | 不可以                       | 不可以                       | 可以                       |
+
+36. Qt的Warnging弹窗，执行exec()模态框时，会阻塞当前界面，直到用户点击确定(返回`QDialog::Accepted`)或者关闭/取消(返回`QDialog::Rejected`)
+
+    ```
+    if (wDlg.exec() == QDialog::Rejected){
+        QApplication::exit();
+    } else {
+        emit slotStartAuthManager();
+    }
+    ```
+
+37. `git diff`: 可以查看和分析改动，包括查看两个文件之间、文件修改前后、暂存区中的文件和最新提交之间的差异
+
+    ```
+    git diff		 	#比较工作目录中的文件和暂存区的文件之间的差异
+    git diff --cached	#比较暂存区中的文件和最新提交之间的差异
+    git diff commit1 commit2 #比较两个特定提交的差异
+    git diff [file]		#仅显示某些文件的改动
+    git diff branch1 branch2	#比较两个分支的差异
+    ```
+
+38. 远程文件拷贝
+
+    ```
+    scp file.txt user@remote_host:/path/to/destination/
+    # file.txt 是本地文件。
+    # user@remote_host 是远程主机用户名和地址。
+    # /path/to/destination/ 是远程主机上的目标路径。
+    ```
+
     
+
