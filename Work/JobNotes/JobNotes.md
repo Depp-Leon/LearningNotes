@@ -37,15 +37,16 @@
 1. 客户端整体框架层次分布
 
    ```
-   1. UI界面层
-   2. UI moudle层:通过IPC与助手通信，并使用信号槽与UI层建立通信
+   1. UI界面层和Model层合称为人机交互层(RJJH)
+      		UI界面层:界面和弹窗
+     	    UI moudle层:通过IPC与助手通信，并使用信号槽与UI层建立通信
    3. 组件层与插件层合称为助手层(safed)
-      组件层(component): 主要复用的功能，包括与UI和中控之间信息交换、升级、任务队列等功能
-      插件层(plugin)：不同独立的功能封装为一个插件，使用组件的功能与UI和中控进行信息交换(用的其实还是组	件的功能，需要走组件)。
+      		组件层(component): 主要复用的功能，包括与UI和中控之间信息交换、升级、任务队列等功能
+      		插件层(plugin)：不同独立的功能封装为一个插件，使用组件的功能与UI和中控进行信息交换(用的其实		   				  还是组件的功能，需要走组件)。
    4. ZDFY和GJCZ层：助手调用这两个执行文件的功能
-   	ZDFY主要负责系统防护和数据防护；
-   	GJCZ是实现扫描功能(插件scan只是调度GJCZ)；
-   	两个可执行文件开启系统后就在后台启动。
+   		ZDFY主要负责系统防护和数据防护；
+   		GJCZ是实现扫描功能(插件scan只是调度GJCZ)；
+   		两个可执行文件开启系统后就在后台启动。
    ```
 
 2. 组件(`modules/component`)主要是一些共用的功能模块，插件(`plugins`)是单独的可以增加、去掉的模块。比如不同的插件都可以使用组件里的认证、防护日志、任务管理、定时任务、更新等
@@ -58,173 +59,34 @@
 
 
 
-### 2.2  数据传输
+### 2.2 RJJH层
 
-数据传输方式有`protobuffer`和`Json`格式，作为项目中的数据传输类型
+#### 2.2.1 UI层
 
-##### 2.2.1 protobuffer
+> 该层主要负责各种界面和弹窗的界面文件，并使用信号槽与model层之间建立通信。
 
-1. protobuffer的格式
-
-   ```
-   message xxx {
-     // 字段规则：required -> 字段只能也必须出现 1 次
-     // 字段规则：optional -> 字段可出现 0 次或1次
-     // 字段规则：repeated -> 字段可出现任意多次（包括 0）
-     // 类型：int32、int64、sint32、sint64、string、32-bit ....
-     // 字段编号：0 ~ 536870911（除去 19000 到 19999 之间的数字）
-     字段规则 类型 名称 = 字段编号;
-   }
-   ```
-
-2. 接受时解序列化
-
-   ```c++
-   NetProtectC netProtectConfig {};				#NetProtectC是protbuf生成的class
-   netProtectConfig.ParseFromString(msgData)
-   ```
-
-2. 传递时候的序列化(转字符串传输)
-
-   ```c++
-   ReportProtect report;				#ReportProtect是protbuf生成的class
-   report.SerializeAsString()
-   ```
-
-3. 获取非重复非嵌套字段
+1. UI的FramelessWindow：构造函数内部除了建立信号槽以外，末尾部分调用了各model的请求函数，向safed/中控发出请求，并在内部有接收函数，进而刷新后台数据展示到界面
 
    ```
-   直接.加类型名()
+   m_pTerminalInfoModel->requestTerminalInformation();
+   m_pScanModel->requestScanProcessResult();
+   m_pTerminalAuthModel->requestTerminalAuthorizeInfo();
+   m_pUIConfigModel->requestTerminalConfigInfo();
+   m_pProtectLogModel->slotRequestProtectLogInfo(10);
+   m_pUpgradeModel->terminalVersionInfoRequest();
    ```
 
-4. 获取重复字段
 
-   ```c++
-   #遍历
-   #获取重复次数：字段名_size()
-   #获取第i个：processData.infolist(i)
-   HmiToScan::VirusDataProcess processData {};
-   if (!processData.ParseFromString(msgData)) {
-        return false;
-   }
-   for (int i = 0; i < processData.infolist_size(); i++) {	 
-       const HmiToScan::VirusDataProcess::VirusInfo &info = processData.infolist(i);
-       if (info.action() == HmiToScan::VirusDataProcess_ProcessAction_TRUST_ADD) {
-       m_pScan->virusScanProcessTrustAdd(info.data());
-   ```
 
-5. 获取非重复嵌套字段
+#### 2.2.2 UI Model层
 
-   ```c++
-   #点就完事
-   scanNotify = commonC.notification().scan().status()     
-   ```
-
-6. 设置非重复非嵌套字段
-
-   ```c++
-   #set_字段名
-   Person person;
-   person.set_name("Alice");  // 设置名字
-   person.set_age(30);        // 设置年龄	 	
-   ```
-
-7. 设置重复嵌套字段
-
-   ```c++
-   #先定义嵌套字段类型，再给该类型set数据
-   ClientIsolationAreaInfo isoMsg{};
-   ClientIsolationAreaInfo::InfectInfo* isoInfo = isoMsg.add_infects();
-   isoInfo->set_infect_name(info.param.virusname);
-   isoInfo->set_file_name(info.param.path);
-   isoInfo->set_isolate_time(info.m_time);
-   isoInfo->set_md5(info.param.md5);
-   ```
-
-8. mutable_ 
-
-   ```c++
-   // 获取指向嵌套 Address 消息的指针，并设置其字段。
-   Address* addr = person.mutable_address();  
-   addr->set_city("New York");
-   addr->set_zip("10001");
-   ```
-
-9. add_和mutable\_的区别
-
-   ```c++
-   add_address()：向 repeated 字段中 新增一个地址。
-   mutable_address(index)：获取并修改指定索引处的地址。
-   address(index)：只读访问指定索引处的地址。
-   ```
-
-10. 枚举类型直接通过下标_获取
-
-    ```c++
-    HmiToScan::VirusScan_ScanType_THREAT_CLEAN
-    ```
-
-11. protobuf的msg使用二进制类型byte和一个type，就可以根据不同的type的message进行解析
-
-    > 详见jy_virus_scan_impl.cpp   158行
+> 该层主要负责UI层与助手层之间的交互，接收到助手层消息后发送信号到UI界面
 
 
 
-##### 2.2.2 Json
+### 2.3 插件层/助手
 
-1. 使用Json传递数据时，使用`dump()`函数转换为字符串
-
-   ```c++
-   //使用json传递数据
-   std::string pass_timer = (m_alertTImer.status().lock()) ? "0" : std::to_string(m_alertTImer.timer());
-   	nlohmann::json report = {
-   		{"actionOp",std::to_string(m_op)},
-   		{"protectProject","网络防护"},
-   		{"protoType","SSH远程登陆协议"},
-   		{"ipAddress",ip},
-   		{"alert_time",pass_timer}
-   	};
-   	sendInfoToUI(report.dump());
-   ```
-
-2. 接受json数据
-
-   ```c++
-   void ZyHipsDialog::updateNetProDlg(const QByteArray &data){
-   QJsonDocument doc = QJsonDocument::fromJson(data.data());
-   QJsonObject rootObj = doc.object();
-   int actionOP = rootObj.value("actionOp").toString().toInt();
-   QString protectProject = rootObj.value("protectProject").toString();
-   QString protoType = rootObj.value("protoType").toString();
-   QString ipAddress = rootObj.value("ipAddress").toString();
-   ```
-
-##### 2.2.3 protobuffer和json的区别
-
-
-
-
-
-### 2.3 通信原理
-
-1. IGeneralOperator有什么用，插件plugin**通信原理**？imessage和IPC？搞清楚IPC：上报中控、接收中控。发送UI，接收UI字段+流程
-
-2. 客户端与中控之间的**交互**
-
-   ```
-   中控下发->需要使用onNewNotify根据下发key字段和message的protobuff获取指令
-   > 在插件接受数据那块
-   中控上发->需要使用asynPort根据上发的key字段和需要封装的message的protobuff发送
-   > 在功能上报
-   ```
-   
-3. C++与UI之间的交互？SendToUI如何实现的
-
-
-
-### 2.4 插件层/助手
-
-#### 2.4.1 通述
+#### 2.3.1 通述
 
 1. 组件(`modules/component`)主要是一些共用的功能模块，插件(`plugins`)是单独的可以增加、去掉的模块。比如不同的插件都可以使用组件里的认证、防护日志、任务管理、定时任务、更新等
 
@@ -234,15 +96,7 @@
 
    kongbin代码属于是类的聚合，定义一个总类，里面包含功能类和CGeneralOperator(与前端交互类)实现功能互用
 
-3. `ZySingketon.h` 实现了单例模式的模板类。
-
-   ```
-   class CZDFYManage : public CommonUtils::CSingleton<CZDFYManage>   #实现了单例
-   ```
-
-4. 插件对象，子类可以当作父类传入
-
-5. 组件`component`里面实现了多个组件，通过`general_operator_impl`定义创建不同的`shared`类型的组件指针
+4. 插件对象，子类可以当作父类传入实现多态。
 
 6. 组件/插件开启时使用线程
 
@@ -250,9 +104,11 @@
    JYThread::autoRun(std::bind(&CTaskManagerComponentImpl::taskQueueDistribution, this));
    ```
 
+5. 组件之间通信都是靠`message_center`的发布-订阅模式进行传递消息并执行相应操作。给组件传递消息是通过`plugin_manager`的注册消息订阅以及对回调时对不同插件调用`onNewNotify`函数
 
 
-#### 2.4.2 运转核心/core
+
+#### 2.3.2 运转核心/core
 
 ##### 1. 组成部分
 
@@ -328,7 +184,7 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-#### 2.4.3 组件/component
+#### 2.3.3 组件/component
 
 ##### 1. 组成部分
 
@@ -414,7 +270,7 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-#### 2.4.4 插件/plugin
+#### 2.3.4 插件/plugin
 
 ##### 1. 扫描插件/scan
 
@@ -439,14 +295,163 @@ m_pPool->submit([this, pBundle]() {
 
 
 
+### 2.4  数据传输
+
+数据传输方式有`protobuffer`和`Json`格式，作为项目中的数据传输类型
+
+##### 2.4.1 protobuffer
+
+1. protobuffer的格式
+
+   ```
+   message xxx {
+     // 字段规则：required -> 字段只能也必须出现 1 次
+     // 字段规则：optional -> 字段可出现 0 次或1次
+     // 字段规则：repeated -> 字段可出现任意多次（包括 0）
+     // 类型：int32、int64、sint32、sint64、string、32-bit ....
+     // 字段编号：0 ~ 536870911（除去 19000 到 19999 之间的数字）
+     字段规则 类型 名称 = 字段编号;
+   }
+   ```
+
+2. 接受时解序列化
+
+   ```c++
+   NetProtectC netProtectConfig {};				#NetProtectC是protbuf生成的class
+   netProtectConfig.ParseFromString(msgData)
+   ```
+
+3. 传递时候的序列化(转字符串传输)
+
+   ```c++
+   ReportProtect report;				#ReportProtect是protbuf生成的class
+   report.SerializeAsString()
+   ```
+
+4. 获取非重复非嵌套字段
+
+   ```
+   直接.加类型名()
+   ```
+
+5. 获取重复字段
+
+   ```c++
+   #遍历
+   #获取重复次数：字段名_size()
+   #获取第i个：processData.infolist(i)
+   HmiToScan::VirusDataProcess processData {};
+   if (!processData.ParseFromString(msgData)) {
+        return false;
+   }
+   for (int i = 0; i < processData.infolist_size(); i++) {	 
+       const HmiToScan::VirusDataProcess::VirusInfo &info = processData.infolist(i);
+       if (info.action() == HmiToScan::VirusDataProcess_ProcessAction_TRUST_ADD) {
+       m_pScan->virusScanProcessTrustAdd(info.data());
+   ```
+
+6. 获取非重复嵌套字段
+
+   ```c++
+   #点就完事
+   scanNotify = commonC.notification().scan().status()     
+   ```
+
+7. 设置非重复非嵌套字段
+
+   ```c++
+   #set_字段名
+   Person person;
+   person.set_name("Alice");  // 设置名字
+   person.set_age(30);        // 设置年龄	 	
+   ```
+
+8. 设置重复嵌套字段
+
+   ```c++
+   #先定义嵌套字段类型，再给该类型set数据
+   ClientIsolationAreaInfo isoMsg{};
+   ClientIsolationAreaInfo::InfectInfo* isoInfo = isoMsg.add_infects();
+   isoInfo->set_infect_name(info.param.virusname);
+   isoInfo->set_file_name(info.param.path);
+   isoInfo->set_isolate_time(info.m_time);
+   isoInfo->set_md5(info.param.md5);
+   ```
+
+9. mutable_ 
+
+   ```c++
+   // 获取指向嵌套 Address 消息的指针，并设置其字段。
+   Address* addr = person.mutable_address();  
+   addr->set_city("New York");
+   addr->set_zip("10001");
+   ```
+
+10. add_和mutable\_的区别
+
+    ```c++
+    add_address()：向 repeated 字段中 新增一个地址。
+    mutable_address(index)：获取并修改指定索引处的地址。
+    address(index)：只读访问指定索引处的地址。
+    ```
+
+11. 枚举类型直接通过下标_获取
+
+    ```c++
+    HmiToScan::VirusScan_ScanType_THREAT_CLEAN
+    ```
+
+12. protobuf的msg使用二进制类型byte和一个type，就可以根据不同的type的message进行解析
+
+    > 详见jy_virus_scan_impl.cpp   158行
+
+
+
+##### 2.4.2 Json
+
+1. 使用Json传递数据时，使用`dump()`函数转换为字符串
+
+   ```c++
+   //使用json传递数据
+   std::string pass_timer = (m_alertTImer.status().lock()) ? "0" : std::to_string(m_alertTImer.timer());
+   	nlohmann::json report = {
+   		{"actionOp",std::to_string(m_op)},
+   		{"protectProject","网络防护"},
+   		{"protoType","SSH远程登陆协议"},
+   		{"ipAddress",ip},
+   		{"alert_time",pass_timer}
+   	};
+   	sendInfoToUI(report.dump());
+   ```
+
+2. 接受json数据
+
+   ```c++
+   void ZyHipsDialog::updateNetProDlg(const QByteArray &data){
+   QJsonDocument doc = QJsonDocument::fromJson(data.data());
+   QJsonObject rootObj = doc.object();
+   int actionOP = rootObj.value("actionOp").toString().toInt();
+   QString protectProject = rootObj.value("protectProject").toString();
+   QString protoType = rootObj.value("protoType").toString();
+   QString ipAddress = rootObj.value("ipAddress").toString();
+   ```
+
+##### 2.4.3 protobuffer和json的区别
+
+
+
 ### 2.5 日志
 
 1. 导入qlog库，使用LOG日志记录
 
+   ```
+   #include "glog/logging.h"
+   ```
+
 2. 开启日志打印
 
    ```
-   /opt/apps/chenxinSd/etc/LogConf.ini
+   vim /opt/apps/chenxinSd/etc/LogConf.ini
    Debuglevel = 0;
    ```
 
@@ -462,13 +467,10 @@ m_pPool->submit([this, pBundle]() {
    #google::ShutdownGoogleLogging();：在程序退出前清理并关闭日志系统。
    ```
 
-   > **`LOG(INFO)`**：输出信息级别日志。**场景**：用于记录**正常的程序执行信息**。它表示程序按预期工作，没有异常情况。常用于打印一些程序流程、状态信息、统计数据等。
-   >
-   > **`LOG(WARNING)`**：输出警告信息。**场景**：用于记录**非致命的异常情况**或潜在问题。这些问题不会导致程序崩溃，但可能影响性能、用户体验，或者暗示更严重的问题可能即将发生。
-   >
-   > **`LOG(ERROR)`**：输出错误信息。**场景**：用于记录**严重的错误**，这些错误会导致程序某些功能失败，甚至崩溃。通常表示程序中无法忽略的错误。
-   >
-   > **`LOG(FATAL)`**：输出致命错误并终止程序。`LOG(FATAL)` 表示**不可恢复的错误**，程序在记录该日志后会**立即终止执行**。它用于捕捉那些使程序无法继续运行的严重错误，通常表示逻辑问题或异常情况无法修复。
+   1. **`LOG(INFO)`**：输出信息级别日志。**场景**：用于记录**正常的程序执行信息**。它表示程序按预期工作，没有异常情况。常用于打印一些程序流程、状态信息、统计数据等。
+   2. **`LOG(WARNING)`**：输出警告信息。**场景**：用于记录**非致命的异常情况**或潜在问题。这些问题不会导致程序崩溃，但可能影响性能、用户体验，或者暗示更严重的问题可能即将发生。
+   3. **`LOG(ERROR)`**：输出错误信息。**场景**：用于记录**严重的错误**，这些错误会导致程序某些功能失败，甚至崩溃。通常表示程序中无法忽略的错误。
+   4. **`LOG(FATAL)`**：输出致命错误并终止程序。`LOG(FATAL)` 表示**不可恢复的错误**，程序在记录该日志后会**立即终止执行**。它用于捕捉那些使程序无法继续运行的严重错误，通常表示逻辑问题或异常情况无法修复。
 
    > 使用 **`LOG`** 宏时，不需要手动添加换行符。它会**自动在每条日志末尾添加换行符**，确保每一条日志信息在新行中打印。
 
@@ -483,9 +485,10 @@ m_pPool->submit([this, pBundle]() {
    ```
    sqlite3 <数据库.db>
    .tables   #查看所有表
-   SELECT * FROM TABLE    #类似于sql语句
+   SELECT * FROM TABLE;    #类似于sql语句,注意需要加分号
    .quit 
    .exit	#退出
+   
    ```
 
 2. 项目中sqlite的路径
@@ -517,50 +520,57 @@ m_pPool->submit([this, pBundle]() {
 ### 2.8 调试
 
 1. 使用"sudo gdb JYNSAFED"
+
 2. 打断点：在目的函数名 b CJYNetProtectionPluginImpl::onNewNotify
+
 3. 执行：r
+
 4. 逐过程：n       
+
 5. 逐步骤：s      /会进入到函数内部
+
 6. 完成当前函数：finish    /使用s进入到内部后，可以使用finish退出这个函数
+
 7. p 变量名：打印变量名的值，确认是否正确收到并解析
+
 8. bt：查看栈调用情况，如果程序崩溃可以通过栈查看那个地方有问题
+
 9. quit ：退出
+
 10. c/C：可以跳过当前断点要操作的内容，继续执行
+
 11. 使用GDB调试：遇到某个函数执行，但是又不知道是那部分在调用这个函数时，使用`gdb`在这个函数打上断点，执行到这个函数时，执行`bt`查看栈，就可以看到调用函数一层一层的顺序了。
-12. 当打印数据类型是原子类型时，比如atmoc_bool
 
-   ```
-   (gdb) p m_reportLog
-   $11 = {_M_base = {static _S_alignment = 1, _M_i = true}}
-   ```
+12. 当打印数据类型是原子类型时，比如`atmoc_bool`
 
-   > 1. `_M_base` 和 `_M_i` 是 `std::atomic` 或其他标准库类型的内部表示。它们通常用于实现原子操作和存储状态。
-   > 2. `_S_alignment` 是一个静态成员，表示这个类型在内存中的对齐要求。在这里，对齐为 `1` 字节，意味着该类型的对象在内存中必须以 1 字节对齐，这通常适用于 `bool` 类型。
+    ```
+    (gdb) p m_reportLog
+    $11 = {_M_base = {static _S_alignment = 1, _M_i = true}}
+    ```
 
-11. 为什么启动有些服务需要sudo，有些不需要？
+    1. `_M_base` 和 `_M_i` 是 `std::atomic` 或其他标准库类型的内部表示。它们通常用于实现原子操作和存储状态。
+    2. `_S_alignment` 是一个静态成员，表示这个类型在内存中的对齐要求。在这里，对齐为 `1` 字节，意味着该类型的对象在内存中必须以 1 字节对齐，这通常适用于 `bool` 类型。
 
-    > 需要sudo的话，这个服务一般涉及对文件/的操作等
+13. gdb调试报错：
 
-12. gdb调试报错：
+    1. 是否编译的依赖的so没有导过去
+    2. **哪部分需要调试，就将哪部分执行文件单独拿出来使用gdb执行，其他部分正常启动执行**
 
-   > 1. 是否编译的依赖的so没有导过去
-   > 2. **哪部分需要调试，就将哪部分执行文件单独拿出来使用gdb执行，其他部分正常启动执行**
+    > 补充：后台使用systemctl start jyn*启动的是三个服务，CZ控制，ZDFY主动防御、safed安全三个。一个界面只展示两个，没有展示三个
 
-   > 补充：后台使用systemctl start jyn*启动的是三个服务，CZ控制，ZDFY主动防御、safed安全三个。一个界面只展示两个，没有展示三个
+11. 使用`systemctl`和`sudo`来启动某些服务的区别
 
-11. 使用systemctl来启动某些服务
+    1. 有些可执行文件需要通过 **`systemctl`** 启动是因为它们作为 **服务（Service）** 或 **守护进程（Daemon）** 来运行，这种方式适用于在后台长期运行且需要稳定管理的程序
+    2. **`sudo`**是用来以超级用户权限执行任意命令的工具，涉及到文件读取等
 
-    > 有些可执行文件需要通过 **`systemctl`** 启动是因为它们作为 **服务（Service）** 或 **守护进程（Daemon）** 来运行，这种方式适用于在后台长期运行且需要稳定管理的程序
 
-12. 修改完JYNSAFED不仅需要把JYNSAFED转出，还需要把lib生成的动态库也转出，当gdb遇到找不到文件时就是找不到编译符号
-
-13. 使用sudo或直接启动可执行文件时，使用ctrl+z关闭执行文件时记得使用ps查看并kill后台进程
+12. 在40上面编写的包在本地安装后。当使用gdb调试，打断点发现打的路径是40上面的路径。所以需要在本地打对应的包移动并替换，并且修改完JYNSAFED不仅需要把JYNSAFED转出，还需要把lib生成的动态库也转出。
 
 
 
 ### 2.9 打包
 
-1. 插件的打包配置
+1. 插件的打包配置(如果有)
 
    ```
    1. 修改OutPut/JingyunSd_linux_2/BUILD_ROOT/opt/apps/chenxinsd/etc/plugins/plugins.conf
@@ -576,11 +586,6 @@ m_pPool->submit([this, pBundle]() {
    git commit -m "xxx"
    git push
    ```
-
-   > 是否commit之后才通过git status可以查看到跟远程仓库之间的更新程度？答：不是
-   >
-   > 1. fetch操作拉取远端提交记录
-   > 2. pull操作包含fetch和merge操作
 
 3. 系统打包环境：`192.168.0.40` 、ssh进入服务器（系统服务器将会执行打包脚本适配不同系统的环境包）在系统打包环境下 pull仓库，同步代码后进行编译。编译后执行脚本开始打包
 
@@ -819,6 +824,8 @@ m_pPool->submit([this, pBundle]() {
 
     解决：在`host`文件中加入域名映射：`140.82.113.4 github.com
 
+
+
 ### 2.12 改BUG
 
 ##### 2.12.1 技巧
@@ -856,7 +863,7 @@ m_pPool->submit([this, pBundle]() {
    #接收时会根据TerminalConfigSeesion的type字段区分，再根据info的key字段区分不同的模块的要emit信息，再调用不同的emit
    ```
 
-   **解决**：将每次下发或者保存的配置保存下来，在界面打开`settingDialog`的时候统一`emit`一遍信号更改设置界面
+   **思路**：将每次下发或者保存的配置保存下来，在界面打开`settingDialog`的时候统一`emit`一遍信号更改设置界面
 
 3. 关于扫描多任务下发bug
 
@@ -879,7 +886,118 @@ m_pPool->submit([this, pBundle]() {
    2. 修改了taskBegain处的逻辑，一个任务、多个任务如何处理
    3. 第二次从队列中取出并通过MessageCenter向terminal_datils发送Buddle时，不给Buddle赋值data，只赋type
 
+5. 软件卸载上报bug：在中控下发卸载指令后，执行卸载操作并增加执行卸载上报。中控下发的卸载 由强制卸载 和 非强制两种  强制是中控数据库直接把这个端的信息删了  非强制是端在收到卸载指令后  上报卸载 然后 中控再清除这个端的信息  
 
+   **问题**：为什么不在组件terminal_details中，而在upgrade插件中。
+
+   **原因**：detail是各种资料，不适合放在这个组件，放在upgrade插件下，一样通过ipc接收消息到插件。
+
+6. 启动safed出现下面这样的错误，需要把timedTask的数据库删掉
+
+   > 同11
+
+   ```
+   0x00005555556eff27 in CDBTimedTasksOper::disposal (this=0x55555625cce0 <sdbTimedTasksOper>,
+   ```
+
+7. 暂停、继续界面文案bug：
+
+   **笔记**：
+
+   1. 中控下发暂停，ui界面文案显示bug：接收到中控下发的暂停扫描时，ui界面文案修改
+
+   2. 中控暂停逻辑：当中控下发暂停扫描->scan插件收到pause任务->scan插件给gjcz发送任务，同时给UI发送状态信息
+   3. 界面暂停逻辑：UI界面下发暂停->scan_moudle向scan插件发送信息->scan插件接收到任务->给gjcz发送
+   4. 界面恢复逻辑：scan_moudle接收scan插件收到信息，通过信号槽响应到UI界面
+
+   > UI moudle层执行的各种操作都是通过插件(safed)层
+
+   **问题**：
+
+   1. 中控下发只给gjcz给暂停了，并没有给ui发送状态信息，导致gjcz暂停而字段没有更改。
+   2. 如果说在插件部分分情况处理，没有办法判断哪一次是中控下发，哪一次是UI界面
+   3. 想法：把UI界面的响应和中控的响应放一块，把界面的修改放到moudle发送的信号响应槽中。
+
+   **解决**：
+
+   1. UI点击信号槽：如果是暂停，那就给助手发送暂停，如果是继续，就给助手发送继续
+   2. 助手收到消息向gjcz发送命令，同时向moudle发送响应
+   3. moudle接收消息与UI发送信号槽，从而改变UI文案
+
+8. 使用授权弹窗bug：当授权信息达到3次就会在下一次启动RJJH时弹窗
+
+   **思路**：
+
+   1. RJJH启动时都会向`safed`获取授权信息。`safed`在向RJJH发送数据时判断下是否超过三次，并加入一个判断字段。`RJJH`检测该字段来弹窗
+   2. 弹窗复用`Warnning`弹窗，在`DLG_STATUS`里面加个授权弹窗字段，在`setStatus`中加入该`case`选项。
+   3. 在`FramelessWindow`中，加入弹窗点击"更换中控"的信号槽，跳转到授权管理界面
+
+   **笔记**:
+
+   1. qt下的`moudle`工作原理：先向中控发送请求消息(通过助手),中控将对应的信息传递过来(通过助手的`subscribe`和`publish`)
+
+9. 关于强力查杀bug
+
+   **分析**：
+
+   1. 使用`FULL_SCAN`字段下发任务，具体实现在`FULL_SCAN`任务处理那块找
+
+      ```
+      string strong_sign = 5; // 强力查杀标识，兼容老版本客户端，老版本执行全盘查杀，新版本解析此标识，1为强力查杀，0为全盘查杀
+      ```
+
+   2. `ScanFullTask`初始化时会`detach`一个线程：读取强力查杀留下的标记文件、如果含有强力查杀标记，那么就执行一次全盘扫描。
+
+      `task`函数：由于全盘和强力是同一个param，对其执行全盘扫描，并判断type是否是强力查杀，如果是那么将本次参数记录到`conf`文件中，供重启后执行扫描使用
+
+   3. 扫描最终执行的是给告警处置模块处理了？(通过gjcz的IPC)
+
+   **未完成部分**：
+
+   1. 没有进行病毒库升级                    -----需要创建升级任务放入队列 
+   2. 是否不允许终端暂停或停止、需要验证        ----------UI层实现
+   3. 扫描是否加入信任区文件          ---------应该是，因为全盘扫描从 /根目录下面同一扫
+   4. 发现病毒如何自动清除          ------auto_remove | auto_clear 字段 或者在HIpDip的界面处理逻辑上
+   5. 如何清除病毒后实现重启       ----------UI层实现
+
+   **解决**：
+
+   1. 重写了病毒库升级，并使用`callbcak`，让病毒库升级可以用到其他组件的功能。
+   2. 在强力查杀前先检查病毒库升级，待升级结束后再进行查杀任务。
+   3. 修改了读重启文件，修复了RJJH那块的逻辑
+
+10. 关于病毒库升级：需要在查杀前进行病毒库升级，所以目的把病毒库单独拿出来
+
+    **思路**：
+
+    1. 病毒库升级只留内部的`terminalUpgradeVirusLibraryCenterMode`处理信息
+    2. 上报、通信UI在外层，在查杀那块调用
+    3. 内层需要获取版本号等其他组件功能，使用`callback`回调函数，在`general_operator_impl`中传递给它
+
+    **解决**：
+
+    1. 在scan插件下单独封装一个病毒库升级类。scan_flow_controller所有需要使用的升级函数都在这里面
+    2. taskExecutionBegins、notifyUIVirusLibraryUpgrade、detectingUpgradeClientConnectionStatus、terminalVersionInfoSync、taskExecutionCompleted、reportAction。这些是在插件直接拿出来用的。
+    3. callback：getAuthKeySNCode、virusLibraryVersion、checkDetectionAuthorization、sendMsgToUI、asyncReport这些是要作为callback参数传递的
+
+11. 定时任务和定时查杀导致safed崩溃bug
+
+    **思路**：dispose函数崩溃？加载不出来。读取SQlite数据库的问题
+
+    **解决**：Sqlite表中有8列数据，而实际需要提取的只有7列。所以循环末尾加`index++`跳过最后一个
+
+    > 参考terminal_details_cache.cpp  129实现sqlite数据库读取方式
+
+12. 主防编译时问题：
+
+    **问题**：未找到目标静态库时使用系统自带库的bug导致主防异常
+
+    **思路**：
+
+    1. `find_library`：查看其用法，尝试只编译静态库，如果找不到静态库返回异常
+    2. 把那两个库使用set的用法编译
+
+    **解决**：第一种方式，加上`NO_DEFAULT_PATH`字段即可限制只在目标路径下寻找
 
 ## 三、技术问题
 
@@ -1241,13 +1359,28 @@ m_pPool->submit([this, pBundle]() {
 
 1. 如何修改ubuntu下的权限，省的每次都得用sudo
 
-2. qt的moudle层如何与safed通信的？safed如何与中控通信的？
+2. 查看`.clang-format`如何设置，规格化工具
+
+3. 使用VScode插件
+
+   ```
+   Clang-Format  代码格式化插件
+   koroFileHeader 注释文件和函数的快捷方式
+   Better Comments 注释分类，不同注释不同颜色
+   gitlens 展示每行代码的提交人、提交时间
+   git history 展示git历史提交记录
+   Tabnine 人工智能
+   remote development 远程开发插件
+   Color Highlight 显示代码中关于颜色的代码直接显示颜色
+   ```
+
+4. qt的moudle层如何与safed通信的？safed如何与中控通信的？
 
    > RJJH下面的ipc文件夹下的IIPCBaseModelInterface，负责send和receive助手之间的数据
 
-3. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
+5. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
 
-4. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
+6. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
 
    ```
    #下面两句如何实现的?
@@ -1255,146 +1388,28 @@ m_pPool->submit([this, pBundle]() {
    std::string msgData = BundleHelper::getBundleBinary4String(pIn, JYMessageBundleKey::JYMessageBinValue, "");
    ```
 
-5. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能？线程池如何运转
+7. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能？线程池如何运转
 
-6. 查看`.clang-format`如何设置，规格化工具
+8. `core`与组件和插件之间的关系，画图梳理->类图建立
 
-7. `core`与组件和插件之间的关系，画图梳理->类图建立
+   
 
-8. 组件之间通信都是靠`message_center`的发布-订阅模式进行传递消息并执行相应操作。给组件传递消息是通过`plugin_manager`的注册消息订阅以及对回调时对不同插件调用`onNewNotify`函数
+#### 2. 工作部分
 
-9. 在40上面编写的包在本地安装后。当使用gdb调试，打断点发现打的路径是40上面的路径。所以需要在本地打对应的包移动并替换
+1. 打包脚本bug：
 
-10. UI的FramelessWindow：构造函数内部除了建立信号槽以外，末尾部分调用了各model的请求函数，向safed/中控发出请求，并在内部有接收函数，进而刷新后台数据展示到界面
+   **问题**：
 
-    ```
-    m_pTerminalInfoModel->requestTerminalInformation();
-    m_pScanModel->requestScanProcessResult();
-    m_pTerminalAuthModel->requestTerminalAuthorizeInfo();
-    m_pUIConfigModel->requestTerminalConfigInfo();
-    m_pProtectLogModel->slotRequestProtectLogInfo(10);
-    m_pUpgradeModel->terminalVersionInfoRequest();
-    ```
+   1. 产品图标和产品名称不统一
+   2. 脚本打包三个版本，有一个版本失败，找出原因
 
-11. 关于强力查杀bug
+   **思路**：
 
-    **分析**：
-
-    1. 使用`FULL_SCAN`字段下发任务，具体实现在`FULL_SCAN`任务处理那块找
-
-       ```
-       string strong_sign = 5; // 强力查杀标识，兼容老版本客户端，老版本执行全盘查杀，新版本解析此标识，1为强力查杀，0为全盘查杀
-       ```
-
-    2. `ScanFullTask`初始化时会`detach`一个线程：读取强力查杀留下的标记文件、如果含有强力查杀标记，那么就执行一次全盘扫描。
-
-       `task`函数：由于全盘和强力是同一个param，对其执行全盘扫描，并判断type是否是强力查杀，如果是那么将本次参数记录到`conf`文件中，供重启后执行扫描使用
-
-    3. 扫描最终执行的是给告警处置模块处理了？(通过gjcz的IPC)
-
-    **未完成部分**：
-
-    1. 没有进行病毒库升级                    -----需要创建升级任务放入队列 
-    2. 是否不允许终端暂停或停止、需要验证        ----------UI层实现
-    3. 扫描是否加入信任区文件          ---------应该是，因为全盘扫描从 /根目录下面同一扫
-    4. 发现病毒如何自动清除          ------auto_remove | auto_clear 字段 或者在HIpDip的界面处理逻辑上
-    5. 如何清除病毒后实现重启       ----------UI层实现
-
-    **解决思路**：当接收到强力查杀任务key后，往任务队列中插入病毒库升级任务和强力查杀任务进行排队，等到病毒库升级成功后再执行强力查杀任务。
-
-    1. 优先级：查看配置文件是否有病毒库升级任务
-    2. upgrade中是否像terminal_details一样，先订阅key和处理逻辑。方便任务队列调用
-    3. 在接收到强力查杀任务后，启动病毒库升级任务(需自己实现)，待其完成后实现强力查杀
-
-    **解决**：
-
-    1. 在强力查杀任务处，使用Task_managerBegain，传入key为VIRUS_LIB_UPGRADE ，value为UpgradeParam（其中类型为bool silent。0为不静默）
-
-    2. gdb调试，看卡哪里了
-
-
-   **11.7新问题**：
-
-   1. 病毒升级卡在publish的锁那块，必须等强力扫描加入任务队列，才会解锁执行升级对应函数。强力扫描状态为begin，开始功能；病毒重新提交任务，状态为init，也开始功能。导致同步进行。
-      2. 原因：执行publish时对发布队列进行了加锁，所以当病毒升级任务需要publish时也需要锁，最终造成了死锁的情况。
-
- **11.8新问题解决思路**
-
-1. 使用句柄，把病毒升级的那部分功能摘出来，重新封装一个cpp，跟task_manager一样，单纯的功能类。不同的是需要使用CGeneralOperatorAdapter对象shared指针，获取句柄，升级前执行UI弹窗，升级后执行版本号升级。
-2. CGeneralOperatorImpl加入新对象。在CGeneralOperatorAdapter中加入新对象并加入新的执行病毒库升级函数
-3. 修改相应部分，到强力扫描插件处，直接执行该功能函数(这个不是多线程)，然后执行强力查杀。如果是多线程，那么就在执行病毒库升级前加入任务队列begain状态。
-
- **11.9问题**
-
-1. operator使用句柄时，没有接收指针类型的拷贝构造。
+   1. 根据老脚本-贴牌配置脚本，使用python实现新脚本，注：单独放一个文件夹中
 
 
 
-10. 查杀完关闭/重启操作：是否是因为dialog初始化后，即使没有show窗口，他也会执行对应的操作(触发信号槽啥的)
-    1. autoShutoffDialog对象的init函数传入的force字段全是true，都会执行downTimer计时器启动操作：autoShutoffDialog对象初始化时连接计时器信号槽，槽函数中，当m_iCountDown<=0时就会执行关机/重启命令
-    2. 分析问题：是否是因为界面exec未执行，导致以为是没有触发关机/重启操作。只要界面没有打开，它会默认在1分钟之后执行命令操作。
-
-11. 软件卸载上报bug：在中控下发卸载指令后，执行卸载操作并增加执行卸载上报。中控下发的卸载 由强制卸载 和 非强制两种  强制是中控数据库直接把这个端的信息删了  非强制是端在收到卸载指令后  上报卸载 然后 中控再清除这个端的信息  
-
-    问题：为什么不在组件terminal_details中，而在upgrade插件中。
-
-    原因：detail是各种资料，不适合放在这个组件，放在upgrade插件下，一样通过ipc接收消息到插件。
-
-12. 启动safed出现下面这样的错误，需要把timedTask的数据库删掉
-
-    ```
-    0x00005555556eff27 in CDBTimedTasksOper::disposal (this=0x55555625cce0 <sdbTimedTasksOper>,
-    ```
-
-13. 中控下发暂停，ui界面文案显示bug：接收到中控下发的暂停扫描时，ui界面文案修改
-
-    中控暂停逻辑：当中控下发暂停扫描->scan插件收到pause任务->scan插件给gjcz发送任务，同时给UI发送状态信息
-
-    界面暂停逻辑：UI界面下发暂停->scan_moudle向scan插件发送信息->scan插件接收到任务->给gjcz发送
-
-    界面恢复逻辑：scan_moudle接收scan插件收到信息，通过信号槽响应到UI界面
-
-    > UI moudle层执行的各种操作都是通过插件(safed)层
-
-    **问题**：
-
-    1. 中控下发只给gjcz给暂停了，并没有给ui发送状态信息，导致gjcz暂停而字段没有更改。
-    2. 如果说在插件部分分情况处理，没有办法判断哪一次是中控下发，哪一次是UI界面
-    3. 想法：把UI界面的响应和中控的响应放一块，把界面的修改放到moudle发送的信号响应槽中。
-
-    **解决**：
-
-    1. UI点击信号槽：如果是暂停，那就给助手发送暂停，如果是继续，就给助手发送继续
-    2. 助手收到消息向gjcz发送命令，同时向moudle发送响应
-    3. moudle接收消息与UI发送信号槽，从而改变UI文案
-
-14. 使用授权弹窗bug：当授权信息达到3次就会在下一次启动RJJH时弹窗
-
-    **思路**：
-
-    1. RJJH启动时都会向`safed`获取授权信息。`safed`在向RJJH发送数据时判断下是否超过三次，并加入一个判断字段。`RJJH`检测该字段来弹窗
-    2. 弹窗复用`Warnning`弹窗，在DLG_STATUS里面加个授权弹窗字段，在setStatus中加入该case选项。
-    3. 在`FramelessWindow`中，加入弹窗点击"更换中控"的信号槽，跳转到授权管理界面
-
-    **笔记**:
-
-    1. qt下的moudle工作原理：先向中控发送请求消息(通过助手),中控将对应的信息传递过来(通过助手的subscribe和publish)
-
-15. 病毒库升级单独拿出来
-
-    **思路**：
-
-    1. 病毒库升级只留内部的`terminalUpgradeVirusLibraryCenterMode`处理信息
-    2. 上报、通信UI在外层，在查杀那块调用
-    3. 内层需要获取版本号等其他组件功能，使用`callback`回调函数，在`general_operator_impl`中传递给它
-
-    **解决**：
-
-    1. 在scan插件下单独封装一个病毒库升级类。scan_flow_controller所有需要使用的升级函数都在这里面
-    2. taskExecutionBegins、notifyUIVirusLibraryUpgrade、detectingUpgradeClientConnectionStatus、terminalVersionInfoSync、taskExecutionCompleted、reportAction。这些是在插件直接拿出来用的。
-    3. callback：getAuthKeySNCode、virusLibraryVersion、checkDetectionAuthorization、sendMsgToUI、asyncReport这些是要作为callback参数传递的
-
-#### 2. 代码部分
+#### 3. 代码部分
 
 1. md5:MD5（Message-Digest Algorithm 5）是一种广泛使用的加密哈希函数，能够将任意长度的输入数据（通常称为消息）转换为固定长度的输出，具体来说是 128 位（16 字节）长的哈希值。
 
@@ -1697,6 +1712,7 @@ m_pPool->submit([this, pBundle]() {
     ctrl + 左键	   #进入函数
     ctrl + alt + -	#默认返回函数，这个-不能用小键盘上的
     alt + leftarrow(左箭头)  #修改后的返回函数快捷键 
+    ctrl + ` (esc下面那个) #打开终端
     ```
 
 22. ubuntu清屏快捷键
@@ -1885,5 +1901,213 @@ m_pPool->submit([this, pBundle]() {
     # /path/to/destination/ 是远程主机上的目标路径。
     ```
 
-    
+39. Sqlite3查看表的结构
 
+    ```
+    PRAGMA table_info(table_name);			#在Sqlite下
+    ```
+
+    ```
+    #表的结构如下
+    cid   name        type       notnull   dflt_value   pk
+    0     id          INTEGER    1         NULL         1
+    1     name        TEXT       0         NULL         0
+    2     age         INTEGER    0         NULL         0
+    cid: 字段的序号（从 0 开始）。
+    name: 字段的名称。
+    type: 字段的数据类型。
+    notnull: 是否允许 NULL 值（1 表示不允许）。
+    dflt_value: 默认值。
+    pk: 是否为主键（1 表示是主键）
+    ```
+
+40. C++提取Sqlite3数据库的两种方式
+
+    ```c++
+    #方式一：使用sqlite3_get_table函数
+    
+    /**
+     * @brief: 读取sqlite表中数据
+     * @param db: 打开的数据对象
+     * @param zSql: 命令
+     * @param pazResult: 读到的数据
+     * @param pnRow: 行数
+     * @param pnColumn: 列数
+     * @retval: sqlite3_get_table的返回值
+     */
+    int jy_sqlite_get_table(sqlite3 *db, const char *zSql, char ***pazResult, int *pnRow, int *pnColumn)
+    {
+        int res;
+        char *err_msg;
+        res = sqlite3_get_table(db, zSql, pazResult, pnRow, pnColumn, &err_msg);
+        if (res != SQLITE_OK)
+            LOG(ERROR) << "CDBTimedTasksOper Select! err:[" << err_msg << "]";
+        if (err_msg)
+            sqlite3_free(err_msg);
+        return res;
+    }
+    ```
+
+    ```c++
+    #方式二：使用sqlite3_exec函数
+    
+    bool CTerminalDetailsCache::setLastScanInfo(const std::string &result, const std::string &time)
+    {
+        if (!m_sqlite) {
+            return false;
+        }
+        char *errmsg = nullptr;
+        char sql[1024] = {0};
+        snprintf(sql, sizeof(sql), "UPDATE terminal_details SET last_scan_result = \"%s\", last_scan_time = \"%s\" WHERE id = 1;", 
+                 result.c_str(), time.c_str());
+        int rc = sqlite3_exec(m_sqlite, sql, nullptr, nullptr, &errmsg);
+        if (rc != SQLITE_OK) {
+            sqlite3_free(errmsg);
+            return false;
+        }
+        return true;
+    }
+    ```
+
+41. gdb调试打断点，停在目标函数时，上方有传来的参数内存信息，可以查看是否传来的是否为空
+
+42. gdb调试模式下程序崩溃，使用bt查看崩溃在那个函数。重新在该函数打断点，一步步复现，查看崩在那个位置。
+
+43. git信任本地仓库。当检测到当前用户可能不是该仓库的所有者时会不能执行命令
+
+    ```
+    git config --global --add safe.directory /home/leslie/ChenxinSpace/normal_develop
+    ```
+
+44. ubuntu给非root用户添加sudo权限
+
+    ```
+    #方式一：
+    	# 为用户username添加sudo权限
+    	sudo usermod -a -G sudo username
+     
+    	# 去除用户username的sudo权限
+    	sudo usermod -G usergroup username
+    
+    #方式二：
+    	sudo vi /etc/sudoers
+    
+    	#在root的下面增加下面这行
+    	chenye    ALL=(ALL:ALL) ALL
+    ```
+
+45. cmake显示缺失LIB_CPR：拷贝lib到normal_development文件夹下
+
+46. 计算md5的值
+
+    ```
+    md5sum <库名>
+    ```
+
+47. vs里面查找某一行快捷键
+
+    ```
+    ctrl+G
+    ```
+
+48. git设置身份信息
+
+    ```
+    git config --global user.name "jiayuandi"
+    git config --global user.email "jiayuandi@v-secure.cn"
+    git config --l
+    ```
+
+49. git设置免密
+
+    ```
+    ssh-keygen -t rsa -b 4096 -C "jiayuandi@v-secure.cn"
+    cat .ssh/id_rsa.pub				
+    #复制公钥到git上
+    ```
+
+50. `.cmake`文件：后缀是 `.cmake` 的文件是 **CMake** 使用的脚本文件，通常用于定义构建系统的配置、设置变量、导入/导出目标以及包含其他模块
+
+    ```
+    include(MyCustomFile.cmake)				
+    #在cmakelist中使用cmake脚本
+    #在 .cmake 文件中定义的变量和函数会被导入当前的 CMake 环境
+    ```
+
+50. cmake脚本和cmakelist的区别:
+    1. `CMakeLists.txt`：用于描述项目的构建规则，是项目的入口文件
+    2. `.cmake` 文件：通常是辅助文件，提供模块、工具或特定功能的实现，`.cmake` 文件通过 `include()` 或其他机制被调用
+
+51. cmakelist中的list类型：
+
+    ```
+    list(APPEND ...) 命令用于将新的路径添加到现有的列表中
+    ```
+
+    ```
+    set(CURL_LIB_PATHS)    
+    if(EXISTS "${CX_THIRD_PARTY_DIR}")
+    	list(APPEND CURL_LIB_PATHS "${CX_THIRD_PARTY_DIR}/curl-7.81.0_prefix/lib")
+    	list(APPEND CURL_LIB_PATHS "${CX_THIRD_PARTY_DIR}/curl-7.81.0_prefix/lib64")
+    else ()
+    	list(APPEND CURL_LIB_PATHS "${CX_ARCHIVE_DIR}/curl-7.81.0_prefix/lib")
+    	list(APPEND CURL_LIB_PATHS "${CX_ARCHIVE_DIR}/curl-7.81.0_prefix/lib64") 
+    endif()
+    ```
+
+52.  cmakelist中使用`find_library` 命令查找指定的库文件并将其路径存储到变量中
+
+    ```
+    find_library(<VAR> NAMES <name> PATHS <path1> <path2> ... NO_DEFAULT_PATH)
+    <VAR>：存储找到的库路径的变量名。例如，这里是 LIB_CURL 和 LIB_CPR。
+    NAMES <name>：要查找的库的名称。例如：
+    	curl 表示要查找的 curl 库。
+    	cpr 表示要查找的 cpr 库。
+    PATHS <path1> <path2> ...：指定库的搜索路径列表。
+    NO_DEFAULT_PATH:限制只能从指定的路径列表下搜，如果不设置的话若找不到会从默认的路径下寻找。
+    
+    #案例： find_library(LIB_CURL NAMES curl PATHS ${CURL_LIB_PATHS})
+    这里用的是 ${CURL_LIB_PATHS}，它们之前通过 list(APPEND ...) 定义了库的多个可能路径。
+    ```
+
+53. ubuntu下查看本地的包
+
+    ```
+    dpkg -l | grep <包名>
+    ```
+
+54. ubuntu下卸载使用包管理模式安装的包
+
+    ```
+    sudo apt remove --purge <包名>
+    sudo apt autoremove
+    	#remove：卸载软件包。
+    	#--purge：同时删除与软件包相关的配置文件。
+    	#autoremove：清理未使用的依赖项。
+    ```
+
+55. linux授权指令
+
+    1. `chown`命令用于更改文件或目录的所有者和/或所属组
+
+       ```
+       chown [OPTION] OWNER[:GROUP] FILE
+       # sudo chown -R leslie normal_develop	
+       # OWNER：新的所有者用户名或用户ID。
+       # GROUP：新的组名或组ID（可选，如果不提供，则不会更改组）。
+       # FILE：要修改的文件或目录。
+       # OPTION：可选项，常用的选项有 -R（递归修改目录和其内容的所有者）
+       ```
+
+    2. `chmod`（change mode）命令用于更改文件或目录的权限。权限决定了谁可以读取、写入或执行文件
+
+       ```
+       chmod [OPTION] MODE FILE
+       # MODE：设置文件权限的方式，可以使用符号模式或数字模式来指定权限。
+       # FILE：要修改权限的文件或目录。
+       # OPTION：常用选项包括 -R（递归修改目录及其内容的权限）
+       ```
+
+       
+
+#### 4. 末尾
