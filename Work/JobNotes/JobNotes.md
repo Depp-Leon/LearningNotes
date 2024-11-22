@@ -125,7 +125,7 @@
 ##### 2. 插件管理`plugin_manager`
 
 ```
-loadPlugin：根据plugin.conf加载插件到map中
+loadPlugin：根据plugin.conf加载插件到map中(通过dlsym获取到插件接口的CreatePlugin函数创建插件接口实			 例)
 enablePlugin：遍历map，依次启动插件的init和start，并注册消息订阅，触发消息时执行publishPlugin
 unloadPlugin：根据插件名称卸载插件
 disablePlugin: 停止所有插件，启动插件的stop和release
@@ -1357,11 +1357,13 @@ m_pPool->submit([this, pBundle]() {
 
 #### 1. 项目部分
 
-1. 如何修改ubuntu下的权限，省的每次都得用sudo
+1. 父类子类关系
 
-2. 查看`.clang-format`如何设置，规格化工具
+2. 如何修改ubuntu下的权限，省的每次都得用sudo
 
-3. 使用VScode插件
+3. 查看`.clang-format`如何设置，规格化工具
+
+4. 使用VScode插件
 
    ```
    Clang-Format  代码格式化插件
@@ -1374,13 +1376,13 @@ m_pPool->submit([this, pBundle]() {
    Color Highlight 显示代码中关于颜色的代码直接显示颜色
    ```
 
-4. qt的moudle层如何与safed通信的？safed如何与中控通信的？
+5. qt的moudle层如何与safed通信的？safed如何与中控通信的？
 
    > RJJH下面的ipc文件夹下的IIPCBaseModelInterface，负责send和receive助手之间的数据
 
-5. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
+6. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
 
-6. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
+7. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
 
    ```
    #下面两句如何实现的?
@@ -1388,9 +1390,9 @@ m_pPool->submit([this, pBundle]() {
    std::string msgData = BundleHelper::getBundleBinary4String(pIn, JYMessageBundleKey::JYMessageBinValue, "");
    ```
 
-7. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能？线程池如何运转
+8. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能？线程池如何运转
 
-8. `core`与组件和插件之间的关系，画图梳理->类图建立
+9. `core`与组件和插件之间的关系，画图梳理->类图建立
 
    
 
@@ -1407,7 +1409,22 @@ m_pPool->submit([this, pBundle]() {
 
    1. 根据老脚本-贴牌配置脚本，使用python实现新脚本，注：单独放一个文件夹中
 
+2. 强力查杀
 
+   **问题**：
+
+   1. 连续下发两次强力查杀，病毒库依旧升级，且中控取消不掉
+   2. 病毒库升级策略：先向中控申请、再向外网、最后如果都升级不了就用本地的
+   3. 中控取消查杀后不要后续的关机操作
+   4. 查杀结束后的弹窗，改为提示弹窗，倒计时为60秒
+
+   **解决**：
+
+   1. `scanUiChange`的几个状态：
+      - `SCAN_FINAL_RES`没有病毒的情况下
+      - `SCAN_VIR_SHOW_AND_CLEAN`查到有病毒且设置了自动清理
+      - `SCAN_VIR_SHOW`查到有病毒的情况下，展示病毒
+   2. 在病毒库升级加个判断逻辑，如果队列中有强力查杀就不执行本次病毒库升级。第二次的查杀也会在任务队列中等待清除
 
 #### 3. 代码部分
 
@@ -2086,7 +2103,7 @@ m_pPool->submit([this, pBundle]() {
     	#autoremove：清理未使用的依赖项。
     ```
 
-55. linux授权指令
+56. linux授权指令
 
     1. `chown`命令用于更改文件或目录的所有者和/或所属组
 
@@ -2106,6 +2123,71 @@ m_pPool->submit([this, pBundle]() {
        # MODE：设置文件权限的方式，可以使用符号模式或数字模式来指定权限。
        # FILE：要修改权限的文件或目录。
        # OPTION：常用选项包括 -R（递归修改目录及其内容的权限）
+       ```
+
+57. `dlopen`、`dlsym` 和 `dlclose` 是 Linux 动态链接库相关的函数，用于在运行时加载和使用共享库（动态库）。它们定义在 `<dlfcn.h>` 头文件中，属于 POSIX 标准的一部分
+
+    1. `dlopen`：用于加载共享库，并返回一个句柄以供后续操作
+
+       ```
+       void *dlopen(const char *filename, int flag);
+       
+       #参数：
+       filename：动态库的路径。如果是绝对路径，则直接加载。如果是相对路径，则相对于当前工作目录查找。
+       			如果传递 NULL，则返回默认程序的全局符号表句柄。
+       flag：控制库的加载行为，可使用以下标志：
+       	RTLD_LAZY：延迟解析符号，只有在真正调用时才会加载。
+       	RTLD_NOW：立即解析所有未定义的符号。
+       	RTLD_GLOBAL：将库的符号放入全局符号表，使其对后续加载的库可见。
+       	RTLD_LOCAL：符号仅对当前加载的库可见（默认行为）
+       	
+       #案例
+       void *handle = dlopen("libexample.so", RTLD_LAZY);
+       if (!handle) {
+       	#可通过 dlerror() 获取详细错误信息
+           fprintf(stderr, "Error: %s\n", dlerror());
+       }
+       ```
+
+    2.  `dlsym`：从动态库中获取指定符号的地址，通常用于获取函数指针或变量地址
+
+       > 在插件接口cpp中：`PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()`
+
+       ```
+       void *dlsym(void *handle, const char *symbol);
+       
+       #参数：
+       handle：dlopen 返回的句柄。
+       symbol：需要查找的符号名称（通常是函数名或全局变量名）。
+       
+       #案例：
+       using CreatePluginFunc = std::unique_ptr<IPlugin>();
+       CreatePluginFunc *createPlugin = reinterpret_cast<CreatePluginFunc *>(dlsym(handle, "createPlugin"));
+       if (!createPlugin) {
+             std::cerr << "Error getting createPlugin function: " << dlerror() << std::endl;
+              dlclose(handle);
+              return false;
+       }
+       ```
+
+    3. `dlclose`：关闭动态库，并释放相关资源
+
+       ```
+       int dlclose(void *handle);
+       
+       #返回值：
+       成功：返回 0。
+       失败：返回非零值
+       ```
+
+    4. `dlerror`：返回最近一次 `dlopen`、`dlsym` 或 `dlclose` 调用的错误信息。
+
+       ```
+       const char *dlerror(void);
+       
+       #效果：
+       成功调用 dlopen、dlsym 或 dlclose 后，会清除错误状态。
+       返回值是一个描述错误的字符串，或 NULL 表示没有错误。
        ```
 
        
