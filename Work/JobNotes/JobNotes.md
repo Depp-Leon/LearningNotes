@@ -998,6 +998,31 @@ m_pPool->submit([this, pBundle]() {
     2. 把那两个库使用set的用法编译
 
     **解决**：第一种方式，加上`NO_DEFAULT_PATH`字段即可限制只在目标路径下寻找
+    
+13. 强力查杀之病毒库
+
+    **问题**：
+
+    1. 连续下发两次强力查杀，病毒库依旧升级，且中控取消不掉
+    2. 病毒库升级策略：先向中控申请、再向外网、最后如果都升级不了就用本地的
+    3. 中控取消查杀后不要后续的关机操作
+    4. 查杀结束后的弹窗，改为提示弹窗，倒计时为60秒
+
+    **解决**：
+
+    1. 在病毒库升级加个判断逻辑，如果队列中有强力查杀就不执行本次病毒库升级。第二次的查杀也会在任务队列中等待清除
+
+    2. 关于病毒库版本上报：修改了病毒库升级逻辑；由于会重启，所以等待重启后的版本号上报即可。
+
+    3. `scanUiChange`的几个状态：
+
+       - `SCAN_FINAL_RES`没有病毒的情况下
+       - `SCAN_VIR_SHOW_AND_CLEAN`查到有病毒且设置了自动清理
+       - `SCAN_VIR_SHOW`查到有病毒的情况下，展示病毒
+
+       在scanmodel中获取取消操作数据，在scanUIChange事件中设置isScanCancel。最后在事件处理器中判断是否为手动取消，如果取消那么就不执行关机或者重启。
+
+    4. 在手动取消任务执行前，先将强力查杀标记文件删除，这样下次就不会执行全盘查杀操作。
 
 ## 三、技术问题
 
@@ -1394,7 +1419,21 @@ m_pPool->submit([this, pBundle]() {
 
 9. `core`与组件和插件之间的关系，画图梳理->类图建立
 
-   
+10. 关于RJJH里面的自定义事件处理：
+
+    1. 在**event**文件夹中创建自定义事件
+
+    2. 在scan**Model**中接收信息、创建事件并通过发送信号`signal`将事件传递到主界面**UI**的Framless中
+
+    3. **UI**通过槽函数，`postEvent`在本对象Framless中发送事件
+
+    4. Framless重写了`eventFilter`事件处理器后，初始化构造中通过`installEvent`绑定自己本身
+
+       ```
+       QApplication::instance()->installEventFilter(this);
+       ```
+
+       
 
 #### 2. 工作部分
 
@@ -1409,22 +1448,12 @@ m_pPool->submit([this, pBundle]() {
 
    1. 根据老脚本-贴牌配置脚本，使用python实现新脚本，注：单独放一个文件夹中
 
-2. 强力查杀
 
-   **问题**：
+2. 查杀查出病毒后的日志上报
 
-   1. 连续下发两次强力查杀，病毒库依旧升级，且中控取消不掉
-   2. 病毒库升级策略：先向中控申请、再向外网、最后如果都升级不了就用本地的
-   3. 中控取消查杀后不要后续的关机操作
-   4. 查杀结束后的弹窗，改为提示弹窗，倒计时为60秒
+   **思路**：`ScanCount::recordScanDetails`  617行的 627有问题。使用bt 查看哪里改动了clean_result字段
 
-   **解决**：
 
-   1. `scanUiChange`的几个状态：
-      - `SCAN_FINAL_RES`没有病毒的情况下
-      - `SCAN_VIR_SHOW_AND_CLEAN`查到有病毒且设置了自动清理
-      - `SCAN_VIR_SHOW`查到有病毒的情况下，展示病毒
-   2. 在病毒库升级加个判断逻辑，如果队列中有强力查杀就不执行本次病毒库升级。第二次的查杀也会在任务队列中等待清除
 
 #### 3. 代码部分
 
@@ -2190,6 +2219,204 @@ m_pPool->submit([this, pBundle]() {
        返回值是一个描述错误的字符串，或 NULL 表示没有错误。
        ```
 
+58. 事件是如何定义、触发、使用的
+
+    1. 事件拦截：通过事件过滤器，某个对象可以捕获并处理其他对象的事件；
+
+       ```
+       installEventFilter(QObject *filterObj)
+          installEventFilter() 是目标对象的方法，用于为目标对象安装一个事件过滤器（filterObj）。
+       	一旦安装了事件过滤器，filterObj 的 eventFilter() 方法会接收目标对象的所有事件。
        
+       #作用范围：
+       1. 目标对象本身的事件：包括鼠标事件、键盘事件等。
+       2. 目标对象的子对象的事件（如果 filterObj 安装在父对象上）。
+       ```
+
+       ```
+       eventFilter(QObject *watched, QEvent *event)
+       	eventFilter() 是过滤器对象（filterObj）的方法，用于处理目标对象传递的事件。当目标对象接收到事件时，Qt 会先调用 filterObj 的 eventFilter() 方法。
+       	
+       #参数
+       1. watched：目标对象（即安装了当前过滤器的对象）。
+       2. event：发生的具体事件（如鼠标事件、键盘事件等）。
+       #返回值
+       1. true：表示事件已被过滤器处理，目标对象不会再处理该事件。
+       2. false：事件未被处理，会继续传递到目标对象。
+       ```
+
+       ```
+       #步骤：
+       1. 调用 installEventFilter() 在对象上安装过滤器，设置哪个对象的事件需要被过滤器对象监控。
+          
+       2. 重载过滤器对象的 eventFilter() 方法处理事件，eventFilter() 是事件过滤器的具体实现，用于拦截和处理事件
+       ```
+
+       ```c++
+       #include <QApplication>
+       #include <QWidget>
+       #include <QEvent>
+       #include <QDebug>
+       
+       # 示例：当widget的鼠标被按下时，将会进入eventFilter处理中
+       class MyFilter : public QObject {
+       protected:
+           bool eventFilter(QObject *watched, QEvent *event) override {
+               if (event->type() == QEvent::MouseButtonPress) {
+                   qDebug() << "Mouse button press detected on" << watched;
+                   return true; // 阻止事件继续传递
+               }
+               return QObject::eventFilter(watched, event);
+           }
+       };
+       
+       int main(int argc, char *argv[]) {
+           QApplication app(argc, argv);
+       
+           QWidget widget;
+           MyFilter filter;
+       
+           widget.installEventFilter(&filter);
+           widget.show();
+       
+           return app.exec();
+       }
+       ```
+
+    2. 自定义事件
+
+       ```
+       #步骤
+       1. 创建自定义事件类，继承自 QEvent。
+       2. 使用 QCoreApplication::postEvent 或 QApplication::sendEvent 发送事件。
+       3. 重载 event() 函数处理事件。
+       ```
+
+       ```c++
+       #include <QEvent>
+       #include <QApplication>
+       #include <QWidget>
+       #include <QDebug>
+       
+       // 自定义事件类型
+       class MyCustomEvent : public QEvent {
+       public:
+           static const QEvent::Type EventType;
+           MyCustomEvent() : QEvent(EventType) {}
+       };
+       
+       const QEvent::Type MyCustomEvent::EventType = static_cast<QEvent::Type>(QEvent::User + 1);
+       
+       class MyWidget : public QWidget {
+       protected:
+           bool event(QEvent *event) override {
+               if (event->type() == MyCustomEvent::EventType) {
+                   qDebug() << "Custom event received!";
+                   return true;
+               }
+               return QWidget::event(event);
+           }
+       };
+       
+       int main(int argc, char *argv[]) {
+           QApplication app(argc, argv);
+       
+           MyWidget widget;
+           widget.show();
+       
+           // 发送自定义事件
+           QCoreApplication::postEvent(&widget, new MyCustomEvent());
+       
+           return app.exec();
+       }
+       ```
+
+    3. 重载特定事件处理函数：每个控件都有一组专门的事件处理函数，你可以重载这些函数以实现自定义行为
+
+       ```
+       #常用事件处理函数
+       鼠标事件：mousePressEvent、mouseReleaseEvent、mouseMoveEvent。
+       键盘事件：keyPressEvent、keyReleaseEvent。
+       窗口事件：resizeEvent、paintEvent。
+       焦点事件：focusInEvent、focusOutEvent。
+       ```
+
+       ```c++
+       #include <QWidget>
+       #include <QMouseEvent>
+       #include <QDebug>
+       
+       #示例：鼠标事件处理
+       class MyWidget : public QWidget {
+       protected:
+           void mousePressEvent(QMouseEvent *event) override {
+               if (event->button() == Qt::LeftButton) {
+                   qDebug() << "Left mouse button clicked at:" << event->pos();
+               }
+           }
+       };
+       ```
+
+    4. 重载 `event()` 函数：`event()` 是所有事件的入口点。如果需要统一处理某些事件类型，可以重载 `event()`。
+
+       ```c++
+       #include <QEvent>
+       #include <QDebug>
+       
+       #示例：拦截特定事件
+       class MyWidget : public QWidget {
+       protected:
+           bool event(QEvent *event) override {
+               if (event->type() == QEvent::KeyPress) {
+                   qDebug() << "Key press detected!";
+                   return true; // 阻止进一步处理
+               }
+               return QWidget::event(event); // 调用基类处理
+           }
+       };
+       
+       ```
+
+    5. 优先级顺序
+
+       ```
+       1. eventFilter() 处理最优先。
+       2. 如果过滤器不处理，则进入 event()。
+       3. 如果 event() 不处理，则进入特定事件处理函数（如 mousePressEvent）。
+       ```
+
+    6. 总结
+
+       ```
+       简单事件处理：重载特定事件处理函数。
+       复杂事件处理：重载 event()。
+       自定义事件：扩展 QEvent，并通过 postEvent 或 sendEvent 发送。
+       全局监听：使用事件过滤器
+       ```
+
+59. `event->type() > QEvent::User` 的含义：`QEvent::User` 是一个事件类型常量，用于标识用户自定义事件的起始范围。它的值通常定义为一个整数（如 1000），大于这个值的事件类型都属于用户定义事件。
+
+60. `QApplication::instance()`获取当前正在运行的 `QApplication` 对象
+
+    ```
+    QApplication::instance()->installEventFilter(this);
+    ```
+
+61. git提交多行注释
+
+    ```
+    git commit   #省略-m 进入nano文本编辑模式
+    
+    #在文本编辑后
+    按下 Ctrl + O（保存文件）。
+    按下 Enter 确认文件名（通常是默认的临时文件）。
+    按下 Ctrl + X（退出编辑器）。
+    ```
+
+    
+
+
+
+
 
 #### 4. 末尾
