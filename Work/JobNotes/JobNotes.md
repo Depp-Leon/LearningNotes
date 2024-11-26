@@ -1023,6 +1023,29 @@ m_pPool->submit([this, pBundle]() {
        在scanmodel中获取取消操作数据，在scanUIChange事件中设置isScanCancel。最后在事件处理器中判断是否为手动取消，如果取消那么就不执行关机或者重启。
 
     4. 在手动取消任务执行前，先将强力查杀标记文件删除，这样下次就不会执行全盘查杀操作。
+    
+14. 查杀查出病毒后的日志上报
+
+    **思路**：
+
+    1. `ScanCount::recordScanDetails`  617行的 627有问题。使用bt 查看哪里改动了clean_result字段
+
+    2. 扫描停止就记录日志？还是说处理后再记录？
+
+    3. 67行`virusResult`是扫描结束后自动触发sacnstop
+
+       285行`scanAction`是手动取消后触发scanstop
+
+       `scanstop`中有各种上报和记录日志，其中就有`recordScanLog`
+
+       `recordScanLog`中有记录日志和记录详细日志。但是这是没有处理的，所以处理数量为0，且详细日志中显示未处理
+
+    4. `recordProtectionLogs`它的参数param的 `isUpdate`，用于刷新上一次的日志
+
+    **解决**：
+
+    1. 上报实际上上报了两次，stopScan上报一次，等到界面下发结束标志之后又上报一次。标记参数iosupdate为true，只是刷新上一次保存在sqlite中的记录。
+    2. 问题在于处理威胁的过程中，传递的action是错误的。
 
 ## 三、技术问题
 
@@ -1382,8 +1405,6 @@ m_pPool->submit([this, pBundle]() {
 
 #### 1. 项目部分
 
-1. 父类子类关系
-
 2. 如何修改ubuntu下的权限，省的每次都得用sudo
 
 3. 查看`.clang-format`如何设置，规格化工具
@@ -1406,6 +1427,8 @@ m_pPool->submit([this, pBundle]() {
    > RJJH下面的ipc文件夹下的IIPCBaseModelInterface，负责send和receive助手之间的数据
 
 6. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
+
+6. 动态库之间如何相互调用，动态库是如何使用的
 
 7. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
 
@@ -1443,17 +1466,21 @@ m_pPool->submit([this, pBundle]() {
 
    1. 产品图标和产品名称不统一
    2. 脚本打包三个版本，有一个版本失败，找出原因
+   3. Python脚本和shell脚本。如何将shell脚本转Python脚本
 
    **思路**：
 
    1. 根据老脚本-贴牌配置脚本，使用python实现新脚本，注：单独放一个文件夹中
 
+2. 后续暴力破解需要合并到主防，且前端有可能要重构。后续可能要我参加前端的操作，下月主要解bug，脚本和界面优化：颜色、`tableview`展示设计整体框架。
 
-2. 查杀查出病毒后的日志上报
+3. 防卸载bug:
 
-   **思路**：`ScanCount::recordScanDetails`  617行的 627有问题。使用bt 查看哪里改动了clean_result字段
+   **问题**：
 
-
+   1. terminal_detail_component中接收中控密码并传递给界面model
+   2. terminal_info_model接收助手传来的密码信息，并通过信号槽传递给auth_model中保存密码
+   3. 在uninstall脚本中，卸载前判断是否存在密码文件，若有，则解密提取密码，让其输入
 
 #### 3. 代码部分
 
@@ -2413,9 +2440,48 @@ m_pPool->submit([this, pBundle]() {
     按下 Ctrl + X（退出编辑器）。
     ```
 
+62. git处理冲突
+
+    ```
+    git add . 
+    git pull  #提示可能会覆盖缓存区
+    git commit -m "" #先提交到本地
+    git pull  #若有冲突则提示冲突，如无则拉取成功
+    解决冲突
+    git commit	#进入合并提交文件：ctrl+O 、 回车 、 ctrl+x
+    git push	#提交，会有一条提交记录一条合并记录
     
+    #如果想要只有一条记录，那么就使用stash缓存变更记录，待pull下来后再看哪块有问题自己改。不过麻烦
+    ```
 
+63. `BetterComments`注释插件
 
+    ```vscode
+    #自带五种注释：
+    
+    // ! 红色的高亮注释
+    // ? 蓝色的高亮注释
+    // * 绿色的高亮注释
+    // todo 橙色的高亮注释
+    // // 灰色带删除线的注释
+    // 普通的注释
+    
+    
+    /**
+      // ! 红色的高亮注释
+      // ? 蓝色的高亮注释
+      // * 绿色的高亮注释
+      // todo 橙色的高亮注释
+      // // 灰色带删除线的注释
+    */
+    ```
+
+    ```
+    #手动添加注释格式：
+     打开VScode的settings.json文件，添加高亮注释或者修改注释颜色
+    ```
+
+    
 
 
 
