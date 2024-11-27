@@ -1046,6 +1046,12 @@ m_pPool->submit([this, pBundle]() {
 
     1. 上报实际上上报了两次，stopScan上报一次，等到界面下发结束标志之后又上报一次。标记参数iosupdate为true，只是刷新上一次保存在sqlite中的记录。
     2. 问题在于处理威胁的过程中，传递的action是错误的。
+    
+15. UKey授权bug：
+
+    **问题**：点击激活UKey，RJJH崩溃
+
+    **解决**：发现点击激活也走的是刷新信号槽里面的信号槽。问题在于safed传递请求时判断错误，导致所有的回复都走的是默认第一个(枚举默认为0)。执行了两次eventLoop.quit()导致崩溃。
 
 ## 三、技术问题
 
@@ -1481,6 +1487,12 @@ m_pPool->submit([this, pBundle]() {
    1. terminal_detail_component中接收中控密码并传递给界面model
    2. terminal_info_model接收助手传来的密码信息，并通过信号槽传递给auth_model中保存密码
    3. 在uninstall脚本中，卸载前判断是否存在密码文件，若有，则解密提取密码，让其输入
+   
+4. 注册界面文案修改
+
+   **问题**：点击激活，若直接收到safed返回的信息，则提示激活成功。但是如果中控开启填报信息，则需要等待提交完信息后，待safed回复了信息才会提示激活成功。
+
+
 
 #### 3. 代码部分
 
@@ -2481,8 +2493,62 @@ m_pPool->submit([this, pBundle]() {
      打开VScode的settings.json文件，添加高亮注释或者修改注释颜色
     ```
 
-    
+64. 槽函数内部连接信号槽：Qt的信号与槽机制基于事件循环，这意味着信号的触发和槽的执行是**异步的**。即便是槽函数执行完毕后，信号仍然会在事件循环处理时被捕获并传递到相应的槽函数。
+    1. **信号发射**：如果你在槽函数内部发射了信号（通过 `emit`），Qt会把这个信号放入事件队列。
+    2. **槽函数执行**：信号会按照连接的方式（如 `Qt::DirectConnection`、`Qt::QueuedConnection` 等）在事件循环中被传递给相应的槽函数。这个过程是异步的，槽函数会在事件循环的下一次迭代中执行
 
+65. `QEventLoop`:主要用于执行事件循环，以便处理不同类型的事件（如用户输入、定时器事件、信号和槽的调用等）
 
+    1. **事件循环**是 Qt 应用程序中不可或缺的一部分，它是一个等待并处理事件的机制。Qt 中的事件循环通过 `QEventLoop` 类来实现，基本的事件循环由 `QCoreApplication` 或 `QApplication` 管理。每个 Qt 程序都需要一个事件循环来处理用户输入（如鼠标点击、键盘输入），系统事件（如定时器超时），以及其他组件之间的信号和槽的调用。
+
+       ```C++
+       #`QApplication` 的事件循环
+       int main(int argc, char *argv[])
+       {
+           QApplication app(argc, argv);  // QApplication 启动事件循环
+           MainWindow w;
+           w.show();
+           return app.exec();  // 进入事件循环，等待处理事件
+       }
+       ```
+
+       ```c++
+       #`QEventLoop` 的事件循环
+       void MyClass::someFunction()
+       {
+           QEventLoop loop;
+           connect(someObject, &SomeObject::someSignal, &loop, &QEventLoop::quit);
+           
+           // 执行一些操作...
+           
+           loop.exec();  // 等待直到 someSignal 被发射，事件循环会结束
+       }
+       ```
+
+    2. `QEventLoop` 会在事件循环中运行，等待并处理事件。它的主要工作方式是**阻塞等待**，直到**事件队列**中有事件可以处理为止。或者直到 `quit()` 被调用
+
+       - 用户输入事件（鼠标、键盘等）
+       - 系统消息（如文件系统的更改）
+       - 定时器事件
+       - 信号与槽的触发
+       - 自定义的事件（通过 `QCoreApplication::postEvent` 发送）
+
+    3. 信号槽与事件循环：
+
+       1. 信号触发时，信号会被放入事件队列。
+       2. 事件循环会在处理完当前的事件后继续处理队列中的信号。
+       3. 如果信号与槽的连接是 **队列连接**，槽函数会在事件循环的下一次迭代中执行，而不会阻塞当前的槽函数。
+       4. 如果信号与槽的连接是 **直接连接**，槽函数会同步执行（通常是在信号发射的地方
+
+66. 如果在使用lambda的情况下使用信号槽，需要解绑时，需要保存lambda函数的实例。
+
+    ```
+    // 定义一个 lambda 函数
+        auto lambdaSlot = [=]() {
+            label->setText("Button clicked!");
+        };
+    ```
+
+67. protobuffer中`HmiToHelper::TerminalAuthorizeSession_Response` 和 `HmiToHelper::TerminalAuthorizeSession::Response` 是一个效果，都是嵌套的结构。`_`是`::`的别名，两种proto的生成风格，一般都会生成两套，所以都可使用。
 
 #### 4. 末尾
