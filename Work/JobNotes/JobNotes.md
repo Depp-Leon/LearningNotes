@@ -55,6 +55,99 @@
     打开VScode的settings.json文件，添加高亮注释或者修改注释颜色
    ```
 
+9. vscode导入头文件爆红的解决方式
+
+   > 按atrl+shirft+p打开cppconfigure，手动添加头文件路径
+
+11. VScode快捷键：
+
+    ```
+    ctrl+p			#查找文件快捷键
+    ctrl + 左键	   #进入函数
+    ctrl + alt + -	#默认返回函数，这个-不能用小键盘上的
+    alt + leftarrow(左箭头)  #修改后的返回函数快捷键 
+    ctrl + ` (esc下面那个) #打开终端
+    选中代码->`ctrl+[`  / `ctrl+]`  #代码整体缩进或者右移：
+    ctrl+G			#vs里面查找某一行快捷键
+    ```
+
+12. ubuntu清屏快捷键
+
+    ```
+    ctrl + L		#等同于clear
+    ```
+
+13. 远程文件拷贝
+
+    ```
+    scp file.txt user@remote_host:/path/to/destination/
+    scp JYNSAFED libJYVirusScan.so leslie@192.168.3.96:~/
+    # file.txt 是本地文件。
+    # user@remote_host 是远程主机用户名和地址。
+    # /path/to/destination/ 是远程主机上的目标路径。
+    ```
+
+14. ubuntu给非root用户添加sudo权限
+
+    ```
+    #方式一：
+    	# 为用户username添加sudo权限
+    	sudo usermod -a -G sudo username
+     
+    	# 去除用户username的sudo权限
+    	sudo usermod -G usergroup username
+    
+    #方式二：
+    	sudo vi /etc/sudoers
+    
+    	#在root的下面增加下面这行
+    	chenye    ALL=(ALL:ALL) ALL
+    ```
+
+15. ubuntu下查看本地的包
+
+    ```
+    dpkg -l | grep <包名>
+    ```
+
+16. `dpkg -b` 命令用于 **构建** 一个 Debian 包（`.deb` 文件），它将指定的目录或源文件打包为一个 `.deb` 文件。
+
+    ```
+    dpkg -b <目录> [<输出文件>]
+    ```
+
+17. ubuntu下卸载使用包管理模式安装的包
+
+    ```
+    sudo apt remove --purge <包名>
+    sudo apt autoremove
+    	#remove：卸载软件包。
+    	#--purge：同时删除与软件包相关的配置文件。
+    	#autoremove：清理未使用的依赖项。
+    ```
+
+18. linux授权指令
+
+    1. `chown`命令用于更改文件或目录的所有者和/或所属组
+
+       ```
+       chown [OPTION] OWNER[:GROUP] FILE
+       # sudo chown -R leslie normal_develop	
+       # OWNER：新的所有者用户名或用户ID。
+       # GROUP：新的组名或组ID（可选，如果不提供，则不会更改组）。
+       # FILE：要修改的文件或目录。
+       # OPTION：可选项，常用的选项有 -R（递归修改目录和其内容的所有者）
+       ```
+
+    2. `chmod`（change mode）命令用于更改文件或目录的权限。权限决定了谁可以读取、写入或执行文件
+
+       ```
+       chmod [OPTION] MODE FILE
+       # MODE：设置文件权限的方式，可以使用符号模式或数字模式来指定权限。
+       # FILE：要修改权限的文件或目录。
+       # OPTION：常用选项包括 -R（递归修改目录及其内容的权限）
+       ```
+
 ## 二、项目框架
 
 ### 2.1 客户端层次
@@ -430,7 +523,7 @@ m_pPool->submit([this, pBundle]() {
 
     > 详见jy_virus_scan_impl.cpp   158行
 
-13. 关于`protobuffer`
+13. 关于`protobuffer`初始化
 
     ```
     #protobuffer中定义的结构体
@@ -469,6 +562,27 @@ m_pPool->submit([this, pBundle]() {
     ```
 
 14. protobuffer中`HmiToHelper::TerminalAuthorizeSession_Response` 和 `HmiToHelper::TerminalAuthorizeSession::Response` 是一个效果，都是嵌套的结构。`_`是`::`的别名，两种proto的生成风格，一般都会生成两套，所以都可使用。
+
+15. protobuf使用枚举字段、使用（取值、赋值）
+
+    ```
+    HmiToScan::VirusScan_ScanType_THREAT_CLEAN
+    ```
+
+16. 关于protobuffer的枚举类型指针，反向获取枚举类型名
+
+    ```c++
+    #获取枚举类型描述符
+    const google::protobuf::EnumDescriptor *descriptor = HmiToScan::VirusScan_ScanType_descriptor();
+    #通过枚举数值反向找该数值对应描述符
+    const google::protobuf::EnumValueDescriptor *enumValueDesc = descriptor->FindValueByNumber(static_cast<int>(scanMessage.scan_type()));、
+    #通过name()函数得到string类型的类型
+    enumValueDesc->name()
+    ```
+
+17. protobuffer打印出来为空
+
+    这可能是由于 `SerializeAsString()` 方法默认序列化到二进制格式，直接打印到日志时会因为它是不可读的二进制数据而显示为空，实际进行protobuffer转换是可以输出的。
 
 ##### 2.4.2 Json
 
@@ -647,7 +761,15 @@ m_pPool->submit([this, pBundle]() {
    sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so /opt/apps/chenxinsd/lib/plugins/system/
    ```
 
-3. `.cmake`文件：后缀是 `.cmake` 的文件是 **CMake** 使用的脚本文件，通常用于定义构建系统的配置、设置变量、导入/导出目标以及包含其他模块
+3. 什么时候需要重新执行cmake和make
+
+   > 当更改了cmakelist中的库依赖、文件路径等需要重新对项目进行cmake
+   >
+   > 若只修改了代码并没有改变项目架构，那么只需要执行make编译就可
+
+4. Cmakelost添加头文件路径时，要指定到最终的文件夹下，不然还是找不到头文件。(它只会在你指定的那个而文件夹下面找头文件)
+
+5. `.cmake`文件：后缀是 `.cmake` 的文件是 **CMake** 使用的脚本文件，通常用于定义构建系统的配置、设置变量、导入/导出目标以及包含其他模块
 
    ```
    include(MyCustomFile.cmake)				
@@ -655,12 +777,12 @@ m_pPool->submit([this, pBundle]() {
    #在 .cmake 文件中定义的变量和函数会被导入当前的 CMake 环境
    ```
 
-4. cmake脚本和cmakelist的区别:
+6. cmake脚本和cmakelist的区别:
 
    1. `CMakeLists.txt`：用于描述项目的构建规则，是项目的入口文件
    2. `.cmake` 文件：通常是辅助文件，提供模块、工具或特定功能的实现，`.cmake` 文件通过 `include()` 或其他机制被调用
 
-5. cmakelist中的list类型：
+7. cmakelist中的list类型：
 
    ```
    list(APPEND ...) 命令用于将新的路径添加到现有的列表中
@@ -677,7 +799,7 @@ m_pPool->submit([this, pBundle]() {
    endif()
    ```
 
-6. cmakelist中使用`find_library` 命令查找指定的库文件并将其路径存储到变量中
+8. cmakelist中使用`find_library` 命令查找指定的库文件并将其路径存储到变量中
 
    ```
    find_library(<VAR> NAMES <name> PATHS <path1> <path2> ... NO_DEFAULT_PATH)
@@ -693,7 +815,6 @@ m_pPool->submit([this, pBundle]() {
    ```
 
    
-
 
 ### 2.8 调试
 
@@ -1419,18 +1540,6 @@ m_pPool->submit([this, pBundle]() {
    >
    > `&CZDFYHandlerMassage::CheckUiConnectState` 指向成员函数的指针，`this` 是指向当前类实例的指针。
 
-7. 什么时候需要重新执行cmake和make
-
-   > 当更改了cmakelist中的库依赖、文件路径等需要重新对项目进行cmake
-   >
-   > 若只修改了代码并没有改变项目架构，那么只需要执行make编译就可
-
-7. Cmakelost添加头文件路径时，要指定到最终的文件夹下，不然还是找不到头文件。(它只会在你指定的那个而文件夹下面找头文件)
-
-8. vscode导入头文件爆红的解决方式
-
-   > 按atrl+shirft+p打开cppconfigure，手动添加头文件路径
-
 9. `ifstream` 和 `ofstream` 对象在它们的作用域结束时，都会自动释放资源，包括关闭文件流。
 
    > 这是因为 C++ 中的文件流类（如 `ifstream` 和 `ofstream`）遵循 RAII（Resource Acquisition Is Initialization）的原则。RAII 确保当对象超出其作用域时，自动调用其析构函数来释放资源，包括关闭文件流。
@@ -1490,19 +1599,13 @@ m_pPool->submit([this, pBundle]() {
     2. git checkout <文件名> 切换未修改前的文件（丢掉本次改动）
     3. 重新build最里面的cmakelist，发现是该文件的错误，由于只新加了新头文件，所以查看新文件发现错误
 
-19. try catch：当代码中涉及文件的操作必须加上trycatch，避免因为文件相关的问题导致整个程序崩溃
+19. `try catch`：当代码中涉及文件的操作必须加上`trycatch`，避免因为文件相关的问题导致整个程序崩溃
 
     ```
     throw std::runtime_error("Unable to open files:");  #抛出运行时错误
     ```
 
 20. 使用JSON传递string数据，不能直接解JSON数据的时候`toInt()`,必须先`toString()`再`toInt()`;
-
-21. 远程复制/传输文件
-
-    ```
-    scp JYNSAFED libJYVirusScan.so leslie@192.168.3.96:~/
-    ```
 
 22. 前置声明类：允许在类或结构体的定义之前告诉编译器某个类型的存在
 
@@ -1517,14 +1620,6 @@ m_pPool->submit([this, pBundle]() {
         void doSomething();
     };
     ```
-
-23. protobuf使用枚举字段、使用（取值、赋值）
-
-    ```
-    HmiToScan::VirusScan_ScanType_THREAT_CLEAN
-    ```
-
-24. protobuf的msg使用二进制类型byte和一个type，就可以根据不同的type的message进行解析
 
 27. 关于`QStackedWidget`和`QTabWidget`的区别
 
@@ -1685,21 +1780,6 @@ m_pPool->submit([this, pBundle]() {
     file << Base64Util::Base64Encode(strValue);		#写文件，只针对ofstream类型
     ```
 
-36. 关于protobuffer的枚举类型指针，反向获取枚举类型名
-
-    ```c++
-    #获取枚举类型描述符
-    const google::protobuf::EnumDescriptor *descriptor = HmiToScan::VirusScan_ScanType_descriptor();
-    #通过枚举数值反向找该数值对应描述符
-    const google::protobuf::EnumValueDescriptor *enumValueDesc = descriptor->FindValueByNumber(static_cast<int>(scanMessage.scan_type()));、
-    #通过name()函数得到string类型的类型
-    enumValueDesc->name()
-    ```
-
-37. protobuffer打印出来为空
-
-    这可能是由于 `SerializeAsString()` 方法默认序列化到二进制格式，直接打印到日志时会因为它是不可读的二进制数据而显示为空，实际进行protobuffer转换是可以输出的。
-
 38. `static_assert(std::is_base_of<IComponentInterface, T>::value, "T must derive from IComponentInterface");`
 
     >这条语句的作用是，**在编译时**强制要求 `T` 必须是 `IComponentInterface` 的派生类;如果 `T` 不是 `IComponentInterface` 的派生类，编译器会抛出错误，错误信息为 `T must derive from IComponentInterface`
@@ -1739,7 +1819,9 @@ m_pPool->submit([this, pBundle]() {
 
     `load()` 函数的作用是读取原子变量的当前值并返回。在多线程环境中，使用 `load()` 可以确保读取的值是线程安全的，即便其他线程可能同时在修改该变量。
 
-42. C++标准库的承诺-未来机制`std::promise`和 `std::future`，用于在线程之间传递值或状态，尤其是在异步编程中协助传递结果。实现在两个线程间同步任务完成状态
+42. C++标准库的**承诺-未来机制**`std::promise`和 `std::future`，用于在线程之间传递值或状态，尤其是在异步编程中协助传递结果。实现在两个线程间同步任务完成状态
+
+    > 有点像Qt中的eventLoop，事件循环机制
 
     ```
     #使用方式，没有返回值的
@@ -1800,7 +1882,7 @@ m_pPool->submit([this, pBundle]() {
 
     > 个人理解就是把函数指针/lambda/函数对象作为函数参数，在该函数内部可以执行传来的作为参数的函数
 
-45. 关于发布-订阅模式：使用了回调函数机制，订阅方使用`subscribe`将执行函数注册，插入到订阅-发布类的map中，当调用`publish`时，就会将执行函数发布/执行
+45. 关于**发布-订阅模式**：使用了回调函数机制，订阅方使用`subscribe`将执行函数注册，插入到订阅-发布类的map中，当调用`publish`时，就会将执行函数发布/执行
 
     1. 发布-订阅(message_center)类
 
@@ -1851,7 +1933,7 @@ m_pPool->submit([this, pBundle]() {
 
     只需要传递`map`中的`key`，就会根据`key`找到对应回调函数并执行
 
-46. 闭包：闭包是 **函数和它的捕获上下文的组合**，这个上下文允许闭包函数在被调用时访问定义它时所在作用域中的变量，即便该作用域已超出生命周期。
+46. **闭包**：闭包是 **函数和它的捕获上下文的组合**，这个上下文允许闭包函数在被调用时访问定义它时所在作用域中的变量，即便该作用域已超出生命周期。
 
     举例：在 C++ 中，lambda 表达式可以捕获当前作用域中的变量，因此 lambda 可以作为闭包的一个具体实现。
 
@@ -1924,13 +2006,18 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-48. 向前声明和使用头文件的区别
+48. 回调函数和句柄的区别
+
+    1. 句柄就是一个对象指针。通过传递对象指针可以使用该对象的成员函数
+    2. 回调函数就是一个函数指针。通过该函数指针可以随时使用该函数。
+
+49. 向前声明和使用头文件的区别
 
     1. **减少依赖**：使用向前声明，你不需要直接包含其他头文件。这可以减少类之间的直接依赖，有助于减少编译时间和避免循环依赖。例如，在 `Worker.h` 中向前声明 `Manager`，这样你可以避免包含 `Manager.h`，从而减少编译开销。
     2. **完整定义**：如果你需要使用类的具体实现（如访问成员、调用函数、创建实例等），则必须包含该类的头文件，以便编译器了解该类的具体结构。**向前声明只让编译器知道类型的名称，但不提供任何方法或成员的信息**。
     3. **避免循环依赖**：在两个类相互引用的情况下，使用向前声明可以打破循环依赖。例如，`Manager` 和 `Worker` 互相依赖时，使用向前声明可以避免直接包含彼此的头文件。
 
-49. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
+50. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
 
     ```c++
     // A.h
@@ -1951,7 +2038,7 @@ m_pPool->submit([this, pBundle]() {
     
     ```
 
-50. 智能指针循环依赖问题
+51. 智能指针循环依赖问题
 
     ```c++
     class A;
@@ -1976,7 +2063,7 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-51. 句柄传递`this`的智能指针问题
+52. 句柄传递`this`的智能指针问题
 
     1. 如果在母类中直接传递`this`裸指针，一旦母类析构，则在使用该`this`指针的类就会造成**指针失效**
 
@@ -1992,37 +2079,14 @@ m_pPool->submit([this, pBundle]() {
        p->show();  // 在成员函数中使用 shared_from_this
        ```
 
-52. `shared_ptr`作为函数参数传递：
+53. `shared_ptr`作为函数参数传递：
 
     1. **`std::shared_ptr<T>`**：只能传递 `shared_ptr` 类型对象，除非使用 `std::make_shared` 生成 `shared_ptr`或者`shared_from_this()` 将类本身被创建时的`shared`指针传递，否则不能传递临时对象(指针)。
     2. **`std::shared_ptr<T>`**：传递 `shared_ptr` 意味着函数将共享该对象的所有权。每次传递 `shared_ptr` 参数，引用计数会增加，直到离开作用域或显式释放才会减少
 
-53. 关于Qt界面先`init()`后再`show()/exec()`的问题：，在创建 `QDialog` 对象并调用 `init()` 后，`init()` 函数中的代码会立即执行，因为这部分代码并不依赖事件循环。只有那些需要事件循环来触发的操作（如计时器、动画、信号槽的触发等）才不会运行
+54. 关于Qt界面先`init()`后再`show()/exec()`的问题：，在创建 `QDialog` 对象并调用 `init()` 后，`init()` 函数中的代码会立即执行，因为这部分代码并不依赖事件循环。只有那些需要事件循环来触发的操作（如计时器、动画、信号槽的触发等）才不会运行
 
-54. VScode快捷键：
-
-    ```
-    ctrl+p			#查找文件快捷键
-    ctrl + 左键	   #进入函数
-    ctrl + alt + -	#默认返回函数，这个-不能用小键盘上的
-    alt + leftarrow(左箭头)  #修改后的返回函数快捷键 
-    ctrl + ` (esc下面那个) #打开终端
-    选中代码->`ctrl+[`  / `ctrl+]`  #代码整体缩进或者右移：
-    ctrl+G			#vs里面查找某一行快捷键
-    ```
-
-55. ubuntu清屏快捷键
-
-    ```
-    ctrl + L		#等同于clear
-    ```
-
-56. 回调函数和句柄的区别
-
-    1. 句柄就是一个对象指针。通过传递对象指针可以使用该对象的成员函数
-    2. 回调函数就是一个函数指针。通过该函数指针可以随时使用该函数。
-
-57. 回调函数bind第二个参数是对象类型或者指针类型的区别
+55. 回调函数`bind`第二个参数是对象类型或者指针类型的区别
 
     ```
     auto boundFunc = std::bind(&CupdateVirusLibHelper::UsendMsgToUI, &m_updateVirusLib, std::placeholders::_1);
@@ -2033,7 +2097,7 @@ m_pPool->submit([this, pBundle]() {
     2. 当你传递 **对象的指针** 给 `std::bind` 时，回调函数会通过该指针来访问对象的成员函数。需要特别注意的是，指针可能为 `nullptr`，因此你需要在回调函数中检查指针是否有效
     3. **`std::bind`** 中的 **`std::placeholders`** 需要根据你要绑定的成员函数的参数数量来指定对应的占位符。每个占位符（如 `std::placeholders::_1`, `std::placeholders::_2`, ...）都会对应于你绑定函数的一个参数。
 
-58. 普通函数与成员函数取地址的区别
+56. 普通函数与成员函数取地址的区别
 
     1. 对于普通函数，函数名本身就可以作为一个指向函数的指针
 
@@ -2045,19 +2109,19 @@ m_pPool->submit([this, pBundle]() {
        >
        > **普通函数指针** 直接指向函数的实现，可以直接用函数名表示。
 
-59. 类的成员对象，在本类的构造时对其使用初始化列表
+57. 类的成员对象，在本类的构造时对其使用初始化列表
 
     1. **成员对象的构造必须在初始化列表中进行**。
     2. 构造函数体 **不会重新初始化成员对象**，它只会在初始化列表中调用成员对象的构造函数
 
-60. 问题：当你通过 `include_directories` 添加了某些头文件路径，这些头文件对应的 `.cpp` 文件是否需要在 `add_library` 中显式地列出，或者是否可以仅通过头文件路径来引用这些源文件
+58. 问题：当你通过 `include_directories` 添加了某些头文件路径，这些头文件对应的 `.cpp` 文件是否需要在 `add_library` 中显式地列出，或者是否可以仅通过头文件路径来引用这些源文件
 
     答：
 
     1. 如果 `.cpp` 文件是你自己定义的，并且它们需要被编译成库的一部分，你必须将这些 `.cpp` 文件列出在 `add_library` 中。如果你仅通过 `include_directories` 引用了其他目录的头文件，而没有将对应的 `.cpp` 文件包含到 `add_library` 中，编译器将找不到这些源文件并报错
     2. 如果你的代码依赖于外部库（比如系统库或第三方库），你可以通过 `target_link_libraries` 来指定这些库
 
-61. 通过逗号分割提取字符串
+59. 通过逗号分割提取字符串
 
     ```
     std::istringstream stream(ipList);
@@ -2071,7 +2135,7 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-62. 关于槽函数slot的访问权限(public protected private)
+60. 关于槽函数slot的访问权限(public protected private)
 
     1. signal没有访问权限限制。
     2. **访问权限只对外部代码的直接调用有效**，对信号-槽机制无影响(只要是槽函数就可以进行信号-槽机制的连接)。
@@ -2094,77 +2158,7 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-64. 远程文件拷贝
-
-    ```
-    scp file.txt user@remote_host:/path/to/destination/
-    # file.txt 是本地文件。
-    # user@remote_host 是远程主机用户名和地址。
-    # /path/to/destination/ 是远程主机上的目标路径。
-    ```
-
-65. ubuntu给非root用户添加sudo权限
-
-    ```
-    #方式一：
-    	# 为用户username添加sudo权限
-    	sudo usermod -a -G sudo username
-     
-    	# 去除用户username的sudo权限
-    	sudo usermod -G usergroup username
-    
-    #方式二：
-    	sudo vi /etc/sudoers
-    
-    	#在root的下面增加下面这行
-    	chenye    ALL=(ALL:ALL) ALL
-    ```
-
-66. ubuntu下查看本地的包
-
-    ```
-    dpkg -l | grep <包名>
-    ```
-
-67. `dpkg -b` 命令用于 **构建** 一个 Debian 包（`.deb` 文件），它将指定的目录或源文件打包为一个 `.deb` 文件。
-
-    ```
-    dpkg -b <目录> [<输出文件>]
-    ```
-
-68. ubuntu下卸载使用包管理模式安装的包
-
-    ```
-    sudo apt remove --purge <包名>
-    sudo apt autoremove
-    	#remove：卸载软件包。
-    	#--purge：同时删除与软件包相关的配置文件。
-    	#autoremove：清理未使用的依赖项。
-    ```
-
-69. linux授权指令
-
-    1. `chown`命令用于更改文件或目录的所有者和/或所属组
-
-       ```
-       chown [OPTION] OWNER[:GROUP] FILE
-       # sudo chown -R leslie normal_develop	
-       # OWNER：新的所有者用户名或用户ID。
-       # GROUP：新的组名或组ID（可选，如果不提供，则不会更改组）。
-       # FILE：要修改的文件或目录。
-       # OPTION：可选项，常用的选项有 -R（递归修改目录和其内容的所有者）
-       ```
-
-    2. `chmod`（change mode）命令用于更改文件或目录的权限。权限决定了谁可以读取、写入或执行文件
-
-       ```
-       chmod [OPTION] MODE FILE
-       # MODE：设置文件权限的方式，可以使用符号模式或数字模式来指定权限。
-       # FILE：要修改权限的文件或目录。
-       # OPTION：常用选项包括 -R（递归修改目录及其内容的权限）
-       ```
-
-70. `dlopen`、`dlsym` 和 `dlclose` 是 Linux 动态链接库相关的函数，用于**在运行时加载和使用共享库**（动态库）。它们定义在 `<dlfcn.h>` 头文件中，属于 POSIX 标准的一部分
+64. `dlopen`、`dlsym` 和 `dlclose` 是 Linux 动态链接库相关的函数，用于**在运行时加载和使用共享库**（动态库）。它们定义在 `<dlfcn.h>` 头文件中，属于 POSIX 标准的一部分
 
     1. `dlopen`：用于加载共享库，并返回一个句柄以供后续操作
 
@@ -2229,7 +2223,7 @@ m_pPool->submit([this, pBundle]() {
        返回值是一个描述错误的字符串，或 NULL 表示没有错误。
        ```
 
-71. 事件是如何定义、触发、使用的
+65. 事件是如何定义、触发、使用的
 
     1. 事件拦截：通过事件过滤器，某个对象可以捕获并处理其他对象的事件；
 
@@ -2404,15 +2398,15 @@ m_pPool->submit([this, pBundle]() {
        全局监听：使用事件过滤器
        ```
 
-72. `event->type() > QEvent::User` 的含义：`QEvent::User` 是一个事件类型常量，用于标识用户自定义事件的起始范围。它的值通常定义为一个整数（如 1000），大于这个值的事件类型都属于用户定义事件。
+66. `event->type() > QEvent::User` 的含义：`QEvent::User` 是一个事件类型常量，用于标识用户自定义事件的起始范围。它的值通常定义为一个整数（如 1000），大于这个值的事件类型都属于用户定义事件。
 
-73. `QApplication::instance()`获取当前正在运行的 `QApplication` 对象
+67. `QApplication::instance()`获取当前正在运行的 `QApplication` 对象
 
     ```
     QApplication::instance()->installEventFilter(this);
     ```
 
-74. `QEventLoop`:主要用于执行事件循环，以便处理不同类型的事件（如用户输入、定时器事件、信号和槽的调用等）
+68. `QEventLoop`:主要用于执行事件循环，以便处理不同类型的事件（如用户输入、定时器事件、信号和槽的调用等）
 
     1. **事件循环**是 Qt 应用程序中不可或缺的一部分，它是一个等待并处理事件的机制。Qt 中的事件循环通过 `QEventLoop` 类来实现，基本的事件循环由 `QCoreApplication` 或 `QApplication` 管理。每个 Qt 程序都需要一个事件循环来处理用户输入（如鼠标点击、键盘输入），系统事件（如定时器超时），以及其他组件之间的信号和槽的调用。
 
@@ -2455,7 +2449,7 @@ m_pPool->submit([this, pBundle]() {
        3. 如果信号与槽的连接是 **队列连接**，槽函数会在事件循环的下一次迭代中执行，而不会阻塞当前的槽函数。
        4. 如果信号与槽的连接是 **直接连接**，槽函数会同步执行（通常是在信号发射的地方
 
-75. 如果在使用lambda的情况下使用信号槽，需要解绑时，需要保存lambda函数的实例。
+69. 如果在使用lambda的情况下使用信号槽，需要解绑时，需要保存lambda函数的实例。
 
     ```
     // 定义一个 lambda 函数
@@ -2535,7 +2529,7 @@ m_pPool->submit([this, pBundle]() {
 
 # 未完成笔记
 
-#### 1. 项目部分
+### 1. 项目部分
 
 2. 如何修改ubuntu下的权限，省的每次都得用sudo
 
@@ -2590,7 +2584,7 @@ m_pPool->submit([this, pBundle]() {
 
        
 
-#### 2. 工作部分
+### 2. 工作部分
 
 1. 后续暴力破解需要合并到主防，且前端有可能要重构。后续可能要我参加前端的操作，下月主要解bug，脚本和界面优化：颜色、`tableview`展示设计整体框架。
 
@@ -2603,6 +2597,13 @@ m_pPool->submit([this, pBundle]() {
    |                          网络白名单                          |   高   |  3天  |       |
    |                      所属用户及权限修改                      |   中   |  1天  |       |
    |                  卸载后删除残留与旧版本处理                  |   中   |  1天  |       |
+
+   1. 任务一：查看是否是scan_flow中，暂停和停止的信号冲突了，考虑加一个判断
+   2. 任务二：
+      1. 界面颜色：修改menu_left_bottom的图片为文件夹里面的那个绿色图片，在资源文件夹下面替换后，根据拍照的流程，执行gen生成脚本生成rcc文件，拷贝到安装目录下查看是否生效
+      2. 图标：在gen脚本中替换jy产品的log为log64-blue即可
+
+   3. 在rjjh_main函数中OEMChooser::Load() --> qproduct_rcc_file --> get_oem，通过etc/version.ini中的版本号来执行不同的贴牌rcc
 
 3. 打包脚本bug：
 
@@ -2628,7 +2629,7 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-#### 3. 代码部分
+### 3. 代码部分
 
 1. 为什么头文件有的需要加上文件夹前缀
 
@@ -2654,5 +2655,5 @@ m_pPool->submit([this, pBundle]() {
 
    
 
-#### 4. 末尾
+### 4. 末尾
 
