@@ -28,7 +28,32 @@
    1. parameter/param		参数
    ```
 
+8. `BetterComments`注释插件
+
+   ```vscode
+   #自带五种注释：
    
+   // ! 红色的高亮注释
+   // ? 蓝色的高亮注释
+   // * 绿色的高亮注释
+   // todo 橙色的高亮注释
+   // // 灰色带删除线的注释
+   // 普通的注释
+   
+   
+   /**
+     // ! 红色的高亮注释
+     // ? 蓝色的高亮注释
+     // * 绿色的高亮注释
+     // todo 橙色的高亮注释
+     // // 灰色带删除线的注释
+   */
+   ```
+
+   ```
+   #手动添加注释格式：
+    打开VScode的settings.json文件，添加高亮注释或者修改注释颜色
+   ```
 
 ## 二、项目框架
 
@@ -405,7 +430,45 @@ m_pPool->submit([this, pBundle]() {
 
     > 详见jy_virus_scan_impl.cpp   158行
 
+13. 关于`protobuffer`
 
+    ```
+    #protobuffer中定义的结构体
+    message Person {
+        string name = 1;
+        int32 id = 2;
+    }
+    #proto自动生成的类
+    class Person {
+    public:
+        Person() {
+            name = "";
+            id = 0;
+        }
+        std::string name;
+        int id;
+    };
+    
+    Person person = { "John", 123 }; // 使用默认构造函数初始化，并通过列表初始化指定字段值
+    Person person;  // 使用默认构造函数，字段为默认值
+    Person person{}；/ 值初始化 的方式，这意味着该对象会被默认初始化为其类型的默认值。等同于上句
+    ```
+
+    1. 对于 **Protocol Buffers** 生成的类（如 `Person`），protobuf 会为每个字段提供默认值
+    2. protobuf 生成的 C++ 类支持列表初始化和通过构造函数进行初始化的功能，原因是 C++ 标准库支持了 **聚合初始化** 和 **初始化列表** 语法。
+    3. 如果你使用 `{}` 来初始化 `Person` 类型的对象，它会通过默认构造函数初始化对象，字段会被赋予其 **默认值**（例如，`name` 为 `""`，`id` 为 `0`）。对于普通 C++ 类，构造函数的默认行为可能不会自动为每个字段赋值，你必须手动初始化，除非你自己为其提供默认构造函数。
+
+    4. `Person person{};` 是一种使用 **统一初始化** 语法（uniform initialization）来初始化对象的方式，这种语法是 C++11 引入的。`Person person{};` 等价于 `Person person;`，但更明确地表示 **值初始化**
+
+    ```
+    #C++11值初始化
+    int d(20); 	
+    int age{20};
+    #C++11初始化列表
+    int c = {1001};
+    ```
+
+14. protobuffer中`HmiToHelper::TerminalAuthorizeSession_Response` 和 `HmiToHelper::TerminalAuthorizeSession::Response` 是一个效果，都是嵌套的结构。`_`是`::`的别名，两种proto的生成风格，一般都会生成两套，所以都可使用。
 
 ##### 2.4.2 Json
 
@@ -497,7 +560,76 @@ m_pPool->submit([this, pBundle]() {
    /opt/apps/chenxinsd/cache/xxx.db
    ```
 
+3. Sqlite3查看表的结构
+
+   ```
+   PRAGMA table_info(table_name);			#在Sqlite下
+   ```
+
+   ```
+   #表的结构如下
+   cid   name        type       notnull   dflt_value   pk
+   0     id          INTEGER    1         NULL         1
+   1     name        TEXT       0         NULL         0
+   2     age         INTEGER    0         NULL         0
+   cid: 字段的序号（从 0 开始）。
+   name: 字段的名称。
+   type: 字段的数据类型。
+   notnull: 是否允许 NULL 值（1 表示不允许）。
+   dflt_value: 默认值。
+   pk: 是否为主键（1 表示是主键）
+   ```
+
+4. C++提取Sqlite3数据库的两种方式
+
+   ```c++
+   #方式一：使用sqlite3_get_table函数
    
+   /**
+    * @brief: 读取sqlite表中数据
+    * @param db: 打开的数据对象
+    * @param zSql: 命令
+    * @param pazResult: 读到的数据
+    * @param pnRow: 行数
+    * @param pnColumn: 列数
+    * @retval: sqlite3_get_table的返回值
+    */
+   int jy_sqlite_get_table(sqlite3 *db, const char *zSql, char ***pazResult, int *pnRow, int *pnColumn)
+   {
+       int res;
+       char *err_msg;
+       res = sqlite3_get_table(db, zSql, pazResult, pnRow, pnColumn, &err_msg);
+       if (res != SQLITE_OK)
+           LOG(ERROR) << "CDBTimedTasksOper Select! err:[" << err_msg << "]";
+       if (err_msg)
+           sqlite3_free(err_msg);
+       return res;
+   }
+   ```
+
+   ```c++
+   #方式二：使用sqlite3_exec函数
+   
+   bool CTerminalDetailsCache::setLastScanInfo(const std::string &result, const std::string &time)
+   {
+       if (!m_sqlite) {
+           return false;
+       }
+       char *errmsg = nullptr;
+       char sql[1024] = {0};
+       snprintf(sql, sizeof(sql), "UPDATE terminal_details SET last_scan_result = \"%s\", last_scan_time = \"%s\" WHERE id = 1;", 
+                result.c_str(), time.c_str());
+       int rc = sqlite3_exec(m_sqlite, sql, nullptr, nullptr, &errmsg);
+       if (rc != SQLITE_OK) {
+           sqlite3_free(errmsg);
+           return false;
+       }
+       return true;
+   }
+   ```
+
+   
+
 
 ### 2.7 编译
 
@@ -515,7 +647,53 @@ m_pPool->submit([this, pBundle]() {
    sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so /opt/apps/chenxinsd/lib/plugins/system/
    ```
 
+3. `.cmake`文件：后缀是 `.cmake` 的文件是 **CMake** 使用的脚本文件，通常用于定义构建系统的配置、设置变量、导入/导出目标以及包含其他模块
+
+   ```
+   include(MyCustomFile.cmake)				
+   #在cmakelist中使用cmake脚本
+   #在 .cmake 文件中定义的变量和函数会被导入当前的 CMake 环境
+   ```
+
+4. cmake脚本和cmakelist的区别:
+
+   1. `CMakeLists.txt`：用于描述项目的构建规则，是项目的入口文件
+   2. `.cmake` 文件：通常是辅助文件，提供模块、工具或特定功能的实现，`.cmake` 文件通过 `include()` 或其他机制被调用
+
+5. cmakelist中的list类型：
+
+   ```
+   list(APPEND ...) 命令用于将新的路径添加到现有的列表中
+   ```
+
+   ```
+   set(CURL_LIB_PATHS)    
+   if(EXISTS "${CX_THIRD_PARTY_DIR}")
+   	list(APPEND CURL_LIB_PATHS "${CX_THIRD_PARTY_DIR}/curl-7.81.0_prefix/lib")
+   	list(APPEND CURL_LIB_PATHS "${CX_THIRD_PARTY_DIR}/curl-7.81.0_prefix/lib64")
+   else ()
+   	list(APPEND CURL_LIB_PATHS "${CX_ARCHIVE_DIR}/curl-7.81.0_prefix/lib")
+   	list(APPEND CURL_LIB_PATHS "${CX_ARCHIVE_DIR}/curl-7.81.0_prefix/lib64") 
+   endif()
+   ```
+
+6. cmakelist中使用`find_library` 命令查找指定的库文件并将其路径存储到变量中
+
+   ```
+   find_library(<VAR> NAMES <name> PATHS <path1> <path2> ... NO_DEFAULT_PATH)
+   <VAR>：存储找到的库路径的变量名。例如，这里是 LIB_CURL 和 LIB_CPR。
+   NAMES <name>：要查找的库的名称。例如：
+   	curl 表示要查找的 curl 库。
+   	cpr 表示要查找的 cpr 库。
+   PATHS <path1> <path2> ...：指定库的搜索路径列表。
+   NO_DEFAULT_PATH:限制只能从指定的路径列表下搜，如果不设置的话若找不到会从默认的路径下寻找。
    
+   #案例： find_library(LIB_CURL NAMES curl PATHS ${CURL_LIB_PATHS})
+   这里用的是 ${CURL_LIB_PATHS}，它们之前通过 list(APPEND ...) 定义了库的多个可能路径。
+   ```
+
+   
+
 
 ### 2.8 调试
 
@@ -566,7 +744,8 @@ m_pPool->submit([this, pBundle]() {
 
 12. 在40上面编写的包在本地安装后。当使用gdb调试，打断点发现打的路径是40上面的路径。所以需要在本地打对应的包移动并替换，并且修改完JYNSAFED不仅需要把JYNSAFED转出，还需要把lib生成的动态库也转出。
 
-
+13. gdb调试打断点，停在目标函数时，上方有传来的参数内存信息，可以查看是否传来的是否为空
+14. gdb调试模式下程序崩溃，使用bt查看崩溃在那个函数。重新在该函数打断点，一步步复现，查看崩在那个位置。
 
 ### 2.9 打包
 
@@ -629,8 +808,12 @@ m_pPool->submit([this, pBundle]() {
    192.168.2.14
    root
    Vsecure@2016
+   
+192.168.2.2
+   root
+   1QAZ2wsx
    ```
-
+   
    
 
 ### 2.10 安装
@@ -680,7 +863,7 @@ m_pPool->submit([this, pBundle]() {
       sudo ./JYNGJCZ show 
       ```
 
-      
+6. cmake显示缺失LIB_CPR：拷贝lib到normal_development文件夹下
 
 
 
@@ -787,7 +970,7 @@ m_pPool->submit([this, pBundle]() {
 
    > commit 后 push 之前需要 pull --rebase，然后再 push。pull 最好加 --rebase，可以将刚刚的 commit rebase 至远程最新的 commit，这样有时可避免直接 pull 造成的无用 merge 提交（因为 pull 等于 fetch && merge，如果远程提交比你本地提交新，就会产生 merge）。当然如果有冲突，是否加 --rebase 还都要手动解决冲突，然后再 push。
 
-7. git 版本回溯
+7. `git` 版本回溯
 
    ```
    git log 查看提交记录号
@@ -797,7 +980,7 @@ m_pPool->submit([this, pBundle]() {
    git checkout .   #丢弃工作区的改动，如果还需要这些改动不要执行这句
    ```
 
-8. 关于git clone远程拉仓库
+8. 关于`git clone`远程拉仓库
 
    ```
    使用git clone就可以直接把仓库拉到本地，并同步log，并把当前作为本地git仓库
@@ -805,7 +988,7 @@ m_pPool->submit([this, pBundle]() {
    使用git clone http@时不需要配公钥，根据仓库的类型可以允许克隆,但是需要在github上给用户权限才能push
    ```
 
-9. 关于git log展示版本信息
+9. 关于`git log`展示版本信息
 
    ```
    (origin/master, origin/HEAD) 说明：
@@ -816,7 +999,7 @@ m_pPool->submit([this, pBundle]() {
    	当你提交新的更改时，master 分支的指针会随之移动到新的提交，而 HEAD 也会继续跟随指向 master 分支。
    ```
 
-10. git push时如果检测到某次commit有error(比如有文件大于100M)，那么就需要本地版本回溯然后再解决问题，不然历史提交记录永远会保存这次的提交信息，导致后续永远push错误
+10. `git push`时如果检测到某次`commit`有`error`(比如有文件大于100M)，那么就需要本地版本回溯然后再解决问题，不然历史提交记录永远会保存这次的提交信息，导致后续永远`push`错误
 
 11. github报错：`ssh: connect to host github.com port 22: Connection refused fatal`
 
@@ -824,7 +1007,138 @@ m_pPool->submit([this, pBundle]() {
 
     解决：在`host`文件中加入域名映射：`140.82.113.4 github.com
 
+12. 关于git提交有感：
 
+    1. 先git add . 再git pull下，如果pull下的文件对本次修改的文件有冲突，因为没提交，所以直接pull将会覆盖本次对该文件的修改(git会提示)。需要先提交commit才能pull。(因为这种情况下没提交，本地没有给你提供待解决的冲突)。这种情况下优点是gitlab中记录只有一次，少了merge记录，缺点是有冲突发现不了会被覆盖
+    2. 先commit 再pull，本地提交记录会保存该次提交，pull时会将仓库提交记录拉取下来与本地记录比较，如果有相同文件的操作，那么会在本地文件中标记冲突，需要解决后重新add  commit 再push。优点是有冲突直接可以找到并解决，缺点是push后远端仓库记录中会有两次
+
+13. 当使用`commit`注释打错了，可以使用如下命令，进入修改注释
+
+    ```
+    git commit --amend
+    ```
+
+
+14. `git stash`:保存当前的工作进度（暂存区和工作区的改动）,然后做其他的动作(切换分支、拉取等)。然后可以再恢复，恢复时直接在当前进度恢复。`git stash` 非常适用于**中断当前工作并稍后恢复**的场景
+
+    > 当使用`stash`后，保存的文件将不会被`git`显示。即使用`git status`将提示无文件需要提交。
+    >
+    > 所以后面一定需要使用`stash apply`或者`stash pop`
+
+    ```
+    git stash		#保存工作区跟踪和暂存区的所有文件,保存为一条记录形式
+    git stash -u 	#保存工作区和暂存区的所有文件(包括未跟踪的，即新建的文件)
+    
+    git stash list	#列出所有的 stash 条目
+    git stash show stash@{0}	#根据 stash 标识符查看其具体内容(具体保存的操作过的文件)
+    git stash apply #恢复最新的 stash 内容并将它们应用到当前分支
+    git stash apply stash@{1}	#恢复指定的 stash 内容并将它们应用到当前分支
+    
+    git stash drop stash@{0}	#删除特定的 stash 条目(将会把保存的文件记录都删除)
+    git stash clear				#清空所有 stash 条目
+    
+    git stash pop	#恢复并删除 stash，当于 apply + drop 的组合
+    ```
+
+15. 查看某次提交修改的详细内容
+
+    ```
+    git show <commit-hash>
+    ```
+
+16. `git checkout` 和`git restore`作用的区别
+
+    1. `git checkout`的作用：1.切换分支；2.从某个分支或提交中恢复文件。
+
+    ```
+    git checkout ./ 		#作用是 将当前目录（./）下的所有文件还原为暂存区或最后一次提交的状态
+    git checkout 分支名称	 #作用是 切换分支
+    ```
+
+    2. `git restore`的作用：还原未暂存(未add)的修改
+
+    ```
+    git restore ./			#还原未暂存的修改
+    git restore file.txt	#还原特定文件
+    ```
+
+17. `git diff`: 可以查看和分析改动，包括查看两个文件之间、文件修改前后、暂存区中的文件和最新提交之间的差异
+
+    ```
+    git diff		 	#比较工作目录中的文件和暂存区的文件之间的差异
+    git diff --cached	#比较暂存区中的文件和最新提交之间的差异
+    git diff commit1 commit2 #比较两个特定提交的差异
+    git diff [file]		#仅显示某些文件的改动
+    git diff branch1 branch2	#比较两个分支的差异
+    ```
+
+18. git信任本地仓库。当检测到当前用户可能不是该仓库的所有者时会不能执行命令
+
+    ```
+    git config --global --add safe.directory /home/leslie/ChenxinSpace/normal_develop
+    ```
+
+19. git设置身份信息
+
+    ```
+    git config --global user.name "jiayuandi"
+    git config --global user.email "jiayuandi@v-secure.cn"
+    git config --l
+    ```
+
+20. git设置免密
+
+    ```
+    ssh-keygen -t rsa -b 4096 -C "jiayuandi@v-secure.cn"
+    cat .ssh/id_rsa.pub				
+    #复制公钥到git上
+    ```
+
+21. git提交多行注释
+
+    ```
+    git commit   #省略-m 进入nano文本编辑模式
+    
+    #在文本编辑后
+    按下 Ctrl + O（保存文件）。
+    按下 Enter 确认文件名（通常是默认的临时文件）。
+    按下 Ctrl + X（退出编辑器）。
+    ```
+
+22. git处理冲突
+
+    ```
+    git add . 
+    git pull  #提示可能会覆盖缓存区
+    git commit -m "" #先提交到本地
+    git pull  #若有冲突则提示冲突，如无则拉取成功
+    解决冲突
+    git commit	#进入合并提交文件：ctrl+O 、 回车 、 ctrl+x
+    git push	#提交，会有一条提交记录一条合并记录
+    
+    #如果想要只有一条记录，那么就使用stash缓存变更记录，待pull下来后再看哪块有问题自己改。不过麻烦
+    ```
+
+23. git恢复单独文件到之前某个版本
+
+    ```
+    git log -- <file-path>		# -- 后面加上想要查找的文件的历史记录
+    git checkout <commit-hash> -- <file-path>	# 单独给目标文件恢复到那次提交前的状态(已经add暂存过的)
+    ```
+
+24. 关于`git checkout` 和 `git rese`t 的版本回溯
+
+    ```
+    git checkout <commit-hash> -- <file-path>#只是把本地恢复成提交记录的状态，但是不会修改版本历史
+    git checkout ./	#修改到最新的状态
+    
+    git reset <commit-hash>#重置到某次提交的状态，会影响版本历史、暂存区和工作目录。之前的记录都被清掉
+    --soft：只重置 HEAD，不修改工作目录和暂存区。适用于将提交回退，但保留修改，以便重新提交。
+    --mixed（默认）：重置 HEAD 和暂存区，但不修改工作目录。适用于将提交回退，同时将文件移出暂存区。
+    --hard：重置 HEAD、暂存区和工作目录。所有未提交的更改都会丢失，非常危险，但适用于完全回退到某个提交的状态。
+    ```
+
+    
 
 ### 2.12 改BUG
 
@@ -1407,326 +1721,216 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
+40. `enum class`是C++11的强枚举类型
+
+    ```
+    enum class ThreadMode {
+            InnerMode,
+            NormalMode
+    };
+    #1. enum class 定义的枚举成员受限于枚举类型的作用域:必须用 ThreadMode::InnerMode 才能访问到枚举类型
+    #2. enum class 定义的枚举类型不会隐式转换为整数类型，需要显式转换
+    	如：ThreadMode mode = ThreadMode::InnerMode;
+    		int modeValue = static_cast<int>(mode);
+    #3. 可以指定底层类型，比如 enum class ThreadMode : int，表示 ThreadMode 使用 int 作为底层类型。默认底层类型是 int，也可以指定为其他整数类型（如 char、unsigned int 等）。
+    ```
+
+41. 对于原子类型，线程安全的方式读取该值使用`load()`函数;
+
+    `load()` 函数的作用是读取原子变量的当前值并返回。在多线程环境中，使用 `load()` 可以确保读取的值是线程安全的，即便其他线程可能同时在修改该变量。
+
+42. C++标准库的承诺-未来机制`std::promise`和 `std::future`，用于在线程之间传递值或状态，尤其是在异步编程中协助传递结果。实现在两个线程间同步任务完成状态
+
+    ```
+    #使用方式，没有返回值的
+    std::promise<void> _terminationPromise;
+    std::future<void> _terminationFuture;
+    ```
+
+    ```c++
+    //案例：
+    #include <iostream>
+    #include <thread>
+    #include <future>
     
+    void task(std::promise<void> taskPromise) {
+        std::cout << "Task is running..." << std::endl;
+        // 模拟一些工作
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        // 设置任务完成状态
+        taskPromise.set_value();
+        std::cout << "Task has completed." << std::endl;
+    }
+    
+    int main() {
+        // 创建一个 promise
+        std::promise<void> taskPromise;
+        // 从 promise 获得对应的 future
+        std::future<void> taskFuture = taskPromise.get_future();
+    
+        // 启动一个线程执行任务，并将 promise 传递进去
+        std::thread t(task, std::move(taskPromise));
+    
+        // 等待任务完成
+        taskFuture.get();  // 阻塞直到 taskPromise 设置了值
+        std::cout << "Main thread detected task completion." << std::endl;
+    
+        t.join();
+        return 0;
+    }
+    
+    ```
+
+    ```
+    #输出结果
+    Task is running...
+    Task has completed.
+    Main thread detected task completion.
+    ```
+
+43. 关于`std::nothrow` 
+
+    ```
+    int* p = new(std::nothrow) int[10000000000]; // 请求分配大量内存
+    ```
+
+    `std::nothrow` 是 C++ 标准库中的一个常量，用于控制内存分配失败时的行为。通常在使用 `new` 操作符进行内存分配时，分配失败会抛出 `std::bad_alloc` 异常。而使用 `std::nothrow`，可以使 `new` 操作符在分配失败时返回 `nullptr`，而不是抛出异常。
+
+44. 关于回调函数：回调函数（Callback Function）是一种通过函数指针、函数对象或 lambda 表达式传递到另一函数中的 **可调用对象**。回调函数可以理解为一个“回去调用”的函数，即某个函数 `A` 把函数 `B` 的地址传递给另一函数 `C`，然后 `C` 在适当的时机调用 `B`。
+
+    > 个人理解就是把函数指针/lambda/函数对象作为函数参数，在该函数内部可以执行传来的作为参数的函数
+
+45. 关于发布-订阅模式：使用了回调函数机制，订阅方使用`subscribe`将执行函数注册，插入到订阅-发布类的map中，当调用`publish`时，就会将执行函数发布/执行
+
+    1. 发布-订阅(message_center)类
+
+    ```c++
+    #发布-订阅类
+    #include <iostream>
+    #include <functional>
+    #include <vector>
+    #include <string>
+    class Publisher {
+    public:
+        // 定义回调类型，接受字符串作为参数
+        using Callback = std::function<void(const std::string&)>;
+    
+        // 订阅事件（注册回调）
+        void subscribe(const Callback& callback) {
+            callbacks_.push_back(callback);
+        }
+    
+        // 发布事件（调用所有已注册的回调）
+        void publish(const std::string& message) {
+            for (const auto& callback : callbacks_) {
+                callback(message); // 执行回调，传递消息
+            }
+        }
+    private:
+        std::vector<Callback> callbacks_; // 存储所有的回调
+    };
+    ```
+
+    2. 注册订阅
+
+    ```
+    m_pMessageCenter->subscribe("REPORT_USER_INFO", [this](IBundle *pBundle) {
+            registerResetRequest(pBundle);
+    });
+    ```
+
+    回调函数可以通过 **闭包** 或 **绑定对象的成员函数** 来捕获并访问订阅者类的成员变量，`std::bind` 或 lambda 表达式可以确保回调在被调用时持有 `this` 指针，从而能够访问订阅者类的成员变量。
+
+    > 类似于在类中开启线程，需要使用bind或者lambda传递this指针
+
+    3. 发布
+
+    ```
+    m_pMessageCenter->publish(pPublishBundle);
+    ```
+
+    只需要传递`map`中的`key`，就会根据`key`找到对应回调函数并执行
+
+46. 闭包：闭包是 **函数和它的捕获上下文的组合**，这个上下文允许闭包函数在被调用时访问定义它时所在作用域中的变量，即便该作用域已超出生命周期。
+
+    举例：在 C++ 中，lambda 表达式可以捕获当前作用域中的变量，因此 lambda 可以作为闭包的一个具体实现。
+
+    1. 按值捕获 (`[=]`)：复制变量值到闭包中。
+    2. 按引用捕获 (`[&]`)：捕获变量的引用，使得闭包可以访问和修改原变量。
+    3. 捕获 `this` 指针 (`[this]`)：捕获 lambda 所在对象的 `this` 指针，以便在 lambda 中访问对象的成员。
+
+47. 句柄：**句柄（handle）** 是一种特殊的指针或引用，通常指一个**可以访问或操作其他对象的“引用”或“指针”**,用来标识和管理资源的访问。句柄通常不直接提供对资源的底层访问，句柄广泛用于资源管理，比如文件、内存、线程、网络连接等。句柄本质上是一种间接引用，指向一个资源或对象而不暴露其内部实现细节。
+
+    ```c++
+    #指针
+    int* handle = new int(5); // handle 是指向动态分配的 int 的句柄
+    std::cout << *handle << std::endl; // 使用句柄访问数据
+    delete handle; // 删除资源
+    
+    #智能指针
+    std::shared_ptr<int> handle = std::make_shared<int>(5); // handle 是 shared_ptr 句柄
+    std::cout << *handle << std::endl; // 使用句柄访问数据
+    ```
+
+    **案例**：当组件的某个功能需要使用到其他组件的功能，该组件接收功能总类的句柄，通过该总类执行其他组件的功能。而总类中又有该组件的一些功能，在使用时需要先把this(当前对象)传递给该组件作为句柄
+
+    **问题**：注意循环引用的问题导致双方对象无法释放。
+
+    ```c++
+    #include <iostream>
+    #include <memory>
+    
+    class Manager; // 前向声明 Manager
+    
+    class Worker {
+    public:
+        // 设置 Manager 的句柄（std::weak_ptr 以避免循环引用）
+        void setManagerHandle(std::shared_ptr<Manager> manager) {
+            this->managerHandle = manager;
+        }
+        // 执行任务并尝试访问 Manager 的功能
+        void performTask() {
+            if (auto mgr = managerHandle.lock()) { // 使用 lock() 将 weak_ptr 转换为 shared_ptr
+                std::cout << "Worker is performing a task and accessing Manager's function." << std::endl;
+                mgr->managerFunction();
+            } else {
+                std::cout << "Manager is no longer available." << std::endl;
+            }
+        }
+    private:
+        std::weak_ptr<Manager> managerHandle; // 使用 weak_ptr 防止循环引用
+    };
+    
+    class Manager : public std::enable_shared_from_this<Manager> {
+    public:
+        Manager() {
+            worker = std::make_shared<Worker>(); // 创建 Worker 实例
+            worker->setManagerHandle(shared_from_this()); // 将自身句柄传递给 Worker
+        }
+        void managerFunction() {
+            std::cout << "Manager's function is called by Worker." << std::endl;
+        }
+        void startWork() {
+            worker->performTask(); // 通过 Worker 执行任务
+        }
+    private:
+        std::shared_ptr<Worker> worker; // 持有 Worker 的 shared_ptr
+    };
+    
+    int main() {
+        auto manager = std::make_shared<Manager>();
+        manager->startWork(); // Manager 调用 Worker 的函数，Worker 访问 Manager 的方法
+        return 0;
+    }
+    ```
+
+48. 向前声明和使用头文件的区别
 
-
-
-
-
-# 未完成笔记
-
-#### 1. 项目部分
-
-2. 如何修改ubuntu下的权限，省的每次都得用sudo
-
-3. 查看`.clang-format`如何设置，规格化工具
-
-4. 使用VScode插件
-
-   ```
-   Clang-Format  代码格式化插件
-   koroFileHeader 注释文件和函数的快捷方式
-   Better Comments 注释分类，不同注释不同颜色
-   gitlens 展示每行代码的提交人、提交时间
-   git history 展示git历史提交记录
-   Tabnine 人工智能
-   remote development 远程开发插件
-   Color Highlight 显示代码中关于颜色的代码直接显示颜色
-   ```
-
-5. qt的moudle层如何与safed通信的？safed如何与中控通信的？
-
-   > RJJH下面的ipc文件夹下的IIPCBaseModelInterface，负责send和receive助手之间的数据
-
-6. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
-
-6. 动态库之间如何相互调用，动态库是如何使用的
-
-7. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
-
-   ```
-   #下面两句如何实现的?
-   std::string msgType = BundleHelper::getBundleAString(pIn, JYMessageBundleKey::JYMessageType, "");
-   std::string msgData = BundleHelper::getBundleBinary4String(pIn, JYMessageBundleKey::JYMessageBinValue, "");
-   ```
-
-8. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能？线程池如何运转
-
-9. `core`与组件和插件之间的关系，画图梳理->类图建立
-
-10. 关于RJJH里面的自定义事件处理：
-
-    1. 在**event**文件夹中创建自定义事件
-
-    2. 在scan**Model**中接收信息、创建事件并通过发送信号`signal`将事件传递到主界面**UI**的Framless中
-
-    3. **UI**通过槽函数，`postEvent`在本对象Framless中发送事件
-
-    4. Framless重写了`eventFilter`事件处理器后，初始化构造中通过`installEvent`绑定自己本身
-
-       ```
-       QApplication::instance()->installEventFilter(this);
-       ```
-
-       
-
-#### 2. 工作部分
-
-1. 后续暴力破解需要合并到主防，且前端有可能要重构。后续可能要我参加前端的操作，下月主要解bug，脚本和界面优化：颜色、`tableview`展示设计整体框架。
-
-2. 12月任务
-
-   |                           任务名称                           | 优先级 | 时间  | 截至  |
-   | :----------------------------------------------------------: | :----: | :---: | ----- |
-   | 查杀后，临近查杀结束时点击暂停，再次查杀，偶现弹窗提示有任务 |   高   | 0.5天 | 12.13 |
-   |                界面颜色，图标等适配为最新版本                |   高   |  2天  | 12.13 |
-   |                          网络白名单                          |   高   |  3天  |       |
-   |                      所属用户及权限修改                      |   中   |  1天  |       |
-   |                  卸载后删除残留与旧版本处理                  |   中   |  1天  |       |
-
-3. 打包脚本bug：
-
-   **问题**：
-
-   1. 产品图标和产品名称不统一
-   2. 脚本打包三个版本，有一个版本失败，找出原因
-   3. Python脚本和shell脚本。如何将shell脚本转Python脚本
-
-   **思路**：
-
-   1. 根据老脚本-贴牌配置脚本，使用python实现新脚本，注：单独放一个文件夹中
-
-4. 防卸载bug:
-
-   **问题**：
-
-   1. terminal_detail_component中接收中控密码并传递给界面model
-   2. terminal_info_model接收助手传来的密码信息，并通过信号槽传递给auth_model中保存密码
-   3. 在uninstall脚本中，卸载前判断是否存在密码文件，若有，则解密提取密码，让其输入
-
-
-
-
-
-#### 3. 代码部分
-
-1. md5:MD5（Message-Digest Algorithm 5）是一种广泛使用的加密哈希函数，能够将任意长度的输入数据（通常称为消息）转换为固定长度的输出，具体来说是 128 位（16 字节）长的哈希值。
-
-2. `enum class`是C++11的强枚举类型
-
-   ```
-   enum class ThreadMode {
-           InnerMode,
-           NormalMode
-   };
-   #1. enum class 定义的枚举成员受限于枚举类型的作用域:必须用 ThreadMode::InnerMode 才能访问到枚举类型
-   #2. enum class 定义的枚举类型不会隐式转换为整数类型，需要显式转换
-   	如：ThreadMode mode = ThreadMode::InnerMode;
-   		int modeValue = static_cast<int>(mode);
-   #3. 可以指定底层类型，比如 enum class ThreadMode : int，表示 ThreadMode 使用 int 作为底层类型。默认底层类型是 int，也可以指定为其他整数类型（如 char、unsigned int 等）。
-   ```
-
-3. 对于原子类型，线程安全的方式读取该值使用`load()`函数;
-
-   `load()` 函数的作用是读取原子变量的当前值并返回。在多线程环境中，使用 `load()` 可以确保读取的值是线程安全的，即便其他线程可能同时在修改该变量。
-
-4. C++标准库的承诺-未来机制`std::promise`和 `std::future`，用于在线程之间传递值或状态，尤其是在异步编程中协助传递结果。实现在两个线程间同步任务完成状态
-
-   ```
-   #使用方式，没有返回值的
-   std::promise<void> _terminationPromise;
-   std::future<void> _terminationFuture;
-   ```
-
-   ```c++
-   //案例：
-   #include <iostream>
-   #include <thread>
-   #include <future>
-   
-   void task(std::promise<void> taskPromise) {
-       std::cout << "Task is running..." << std::endl;
-       // 模拟一些工作
-       std::this_thread::sleep_for(std::chrono::seconds(2));
-       // 设置任务完成状态
-       taskPromise.set_value();
-       std::cout << "Task has completed." << std::endl;
-   }
-   
-   int main() {
-       // 创建一个 promise
-       std::promise<void> taskPromise;
-       // 从 promise 获得对应的 future
-       std::future<void> taskFuture = taskPromise.get_future();
-   
-       // 启动一个线程执行任务，并将 promise 传递进去
-       std::thread t(task, std::move(taskPromise));
-   
-       // 等待任务完成
-       taskFuture.get();  // 阻塞直到 taskPromise 设置了值
-       std::cout << "Main thread detected task completion." << std::endl;
-   
-       t.join();
-       return 0;
-   }
-   
-   ```
-
-   ```
-   #输出结果
-   Task is running...
-   Task has completed.
-   Main thread detected task completion.
-   ```
-
-5. 关于`std::nothrow` 
-
-   ```
-   int* p = new(std::nothrow) int[10000000000]; // 请求分配大量内存
-   ```
-
-   `std::nothrow` 是 C++ 标准库中的一个常量，用于控制内存分配失败时的行为。通常在使用 `new` 操作符进行内存分配时，分配失败会抛出 `std::bad_alloc` 异常。而使用 `std::nothrow`，可以使 `new` 操作符在分配失败时返回 `nullptr`，而不是抛出异常。
-
-6. 关于回调函数：回调函数（Callback Function）是一种通过函数指针、函数对象或 lambda 表达式传递到另一函数中的 **可调用对象**。回调函数可以理解为一个“回去调用”的函数，即某个函数 `A` 把函数 `B` 的地址传递给另一函数 `C`，然后 `C` 在适当的时机调用 `B`。
-
-   > 个人理解就是把函数指针/lambda/函数对象作为函数参数，在该函数内部可以执行传来的作为参数的函数
-
-7. 关于发布-订阅模式：使用了回调函数机制，订阅方使用`subscribe`将执行函数注册，插入到订阅-发布类的map中，当调用`publish`时，就会将执行函数发布/执行
-
-   1. 发布-订阅(message_center)类
-
-   ```c++
-   #发布-订阅类
-   #include <iostream>
-   #include <functional>
-   #include <vector>
-   #include <string>
-   class Publisher {
-   public:
-       // 定义回调类型，接受字符串作为参数
-       using Callback = std::function<void(const std::string&)>;
-   
-       // 订阅事件（注册回调）
-       void subscribe(const Callback& callback) {
-           callbacks_.push_back(callback);
-       }
-   
-       // 发布事件（调用所有已注册的回调）
-       void publish(const std::string& message) {
-           for (const auto& callback : callbacks_) {
-               callback(message); // 执行回调，传递消息
-           }
-       }
-   private:
-       std::vector<Callback> callbacks_; // 存储所有的回调
-   };
-   ```
-
-   2. 注册订阅
-
-   ```
-   m_pMessageCenter->subscribe("REPORT_USER_INFO", [this](IBundle *pBundle) {
-           registerResetRequest(pBundle);
-   });
-   ```
-
-   回调函数可以通过 **闭包** 或 **绑定对象的成员函数** 来捕获并访问订阅者类的成员变量，`std::bind` 或 lambda 表达式可以确保回调在被调用时持有 `this` 指针，从而能够访问订阅者类的成员变量。
-
-   > 类似于在类中开启线程，需要使用bind或者lambda传递this指针
-
-   3. 发布
-
-   ```
-   m_pMessageCenter->publish(pPublishBundle);
-   ```
-
-   只需要传递`map`中的`key`，就会根据`key`找到对应回调函数并执行
-
-8. 闭包：闭包是 **函数和它的捕获上下文的组合**，这个上下文允许闭包函数在被调用时访问定义它时所在作用域中的变量，即便该作用域已超出生命周期。
-
-   举例：在 C++ 中，lambda 表达式可以捕获当前作用域中的变量，因此 lambda 可以作为闭包的一个具体实现。
-
-   1. 按值捕获 (`[=]`)：复制变量值到闭包中。
-   2. 按引用捕获 (`[&]`)：捕获变量的引用，使得闭包可以访问和修改原变量。
-   3. 捕获 `this` 指针 (`[this]`)：捕获 lambda 所在对象的 `this` 指针，以便在 lambda 中访问对象的成员。
-
-9. 句柄：**句柄（handle）** 是一种特殊的指针或引用，通常指一个**可以访问或操作其他对象的“引用”或“指针”**,用来标识和管理资源的访问。句柄通常不直接提供对资源的底层访问，句柄广泛用于资源管理，比如文件、内存、线程、网络连接等。句柄本质上是一种间接引用，指向一个资源或对象而不暴露其内部实现细节。
-
-   ```c++
-   #指针
-   int* handle = new int(5); // handle 是指向动态分配的 int 的句柄
-   std::cout << *handle << std::endl; // 使用句柄访问数据
-   delete handle; // 删除资源
-   
-   #智能指针
-   std::shared_ptr<int> handle = std::make_shared<int>(5); // handle 是 shared_ptr 句柄
-   std::cout << *handle << std::endl; // 使用句柄访问数据
-   ```
-
-   **案例**：当组件的某个功能需要使用到其他组件的功能，该组件接收功能总类的句柄，通过该总类执行其他组件的功能。而总类中又有该组件的一些功能，在使用时需要先把this(当前对象)传递给该组件作为句柄
-
-   **问题**：注意循环引用的问题导致双方对象无法释放。
-
-   ```c++
-   #include <iostream>
-   #include <memory>
-   
-   class Manager; // 前向声明 Manager
-   
-   class Worker {
-   public:
-       // 设置 Manager 的句柄（std::weak_ptr 以避免循环引用）
-       void setManagerHandle(std::shared_ptr<Manager> manager) {
-           this->managerHandle = manager;
-       }
-       // 执行任务并尝试访问 Manager 的功能
-       void performTask() {
-           if (auto mgr = managerHandle.lock()) { // 使用 lock() 将 weak_ptr 转换为 shared_ptr
-               std::cout << "Worker is performing a task and accessing Manager's function." << std::endl;
-               mgr->managerFunction();
-           } else {
-               std::cout << "Manager is no longer available." << std::endl;
-           }
-       }
-   private:
-       std::weak_ptr<Manager> managerHandle; // 使用 weak_ptr 防止循环引用
-   };
-   
-   class Manager : public std::enable_shared_from_this<Manager> {
-   public:
-       Manager() {
-           worker = std::make_shared<Worker>(); // 创建 Worker 实例
-           worker->setManagerHandle(shared_from_this()); // 将自身句柄传递给 Worker
-       }
-       void managerFunction() {
-           std::cout << "Manager's function is called by Worker." << std::endl;
-       }
-       void startWork() {
-           worker->performTask(); // 通过 Worker 执行任务
-       }
-   private:
-       std::shared_ptr<Worker> worker; // 持有 Worker 的 shared_ptr
-   };
-   
-   int main() {
-       auto manager = std::make_shared<Manager>();
-       manager->startWork(); // Manager 调用 Worker 的函数，Worker 访问 Manager 的方法
-       return 0;
-   }
-   ```
-
-10. 向前声明和使用头文件的区别
     1. **减少依赖**：使用向前声明，你不需要直接包含其他头文件。这可以减少类之间的直接依赖，有助于减少编译时间和避免循环依赖。例如，在 `Worker.h` 中向前声明 `Manager`，这样你可以避免包含 `Manager.h`，从而减少编译开销。
     2. **完整定义**：如果你需要使用类的具体实现（如访问成员、调用函数、创建实例等），则必须包含该类的头文件，以便编译器了解该类的具体结构。**向前声明只让编译器知道类型的名称，但不提供任何方法或成员的信息**。
     3. **避免循环依赖**：在两个类相互引用的情况下，使用向前声明可以打破循环依赖。例如，`Manager` 和 `Worker` 互相依赖时，使用向前声明可以避免直接包含彼此的头文件。
 
-11. 为什么头文件有的需要加上文件夹前缀
-
-12. 为什么只能传递IGeneralOperator，而不能传递CGeneralOperatorAdapter？
-
-13. 代码整体缩进或者右移：选中代码->`ctrl+[`  / `ctrl+]`
-
-14. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
+49. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
 
     ```c++
     // A.h
@@ -1747,7 +1951,7 @@ m_pPool->submit([this, pBundle]() {
     
     ```
 
-14. 智能指针循环依赖问题
+50. 智能指针循环依赖问题
 
     ```c++
     class A;
@@ -1772,7 +1976,7 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-15. 句柄传递`this`的智能指针问题
+51. 句柄传递`this`的智能指针问题
 
     1. 如果在母类中直接传递`this`裸指针，一旦母类析构，则在使用该`this`指针的类就会造成**指针失效**
 
@@ -1788,23 +1992,14 @@ m_pPool->submit([this, pBundle]() {
        p->show();  // 在成员函数中使用 shared_from_this
        ```
 
-16. `shared_ptr`作为函数参数传递：
+52. `shared_ptr`作为函数参数传递：
+
     1. **`std::shared_ptr<T>`**：只能传递 `shared_ptr` 类型对象，除非使用 `std::make_shared` 生成 `shared_ptr`或者`shared_from_this()` 将类本身被创建时的`shared`指针传递，否则不能传递临时对象(指针)。
     2. **`std::shared_ptr<T>`**：传递 `shared_ptr` 意味着函数将共享该对象的所有权。每次传递 `shared_ptr` 参数，引用计数会增加，直到离开作用域或显式释放才会减少
 
-18. 关于Qt界面先`init()`后再`show()/exec()`的问题：，在创建 `QDialog` 对象并调用 `init()` 后，`init()` 函数中的代码会立即执行，因为这部分代码并不依赖事件循环。只有那些需要事件循环来触发的操作（如计时器、动画、信号槽的触发等）才不会运行
+53. 关于Qt界面先`init()`后再`show()/exec()`的问题：，在创建 `QDialog` 对象并调用 `init()` 后，`init()` 函数中的代码会立即执行，因为这部分代码并不依赖事件循环。只有那些需要事件循环来触发的操作（如计时器、动画、信号槽的触发等）才不会运行
 
-19. 关于git：
-    1. 先git add . 再git pull下，如果pull下的文件对本次修改的文件有冲突，因为没提交，所以直接pull将会覆盖本次对该文件的修改(git会提示)。需要先提交commit才能pull。(因为这种情况下没提交，本地没有给你提供待解决的冲突)。这种情况下优点是gitlab中记录只有一次，少了merge记录，缺点是有冲突发现不了会被覆盖
-    2. 先commit 再pull，本地提交记录会保存该次提交，pull时会将仓库提交记录拉取下来与本地记录比较，如果有相同文件的操作，那么会在本地文件中标记冲突，需要解决后重新add  commit 再push。优点是有冲突直接可以找到并解决，缺点是push后远端仓库记录中会有两次
-
-20. 当使用commit注释打错了，可以使用如下命令，进入修改注释
-
-    ```
-    git commit --amend
-    ```
-
-21. VScode快捷键：
+54. VScode快捷键：
 
     ```
     ctrl+p			#查找文件快捷键
@@ -1812,79 +2007,22 @@ m_pPool->submit([this, pBundle]() {
     ctrl + alt + -	#默认返回函数，这个-不能用小键盘上的
     alt + leftarrow(左箭头)  #修改后的返回函数快捷键 
     ctrl + ` (esc下面那个) #打开终端
+    选中代码->`ctrl+[`  / `ctrl+]`  #代码整体缩进或者右移：
+    ctrl+G			#vs里面查找某一行快捷键
     ```
 
-22. ubuntu清屏快捷键
+55. ubuntu清屏快捷键
 
     ```
     ctrl + L		#等同于clear
     ```
 
-23. 关于protobuffer
-
-    ```
-    #protobuffer中定义的结构体
-    message Person {
-        string name = 1;
-        int32 id = 2;
-    }
-    #proto自动生成的类
-    class Person {
-    public:
-        Person() {
-            name = "";
-            id = 0;
-        }
-        std::string name;
-        int id;
-    };
-    
-    Person person = { "John", 123 }; // 使用默认构造函数初始化，并通过列表初始化指定字段值
-    Person person;  // 使用默认构造函数，字段为默认值
-    Person person{}；/ 值初始化 的方式，这意味着该对象会被默认初始化为其类型的默认值。等同于上句
-    ```
-
-    1. 对于 **Protocol Buffers** 生成的类（如 `Person`），protobuf 会为每个字段提供默认值
-    2. protobuf 生成的 C++ 类支持列表初始化和通过构造函数进行初始化的功能，原因是 C++ 标准库支持了 **聚合初始化** 和 **初始化列表** 语法。
-    3. 如果你使用 `{}` 来初始化 `Person` 类型的对象，它会通过默认构造函数初始化对象，字段会被赋予其 **默认值**（例如，`name` 为 `""`，`id` 为 `0`）。对于普通 C++ 类，构造函数的默认行为可能不会自动为每个字段赋值，你必须手动初始化，除非你自己为其提供默认构造函数。
-
-    3. `Person person{};` 是一种使用 **统一初始化** 语法（uniform initialization）来初始化对象的方式，这种语法是 C++11 引入的。`Person person{};` 等价于 `Person person;`，但更明确地表示 **值初始化**
-
-    ```
-    #C++11值初始化
-    int d(20); 	
-    int age{20};
-    #C++11初始化列表
-    int c = {1001};
-    ```
-
-23. `git stash`:保存当前的工作进度（暂存区和工作区的改动）,然后做其他的动作(切换分支、拉取等)。然后可以再恢复，恢复时直接在当前进度恢复。`git stash` 非常适用于**中断当前工作并稍后恢复**的场景
-
-    > 当使用`stash`后，保存的文件将不会被`git`显示。即使用`git status`将提示无文件需要提交。
-    >
-    > 所以后面一定需要使用`stash apply`或者`stash pop`
-
-    ```
-    git stash		#保存工作区跟踪和暂存区的所有文件,保存为一条记录形式
-    git stash -u 	#保存工作区和暂存区的所有文件(包括未跟踪的，即新建的文件)
-    
-    git stash list	#列出所有的 stash 条目
-    git stash show stash@{0}	#根据 stash 标识符查看其具体内容(具体保存的操作过的文件)
-    git stash apply #恢复最新的 stash 内容并将它们应用到当前分支
-    git stash apply stash@{1}	#恢复指定的 stash 内容并将它们应用到当前分支
-    
-    git stash drop stash@{0}	#删除特定的 stash 条目(将会把保存的文件记录都删除)
-    git stash clear				#清空所有 stash 条目
-    
-    git stash pop	#恢复并删除 stash，当于 apply + drop 的组合
-    ```
-
-25. 回调函数和句柄的区别
+56. 回调函数和句柄的区别
 
     1. 句柄就是一个对象指针。通过传递对象指针可以使用该对象的成员函数
     2. 回调函数就是一个函数指针。通过该函数指针可以随时使用该函数。
 
-26. 回调函数bind第二个参数是对象类型或者指针类型的区别
+57. 回调函数bind第二个参数是对象类型或者指针类型的区别
 
     ```
     auto boundFunc = std::bind(&CupdateVirusLibHelper::UsendMsgToUI, &m_updateVirusLib, std::placeholders::_1);
@@ -1895,7 +2033,7 @@ m_pPool->submit([this, pBundle]() {
     2. 当你传递 **对象的指针** 给 `std::bind` 时，回调函数会通过该指针来访问对象的成员函数。需要特别注意的是，指针可能为 `nullptr`，因此你需要在回调函数中检查指针是否有效
     3. **`std::bind`** 中的 **`std::placeholders`** 需要根据你要绑定的成员函数的参数数量来指定对应的占位符。每个占位符（如 `std::placeholders::_1`, `std::placeholders::_2`, ...）都会对应于你绑定函数的一个参数。
 
-27. 普通函数与成员函数取地址的区别
+58. 普通函数与成员函数取地址的区别
 
     1. 对于普通函数，函数名本身就可以作为一个指向函数的指针
 
@@ -1907,48 +2045,19 @@ m_pPool->submit([this, pBundle]() {
        >
        > **普通函数指针** 直接指向函数的实现，可以直接用函数名表示。
 
-28. 类的成员对象，在本类的构造时对其使用初始化列表
+59. 类的成员对象，在本类的构造时对其使用初始化列表
+
     1. **成员对象的构造必须在初始化列表中进行**。
     2. 构造函数体 **不会重新初始化成员对象**，它只会在初始化列表中调用成员对象的构造函数
 
-29. 问题：当你通过 `include_directories` 添加了某些头文件路径，这些头文件对应的 `.cpp` 文件是否需要在 `add_library` 中显式地列出，或者是否可以仅通过头文件路径来引用这些源文件
+60. 问题：当你通过 `include_directories` 添加了某些头文件路径，这些头文件对应的 `.cpp` 文件是否需要在 `add_library` 中显式地列出，或者是否可以仅通过头文件路径来引用这些源文件
 
     答：
 
     1. 如果 `.cpp` 文件是你自己定义的，并且它们需要被编译成库的一部分，你必须将这些 `.cpp` 文件列出在 `add_library` 中。如果你仅通过 `include_directories` 引用了其他目录的头文件，而没有将对应的 `.cpp` 文件包含到 `add_library` 中，编译器将找不到这些源文件并报错
     2. 如果你的代码依赖于外部库（比如系统库或第三方库），你可以通过 `target_link_libraries` 来指定这些库
 
-30. 查看修改的详细内容
-
-    ```
-    git show <commit-hash>
-    ```
-
-31. 英语get、have、take常用口语的用法
-
-    ```
-    If you get something, then that means that the item was given to you. If you take something, then that means that you took it yourself and no one else was involved in you getting possession of the item. To get is to receive, to take is to retrieve.
-    ```
-
-32. in、for、of、to、等常用介词的使用方式
-
-33. git checkout 和git restore
-
-    1. git checkout的作用：1.切换分支；2.从某个分支或提交中恢复文件。
-
-    ```
-    git checkout ./ 		#作用是 将当前目录（./）下的所有文件还原为暂存区或最后一次提交的状态
-    git checkout 分支名称	 #作用是 切换分支
-    ```
-
-    2. git restore的作用：还原未暂存(未add)的修改
-
-    ```
-    git restore ./			#还原未暂存的修改
-    git restore file.txt	#还原特定文件
-    ```
-
-34. 通过逗号分割提取字符串
+61. 通过逗号分割提取字符串
 
     ```
     std::istringstream stream(ipList);
@@ -1962,19 +2071,20 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-35. 关于槽函数slot的访问权限(public protected private)
+62. 关于槽函数slot的访问权限(public protected private)
+
     1. signal没有访问权限限制。
     2. **访问权限只对外部代码的直接调用有效**，对信号-槽机制无影响(只要是槽函数就可以进行信号-槽机制的连接)。
     3. 比如：private slot只能进行信号槽机制的连接，不可以在外面直接像调用成员函数一样调用该槽函数
 
-| 特性                 | `private slots`              | `protected slots`            | `public slots`             |
-| -------------------- | ---------------------------- | ---------------------------- | -------------------------- |
-| **访问权限**         | 类本身和友元可以访问         | 类本身、子类和友元可以访问   | 外部代码可以访问           |
-| **典型用途**         | 内部逻辑实现细节，不对外开放 | 需要子类继承、扩展的内部逻辑 | 提供对外接口，同时响应信号 |
-| **子类访问**         | 不可以                       | 可以                         | 可以                       |
-| **外部代码直接调用** | 不可以                       | 不可以                       | 可以                       |
+    | 特性                 | `private slots`              | `protected slots`            | `public slots`             |
+    | -------------------- | ---------------------------- | ---------------------------- | -------------------------- |
+    | **访问权限**         | 类本身和友元可以访问         | 类本身、子类和友元可以访问   | 外部代码可以访问           |
+    | **典型用途**         | 内部逻辑实现细节，不对外开放 | 需要子类继承、扩展的内部逻辑 | 提供对外接口，同时响应信号 |
+    | **子类访问**         | 不可以                       | 可以                         | 可以                       |
+    | **外部代码直接调用** | 不可以                       | 不可以                       | 可以                       |
 
-36. Qt的Warnging弹窗，执行exec()模态框时，会阻塞当前界面，直到用户点击确定(返回`QDialog::Accepted`)或者关闭/取消(返回`QDialog::Rejected`)
+63. Qt的Warnging弹窗，执行exec()模态框时，会阻塞当前界面，直到用户点击确定(返回`QDialog::Accepted`)或者关闭/取消(返回`QDialog::Rejected`)
 
     ```
     if (wDlg.exec() == QDialog::Rejected){
@@ -1984,17 +2094,7 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-37. `git diff`: 可以查看和分析改动，包括查看两个文件之间、文件修改前后、暂存区中的文件和最新提交之间的差异
-
-    ```
-    git diff		 	#比较工作目录中的文件和暂存区的文件之间的差异
-    git diff --cached	#比较暂存区中的文件和最新提交之间的差异
-    git diff commit1 commit2 #比较两个特定提交的差异
-    git diff [file]		#仅显示某些文件的改动
-    git diff branch1 branch2	#比较两个分支的差异
-    ```
-
-38. 远程文件拷贝
+64. 远程文件拷贝
 
     ```
     scp file.txt user@remote_host:/path/to/destination/
@@ -2003,85 +2103,7 @@ m_pPool->submit([this, pBundle]() {
     # /path/to/destination/ 是远程主机上的目标路径。
     ```
 
-39. Sqlite3查看表的结构
-
-    ```
-    PRAGMA table_info(table_name);			#在Sqlite下
-    ```
-
-    ```
-    #表的结构如下
-    cid   name        type       notnull   dflt_value   pk
-    0     id          INTEGER    1         NULL         1
-    1     name        TEXT       0         NULL         0
-    2     age         INTEGER    0         NULL         0
-    cid: 字段的序号（从 0 开始）。
-    name: 字段的名称。
-    type: 字段的数据类型。
-    notnull: 是否允许 NULL 值（1 表示不允许）。
-    dflt_value: 默认值。
-    pk: 是否为主键（1 表示是主键）
-    ```
-
-40. C++提取Sqlite3数据库的两种方式
-
-    ```c++
-    #方式一：使用sqlite3_get_table函数
-    
-    /**
-     * @brief: 读取sqlite表中数据
-     * @param db: 打开的数据对象
-     * @param zSql: 命令
-     * @param pazResult: 读到的数据
-     * @param pnRow: 行数
-     * @param pnColumn: 列数
-     * @retval: sqlite3_get_table的返回值
-     */
-    int jy_sqlite_get_table(sqlite3 *db, const char *zSql, char ***pazResult, int *pnRow, int *pnColumn)
-    {
-        int res;
-        char *err_msg;
-        res = sqlite3_get_table(db, zSql, pazResult, pnRow, pnColumn, &err_msg);
-        if (res != SQLITE_OK)
-            LOG(ERROR) << "CDBTimedTasksOper Select! err:[" << err_msg << "]";
-        if (err_msg)
-            sqlite3_free(err_msg);
-        return res;
-    }
-    ```
-
-    ```c++
-    #方式二：使用sqlite3_exec函数
-    
-    bool CTerminalDetailsCache::setLastScanInfo(const std::string &result, const std::string &time)
-    {
-        if (!m_sqlite) {
-            return false;
-        }
-        char *errmsg = nullptr;
-        char sql[1024] = {0};
-        snprintf(sql, sizeof(sql), "UPDATE terminal_details SET last_scan_result = \"%s\", last_scan_time = \"%s\" WHERE id = 1;", 
-                 result.c_str(), time.c_str());
-        int rc = sqlite3_exec(m_sqlite, sql, nullptr, nullptr, &errmsg);
-        if (rc != SQLITE_OK) {
-            sqlite3_free(errmsg);
-            return false;
-        }
-        return true;
-    }
-    ```
-
-41. gdb调试打断点，停在目标函数时，上方有传来的参数内存信息，可以查看是否传来的是否为空
-
-42. gdb调试模式下程序崩溃，使用bt查看崩溃在那个函数。重新在该函数打断点，一步步复现，查看崩在那个位置。
-
-43. git信任本地仓库。当检测到当前用户可能不是该仓库的所有者时会不能执行命令
-
-    ```
-    git config --global --add safe.directory /home/leslie/ChenxinSpace/normal_develop
-    ```
-
-44. ubuntu给非root用户添加sudo权限
+65. ubuntu给非root用户添加sudo权限
 
     ```
     #方式一：
@@ -2098,87 +2120,19 @@ m_pPool->submit([this, pBundle]() {
     	chenye    ALL=(ALL:ALL) ALL
     ```
 
-45. cmake显示缺失LIB_CPR：拷贝lib到normal_development文件夹下
-
-46. 计算md5的值
-
-    ```
-    md5sum <库名>
-    ```
-
-47. vs里面查找某一行快捷键
-
-    ```
-    ctrl+G
-    ```
-
-48. git设置身份信息
-
-    ```
-    git config --global user.name "jiayuandi"
-    git config --global user.email "jiayuandi@v-secure.cn"
-    git config --l
-    ```
-
-49. git设置免密
-
-    ```
-    ssh-keygen -t rsa -b 4096 -C "jiayuandi@v-secure.cn"
-    cat .ssh/id_rsa.pub				
-    #复制公钥到git上
-    ```
-
-50. `.cmake`文件：后缀是 `.cmake` 的文件是 **CMake** 使用的脚本文件，通常用于定义构建系统的配置、设置变量、导入/导出目标以及包含其他模块
-
-    ```
-    include(MyCustomFile.cmake)				
-    #在cmakelist中使用cmake脚本
-    #在 .cmake 文件中定义的变量和函数会被导入当前的 CMake 环境
-    ```
-
-50. cmake脚本和cmakelist的区别:
-    1. `CMakeLists.txt`：用于描述项目的构建规则，是项目的入口文件
-    2. `.cmake` 文件：通常是辅助文件，提供模块、工具或特定功能的实现，`.cmake` 文件通过 `include()` 或其他机制被调用
-
-51. cmakelist中的list类型：
-
-    ```
-    list(APPEND ...) 命令用于将新的路径添加到现有的列表中
-    ```
-
-    ```
-    set(CURL_LIB_PATHS)    
-    if(EXISTS "${CX_THIRD_PARTY_DIR}")
-    	list(APPEND CURL_LIB_PATHS "${CX_THIRD_PARTY_DIR}/curl-7.81.0_prefix/lib")
-    	list(APPEND CURL_LIB_PATHS "${CX_THIRD_PARTY_DIR}/curl-7.81.0_prefix/lib64")
-    else ()
-    	list(APPEND CURL_LIB_PATHS "${CX_ARCHIVE_DIR}/curl-7.81.0_prefix/lib")
-    	list(APPEND CURL_LIB_PATHS "${CX_ARCHIVE_DIR}/curl-7.81.0_prefix/lib64") 
-    endif()
-    ```
-
-52.  cmakelist中使用`find_library` 命令查找指定的库文件并将其路径存储到变量中
-
-    ```
-    find_library(<VAR> NAMES <name> PATHS <path1> <path2> ... NO_DEFAULT_PATH)
-    <VAR>：存储找到的库路径的变量名。例如，这里是 LIB_CURL 和 LIB_CPR。
-    NAMES <name>：要查找的库的名称。例如：
-    	curl 表示要查找的 curl 库。
-    	cpr 表示要查找的 cpr 库。
-    PATHS <path1> <path2> ...：指定库的搜索路径列表。
-    NO_DEFAULT_PATH:限制只能从指定的路径列表下搜，如果不设置的话若找不到会从默认的路径下寻找。
-    
-    #案例： find_library(LIB_CURL NAMES curl PATHS ${CURL_LIB_PATHS})
-    这里用的是 ${CURL_LIB_PATHS}，它们之前通过 list(APPEND ...) 定义了库的多个可能路径。
-    ```
-
-53. ubuntu下查看本地的包
+66. ubuntu下查看本地的包
 
     ```
     dpkg -l | grep <包名>
     ```
 
-54. ubuntu下卸载使用包管理模式安装的包
+67. `dpkg -b` 命令用于 **构建** 一个 Debian 包（`.deb` 文件），它将指定的目录或源文件打包为一个 `.deb` 文件。
+
+    ```
+    dpkg -b <目录> [<输出文件>]
+    ```
+
+68. ubuntu下卸载使用包管理模式安装的包
 
     ```
     sudo apt remove --purge <包名>
@@ -2188,7 +2142,7 @@ m_pPool->submit([this, pBundle]() {
     	#autoremove：清理未使用的依赖项。
     ```
 
-56. linux授权指令
+69. linux授权指令
 
     1. `chown`命令用于更改文件或目录的所有者和/或所属组
 
@@ -2210,7 +2164,7 @@ m_pPool->submit([this, pBundle]() {
        # OPTION：常用选项包括 -R（递归修改目录及其内容的权限）
        ```
 
-57. `dlopen`、`dlsym` 和 `dlclose` 是 Linux 动态链接库相关的函数，用于**在运行时加载和使用共享库**（动态库）。它们定义在 `<dlfcn.h>` 头文件中，属于 POSIX 标准的一部分
+70. `dlopen`、`dlsym` 和 `dlclose` 是 Linux 动态链接库相关的函数，用于**在运行时加载和使用共享库**（动态库）。它们定义在 `<dlfcn.h>` 头文件中，属于 POSIX 标准的一部分
 
     1. `dlopen`：用于加载共享库，并返回一个句柄以供后续操作
 
@@ -2234,7 +2188,7 @@ m_pPool->submit([this, pBundle]() {
        }
        ```
 
-    2.  `dlsym`：从动态库中获取指定符号的地址，通常用于获取函数指针或变量地址
+    2. `dlsym`：从动态库中获取指定符号的地址，通常用于获取函数指针或变量地址
 
        > 在插件接口cpp中：`PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()`
 
@@ -2275,7 +2229,7 @@ m_pPool->submit([this, pBundle]() {
        返回值是一个描述错误的字符串，或 NULL 表示没有错误。
        ```
 
-58. 事件是如何定义、触发、使用的
+71. 事件是如何定义、触发、使用的
 
     1. 事件拦截：通过事件过滤器，某个对象可以捕获并处理其他对象的事件；
 
@@ -2450,71 +2404,15 @@ m_pPool->submit([this, pBundle]() {
        全局监听：使用事件过滤器
        ```
 
-59. `event->type() > QEvent::User` 的含义：`QEvent::User` 是一个事件类型常量，用于标识用户自定义事件的起始范围。它的值通常定义为一个整数（如 1000），大于这个值的事件类型都属于用户定义事件。
+72. `event->type() > QEvent::User` 的含义：`QEvent::User` 是一个事件类型常量，用于标识用户自定义事件的起始范围。它的值通常定义为一个整数（如 1000），大于这个值的事件类型都属于用户定义事件。
 
-60. `QApplication::instance()`获取当前正在运行的 `QApplication` 对象
+73. `QApplication::instance()`获取当前正在运行的 `QApplication` 对象
 
     ```
     QApplication::instance()->installEventFilter(this);
     ```
 
-61. git提交多行注释
-
-    ```
-    git commit   #省略-m 进入nano文本编辑模式
-    
-    #在文本编辑后
-    按下 Ctrl + O（保存文件）。
-    按下 Enter 确认文件名（通常是默认的临时文件）。
-    按下 Ctrl + X（退出编辑器）。
-    ```
-
-62. git处理冲突
-
-    ```
-    git add . 
-    git pull  #提示可能会覆盖缓存区
-    git commit -m "" #先提交到本地
-    git pull  #若有冲突则提示冲突，如无则拉取成功
-    解决冲突
-    git commit	#进入合并提交文件：ctrl+O 、 回车 、 ctrl+x
-    git push	#提交，会有一条提交记录一条合并记录
-    
-    #如果想要只有一条记录，那么就使用stash缓存变更记录，待pull下来后再看哪块有问题自己改。不过麻烦
-    ```
-
-63. `BetterComments`注释插件
-
-    ```vscode
-    #自带五种注释：
-    
-    // ! 红色的高亮注释
-    // ? 蓝色的高亮注释
-    // * 绿色的高亮注释
-    // todo 橙色的高亮注释
-    // // 灰色带删除线的注释
-    // 普通的注释
-    
-    
-    /**
-      // ! 红色的高亮注释
-      // ? 蓝色的高亮注释
-      // * 绿色的高亮注释
-      // todo 橙色的高亮注释
-      // // 灰色带删除线的注释
-    */
-    ```
-
-    ```
-    #手动添加注释格式：
-     打开VScode的settings.json文件，添加高亮注释或者修改注释颜色
-    ```
-
-64. 槽函数内部连接信号槽：Qt的信号与槽机制基于事件循环，这意味着信号的触发和槽的执行是**异步的**。即便是槽函数执行完毕后，信号仍然会在事件循环处理时被捕获并传递到相应的槽函数。
-    1. **信号发射**：如果你在槽函数内部发射了信号（通过 `emit`），Qt会把这个信号放入事件队列。
-    2. **槽函数执行**：信号会按照连接的方式（如 `Qt::DirectConnection`、`Qt::QueuedConnection` 等）在事件循环中被传递给相应的槽函数。这个过程是异步的，槽函数会在事件循环的下一次迭代中执行
-
-65. `QEventLoop`:主要用于执行事件循环，以便处理不同类型的事件（如用户输入、定时器事件、信号和槽的调用等）
+74. `QEventLoop`:主要用于执行事件循环，以便处理不同类型的事件（如用户输入、定时器事件、信号和槽的调用等）
 
     1. **事件循环**是 Qt 应用程序中不可或缺的一部分，它是一个等待并处理事件的机制。Qt 中的事件循环通过 `QEventLoop` 类来实现，基本的事件循环由 `QCoreApplication` 或 `QApplication` 管理。每个 Qt 程序都需要一个事件循环来处理用户输入（如鼠标点击、键盘输入），系统事件（如定时器超时），以及其他组件之间的信号和槽的调用。
 
@@ -2557,7 +2455,7 @@ m_pPool->submit([this, pBundle]() {
        3. 如果信号与槽的连接是 **队列连接**，槽函数会在事件循环的下一次迭代中执行，而不会阻塞当前的槽函数。
        4. 如果信号与槽的连接是 **直接连接**，槽函数会同步执行（通常是在信号发射的地方
 
-66. 如果在使用lambda的情况下使用信号槽，需要解绑时，需要保存lambda函数的实例。
+75. 如果在使用lambda的情况下使用信号槽，需要解绑时，需要保存lambda函数的实例。
 
     ```
     // 定义一个 lambda 函数
@@ -2566,36 +2464,195 @@ m_pPool->submit([this, pBundle]() {
         };
     ```
 
-67. protobuffer中`HmiToHelper::TerminalAuthorizeSession_Response` 和 `HmiToHelper::TerminalAuthorizeSession::Response` 是一个效果，都是嵌套的结构。`_`是`::`的别名，两种proto的生成风格，一般都会生成两套，所以都可使用。
-
-68. 可以发射成员对象里的信号
+76. 可以发射成员对象里的信号
 
     ```
     emit m_authManager->sigRegistInfoTable();
     ```
 
-69. 信号和槽函数都使用 `void` 类型的原因：
+77. 信号和槽函数都使用 `void` 类型的原因：
+
     1. 设计如此，**异步事件处理**不需要关心返回值
     2. 信号槽机制，信号只管发射，可以有多个槽函数应答；同理，多个信号可以只有一个槽函数应答。
 
-67. `dpkg -b` 命令用于 **构建** 一个 Debian 包（`.deb` 文件），它将指定的目录或源文件打包为一个 `.deb` 文件。
+78. 操作系统、架构、指令集、内核之间的关系
+
+    1. 操作系统内核
+
+       1. **Windows** 操作系统由 **Microsoft** 开发，使用的是 **Windows NT 内核**。Windows NT 内核设计是为了支持 **多任务操作**、**多用户**、**硬件抽象**、**安全性** 和 **网络功能** 等。
+
+       2. **macOS** 使用的是 **XNU 内核**。macOS和Windows NT都是**混合内核**，结合了微内核的模块化和宏内核的高效执行。
+
+       3. **Linux 内核** 是一个 **单内核（Monolithic Kernel）**，所有核心功能（如进程管理、内存管理、硬件控制等）都集中在内核中。Linux 内核本身并不是一个完整的操作系统，通常它与各种用户空间工具、库和应用程序结合在一起，形成一个完整的操作系统，如 **Ubuntu**、**Debian**、**CentOS** 等。
+
+          | 特性           | **Windows**                         | **macOS**                            | **Linux**                              |
+          | -------------- | ----------------------------------- | ------------------------------------ | -------------------------------------- |
+          | **内核**       | Windows NT 内核                     | XNU 内核（基于 Mach 和 BSD）         | Linux 内核（基于 monolithic）          |
+          | **内核类型**   | 混合内核                            | 混合内核                             | 单内核（Monolithic）                   |
+          | **核心组件**   | 设备驱动、文件系统、网络堆栈等      | BSD 用户空间 + Mach 微内核           | 文件系统、网络、硬件管理等（核心模块） |
+          | **开源**       | 否                                  | 否                                   | 是（完全开源）                         |
+          | **用户界面**   | 图形化界面，Windows Shell（命令行） | 图形化界面，Terminal（命令行）       | 图形化界面（如 GNOME、KDE 等）或 CLI   |
+          | **硬件兼容性** | 广泛的硬件支持，特别是 x86/x64 架构 | 主要支持 Apple 自家硬件（Intel、M1） | 支持广泛的硬件平台（x86、x64、ARM 等） |
+          | **市场定位**   | 面向个人用户、企业、游戏等          | 面向创意工作者、开发者等             | 面向开发者、服务器、嵌入式设备等       |
+
+    2. 基于内核发行的版本：**麒麟操作系统**和**统信操作系统** 是基于 Linux 内核的国产自主研发的操作系统，类似于 **Ubuntu** 和 **Red Hat**
+
+    3. **Linux** 是操作系统的核心，而 **Ubuntu** 和 **Red Hat** 是两个具体的操作系统发行版，它们在 Linux 内核基础上进行了不同的定制和改进。
+
+    4. 操作系统的 **架构支持** 是指它能在某种**硬件架构**上运行。常见的硬件架构有 **x86**、**x64**、**ARM** 等，而不同的操作系统会有不同的架构支持。
+
+       1. **x86**：指的是基于 **32 位** 架构的处理器和操作系统
+
+       2. **x64**（也叫 x86_64 或 AMD64）：指的是基于 **64 位** 架构的处理器和操作系统。
+
+          > cpu同时处理的最大位数
+
+       3. **ARM** 架构主要用于移动设备、嵌入式系统以及越来越多的服务器和工作站。ARM 是一种低功耗的架构，广泛用于手机、平板、路由器、嵌入式设备以及一些专用的服务器系统。
+
+    5. **硬件架构**和**指令集架构**的关系：
+
+       1. **硬件架构** 指的是计算机硬件的整体设计，包括 CPU（中央处理单元）、内存、I/O 设备等所有硬件组件。硬件架构描述了计算机系统各个组件如何相互连接与交互。
+
+       2. **指令集架构（ISA）**  则是描述 CPU 如何与软件进行交互的规范，也就是说，它定义了 CPU 可以执行的指令集（例如加法、乘法、数据加载等指令）和这些指令的行为。ISA 规定了 CPU 如何执行运算、存储数据、管理程序等。
+
+       3. **硬件架构 是计算机硬件的具体实现，而 指令集架构（ISA） 是软件与硬件之间的接口**，指令集架构定义了 CPU 可以执行的指令，进而影响硬件设计
+
+       4. 硬件架构与指令集架构（如 RISC 和 CISC）之间的关系体现在 CPU 的设计上，具体来说，指令集架构（ISA）规定了硬件需要支持的指令集，而硬件架构则实现了这些指令的执行。
+
+          如**RISC 架构** 更加注重简化硬件设计。**ARM** 和 **RISC-V** 都是基于 RISC 架构的处理器，硬件设计相对简单，通常能够达到较低的功耗和较高的性能。
+
+          **CISC 架构** 的设计理念更为复杂，因为每条指令可能包含多个操作，硬件需要更多的解码器和执行单元来处理这些复杂的指令。**x86** 是典型的 CISC 架构，它拥有庞大的指令集，处理器需要支持各种复杂的指令解析和执行机制。
+
+79. md5:MD5（Message-Digest Algorithm 5）是一种广泛使用的加密哈希函数，能够将任意长度的输入数据（通常称为消息）转换为固定长度的输出，具体来说是 128 位（16 字节）长的哈希值。
+
+80. 计算md5的值
 
     ```
-    dpkg -b <目录> [<输出文件>]
+    md5sum <库名>
     ```
 
-68. python脚本的实现顺序
-
-    ```
-    1. main.py
-    2. handle_opts.py -> batchProcess函数中对IPKTS对应的包的参数，执行newpacket
-    3. new_packet.py ->	NewPacket的__init__(self, **kwargs)初始化，并执行createPacket()
-    				 -> savePacket()保存deb包，使用dpkg -b，并将打的包cp到包库中
-    4. handle_opts.py -> Result()对象，在析构的时候执行打印结果
-    ```
-
-    
 
 
+# 未完成笔记
+
+#### 1. 项目部分
+
+2. 如何修改ubuntu下的权限，省的每次都得用sudo
+
+3. 查看`.clang-format`如何设置，规格化工具
+
+4. 使用VScode插件
+
+   ```
+   Clang-Format  代码格式化插件
+   koroFileHeader 注释文件和函数的快捷方式
+   Better Comments 注释分类，不同注释不同颜色
+   gitlens 展示每行代码的提交人、提交时间
+   git history 展示git历史提交记录
+   Tabnine 人工智能
+   remote development 远程开发插件
+   Color Highlight 显示代码中关于颜色的代码直接显示颜色
+   ```
+
+5. qt的moudle层如何与safed通信的？safed如何与中控通信的？
+
+   > RJJH下面的ipc文件夹下的IIPCBaseModelInterface，负责send和receive助手之间的数据
+
+6. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
+
+6. 动态库之间如何相互调用，动态库是如何使用的
+
+7. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
+
+   ```
+   #下面两句如何实现的?
+   std::string msgType = BundleHelper::getBundleAString(pIn, JYMessageBundleKey::JYMessageType, "");
+   std::string msgData = BundleHelper::getBundleBinary4String(pIn, JYMessageBundleKey::JYMessageBinValue, "");
+   ```
+
+8. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能？线程池如何运转
+
+9. `core`与组件和插件之间的关系，画图梳理->类图建立
+
+10. 关于RJJH里面的自定义事件处理：
+
+    1. 在**event**文件夹中创建自定义事件
+
+    2. 在scan**Model**中接收信息、创建事件并通过发送信号`signal`将事件传递到主界面**UI**的Framless中
+
+    3. **UI**通过槽函数，`postEvent`在本对象Framless中发送事件
+
+    4. Framless重写了`eventFilter`事件处理器后，初始化构造中通过`installEvent`绑定自己本身
+
+       ```
+       QApplication::instance()->installEventFilter(this);
+       ```
+
+       
+
+#### 2. 工作部分
+
+1. 后续暴力破解需要合并到主防，且前端有可能要重构。后续可能要我参加前端的操作，下月主要解bug，脚本和界面优化：颜色、`tableview`展示设计整体框架。
+
+2. 12月任务
+
+   |                           任务名称                           | 优先级 | 时间  | 截至  |
+   | :----------------------------------------------------------: | :----: | :---: | ----- |
+   | 查杀后，临近查杀结束时点击暂停，再次查杀，偶现弹窗提示有任务 |   高   | 0.5天 | 12.13 |
+   |                界面颜色，图标等适配为最新版本                |   高   |  2天  | 12.13 |
+   |                          网络白名单                          |   高   |  3天  |       |
+   |                      所属用户及权限修改                      |   中   |  1天  |       |
+   |                  卸载后删除残留与旧版本处理                  |   中   |  1天  |       |
+
+3. 打包脚本bug：
+
+   **问题**：
+
+   1. 产品图标和产品名称不统一
+   2. 脚本打包三个版本，有一个版本失败，找出原因
+   3. Python脚本和shell脚本。如何将shell脚本转Python脚本
+
+   **思路**：
+
+   1. 根据老脚本-贴牌配置脚本，使用python实现新脚本，注：单独放一个文件夹中
+
+4. 防卸载bug:
+
+   **问题**：
+
+   1. terminal_detail_component中接收中控密码并传递给界面model
+   2. terminal_info_model接收助手传来的密码信息，并通过信号槽传递给auth_model中保存密码
+   3. 在uninstall脚本中，卸载前判断是否存在密码文件，若有，则解密提取密码，让其输入
+
+
+
+
+
+#### 3. 代码部分
+
+1. 为什么头文件有的需要加上文件夹前缀
+
+2. 为什么只能传递IGeneralOperator，而不能传递CGeneralOperatorAdapter？
+
+3. 英语get、have、take常用口语的用法
+
+   ```
+   If you get something, then that means that the item was given to you. If you take something, then that means that you took it yourself and no one else was involved in you getting possession of the item. To get is to receive, to take is to retrieve.
+   ```
+
+4. in、for、of、to、等常用介词的使用方式
+
+7. python脚本的实现顺序
+
+   ```
+   1. main.py
+   2. handle_opts.py -> batchProcess函数中对IPKTS对应的包的参数，执行newpacket
+   3. new_packet.py ->	NewPacket的__init__(self, **kwargs)初始化，并执行createPacket()
+   				 -> savePacket()保存deb包，使用dpkg -b，并将打的包cp到包库中
+   4. handle_opts.py -> Result()对象，在析构的时候执行打印结果
+   ```
+
+   
 
 #### 4. 末尾
+
