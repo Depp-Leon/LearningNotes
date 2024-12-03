@@ -175,6 +175,8 @@
 
 5. 组件实现方式与插件类似，都是接口`impl`和实现分离。
 
+6. `src2.0/oem`文件夹下面是实现不同品牌的贴牌图片和贴牌脚本。当打包时就会根据版本类型替换对应的skin图标文件
+
 
 
 ### 2.2 RJJH层
@@ -930,6 +932,8 @@ m_pPool->submit([this, pBundle]() {
    root
    Vsecure@2016
    
+   ```
+
 192.168.2.2
    root
    1QAZ2wsx
@@ -976,7 +980,7 @@ m_pPool->submit([this, pBundle]() {
 
    2. 后端中控+防护+主防：`systremctl start jyn*`     #JYNSAFED防护模块 、JYNGJCZ2中控模块、JYNZDFY主防模块
 
-      ```
+   ```
       #主动启动服务，适用于调试，看日志
       cd /opt/apps/chenxinsd/bin
       ./JYNRJJH2
@@ -1126,7 +1130,7 @@ m_pPool->submit([this, pBundle]() {
 
     原因：`dns`被污染，导致解析`github.com`域名解析出来是本地`127.0.0.1`
 
-    解决：在`host`文件中加入域名映射：`140.82.113.4 github.com
+    解决：在`host`文件中加入域名映射：`140.82.113.4 github.com`
 
 12. 关于git提交有感：
 
@@ -1181,6 +1185,19 @@ m_pPool->submit([this, pBundle]() {
     ```
     git restore ./			#还原未暂存的修改
     git restore file.txt	#还原特定文件
+    ```
+
+    3. `git reset`的作用：还原暂存的修改，退出暂存区
+
+    ```
+    git reset ./			#将暂存的文件撤出暂存区
+    git reset <file>		#撤出特定文件
+    ```
+
+    4. git restore --staged的作用：取消暂存，同3
+
+    ```
+    git restore --staged <文件>
     ```
 
 17. `git diff`: 可以查看和分析改动，包括查看两个文件之间、文件修改前后、暂存区中的文件和最新提交之间的差异
@@ -2531,11 +2548,21 @@ m_pPool->submit([this, pBundle]() {
 
 ### 1. 项目部分
 
-2. 如何修改ubuntu下的权限，省的每次都得用sudo
+2. qrc文件和rcc文件    gcc？
 
-3. 查看`.clang-format`如何设置，规格化工具
+3. 针对不同版本(开发环境)的右键库：
 
-4. 使用VScode插件
+   ```
+   #add_subdirectory(libsource/nautilus_scan)
+   #add_subdirectory(libsource/caja_scan)
+   #add_subdirectory(libsource/peony_scan)
+   ```
+
+4. 如何修改ubuntu下的权限，省的每次都得用sudo
+
+5. 查看`.clang-format`如何设置，规格化工具
+
+6. 使用VScode插件
 
    ```
    Clang-Format  代码格式化插件
@@ -2548,15 +2575,15 @@ m_pPool->submit([this, pBundle]() {
    Color Highlight 显示代码中关于颜色的代码直接显示颜色
    ```
 
-5. qt的moudle层如何与safed通信的？safed如何与中控通信的？
+7. qt的moudle层如何与safed通信的？safed如何与中控通信的？
 
    > RJJH下面的ipc文件夹下的IIPCBaseModelInterface，负责send和receive助手之间的数据
 
-6. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
+8. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
 
-6. 动态库之间如何相互调用，动态库是如何使用的
+9. 动态库之间如何相互调用，动态库是如何使用的
 
-7. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
+10. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
 
    ```
    #下面两句如何实现的?
@@ -2564,11 +2591,11 @@ m_pPool->submit([this, pBundle]() {
    std::string msgData = BundleHelper::getBundleBinary4String(pIn, JYMessageBundleKey::JYMessageBinValue, "");
    ```
 
-8. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能？线程池如何运转
+11. 线程类(`ThreadWrapper`)是如何实现的？如何通过集成该类就可以实现线程的功能？线程池如何运转
 
-9. `core`与组件和插件之间的关系，画图梳理->类图建立
+12. `core`与组件和插件之间的关系，画图梳理->类图建立
 
-10. 关于RJJH里面的自定义事件处理：
+13. 关于RJJH里面的自定义事件处理：
 
     1. 在**event**文件夹中创建自定义事件
 
@@ -2579,10 +2606,8 @@ m_pPool->submit([this, pBundle]() {
     4. Framless重写了`eventFilter`事件处理器后，初始化构造中通过`installEvent`绑定自己本身
 
        ```
-       QApplication::instance()->installEventFilter(this);
+       QApplication::instance()->installEventFilter(this)
        ```
-
-       
 
 ### 2. 工作部分
 
@@ -2592,20 +2617,54 @@ m_pPool->submit([this, pBundle]() {
 
    |                           任务名称                           | 优先级 | 时间  | 截至  |
    | :----------------------------------------------------------: | :----: | :---: | ----- |
-   | 查杀后，临近查杀结束时点击暂停，再次查杀，偶现弹窗提示有任务 |   高   | 0.5天 | 12.13 |
+   | 查杀后，临近查杀结束时点击暂停，待任务自动结束后，再次查杀，偶现弹窗提示有任务 |   高   | 0.5天 | 12.13 |
    |                界面颜色，图标等适配为最新版本                |   高   |  2天  | 12.13 |
    |                          网络白名单                          |   高   |  3天  |       |
    |                      所属用户及权限修改                      |   中   |  1天  |       |
    |                  卸载后删除残留与旧版本处理                  |   中   |  1天  |       |
 
-   1. 任务一：查看是否是scan_flow中，暂停和停止的信号冲突了，考虑加一个判断
-   2. 任务二：
-      1. 界面颜色：修改menu_left_bottom的图片为文件夹里面的那个绿色图片，在资源文件夹下面替换后，根据拍照的流程，执行gen生成脚本生成rcc文件，拷贝到安装目录下查看是否生效
+   1. - [x] 任务一：
+
+      1. 原因：在stop停止信号未发送到界面时，点击暂停，之后界面收到stop数据切换界面。但是暂停任务继续执行，又向界面发送暂停信息。导致后续再执行查杀，显示已有查杀正在进行。
+      2. 查看是否是scan_flow中，暂停和停止的信号冲突了，考虑加一个判断
+
+   2. - [ ] 任务二：
+
+      1. 界面颜色：根据给的切图，oem/jyn文件夹下是景云版本的要替换的图片。
+
+         > 复制blue不行，是否是因为代码中写的固定为grey了
+
       2. 图标：在gen脚本中替换jy产品的log为log64-blue即可
 
-   3. 在rjjh_main函数中OEMChooser::Load() --> qproduct_rcc_file --> get_oem，通过etc/version.ini中的版本号来执行不同的贴牌rcc
+      3. 默认的版本样式为RJJH/skins文件夹下，如果是新添加的图片需要在widget.qrc文件中加入。
 
-3. 打包脚本bug：
+      4. 使用贴牌脚本oem/gen_rcc.sh生成对应的rcc文件，复制到对应安装目录下即可改变样式
+      
+         > 注意使用脚本时，先修改本rcc路径为自己本地的
+      
+      5. 在rjjh_main函数中OEMChooser::Load() --> qproduct_rcc_file --> get_oem，通过etc/version.ini中的版本号来执行不同的贴牌rcc
+
+3. 界面重新配置
+
+   1. 图标为logo_64_grey.png。界面左侧颜色：上main_left.png 下main_left_bottom.png
+
+4. 查看麒麟系统下的右键扫描是否可ls
+
+5. 根据不同的版本使用不同的右键库
+
+   2. 在bvin.cmake中解注释对应的库
+
+      ```
+      #add_subdirectory(libsource/nautilus_scan)
+      #add_subdirectory(libsource/caja_scan)
+      #add_subdirectory(libsource/peony_scan)
+      ```
+
+   3. JYINSTALL脚本中的，copy_scan_menu()函数中，负责将那三个右键库复制到对应系统目录下
+      
+      1. 对文件右键打开程序，实际上就是执行 ./JYNRJJH2 --/home (文件名)
+
+6. 打包脚本bug：
 
    **问题**：
 
@@ -2617,7 +2676,7 @@ m_pPool->submit([this, pBundle]() {
 
    1. 根据老脚本-贴牌配置脚本，使用python实现新脚本，注：单独放一个文件夹中
 
-4. 防卸载bug:
+7. 防卸载bug:
 
    **问题**：
 
@@ -2653,7 +2712,40 @@ m_pPool->submit([this, pBundle]() {
    4. handle_opts.py -> Result()对象，在析构的时候执行打印结果
    ```
 
-   
+6. 麒麟系统上文件夹远程连接服务器：在文件夹索引上方输入`ftp://192.168.1.6`即可远程连接
+
+   麒麟系统从远程文件夹拉取文件时，需要拉到左侧"桌面"文件夹下，不可以直接拉到桌面，否则报错
+
+   麒麟系统实际上是linux的另一个发行版，与ubuntu的命令类似，安装时也使用dpkg
+
+7. git 清除未跟踪的文件
+
+   ```
+   git clean -f    #清除未跟踪的文件
+   git clean -fd	#清理未跟踪的文件和目录
+   git clean -fdx	#只删除未跟踪的目录
+   git clean -n	#模拟清理（预览将删除哪些文件）
+   ```
+
+8. 本地信号槽
+
+   ```
+   connect(this,&AuthManger::function,[](){})
+   ```
+
+9. `git pull --rebase`
+10. `make  -j8`  编译多线程
+11. `git restore --staged <文件>...`
+
+12. git stash找到删除的记录
+
+    ```
+    git fsck --lost-found		#列出最近删除的stash commit记录
+    
+    git stash apply <commit-hash>	#恢复到对应stash记录下
+    ```
+
+    
 
 ### 4. 末尾
 
