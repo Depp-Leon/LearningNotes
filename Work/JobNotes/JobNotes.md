@@ -932,21 +932,19 @@ m_pPool->submit([this, pBundle]() {
    root
    Vsecure@2016
    
-   ```
-
-192.168.2.2
+   192.168.2.2
    root
    1QAZ2wsx
    ```
-   
-   
+
+
 
 ### 2.10 安装
 
 1. qt版本build报错，重新安装qmake   
 
    > 实际上应该配环境变量，环境变量多了个'/'导致程序执行不出来qmake --version
-
+   
    ```
    sudo apt-get install qt5-qmake qtbase5-dev
    ```
@@ -954,7 +952,7 @@ m_pPool->submit([this, pBundle]() {
 2. make编译时报错，qt版本有问题，实际5.6.1，但是实际使用显示大于5.10
 
    > 实际上是因为问题4，使用sudo命令执行使用的是5.12版本的qt
-
+   
    ```
    QT_VERSION >= 0x050700    
    // 修改为：QT_VERSION >= 0x051000
@@ -971,22 +969,21 @@ m_pPool->submit([this, pBundle]() {
 4. leslie用户下和root用户下执行qmake --version显示的是不同的版本，使用sudo执行cmake ..时，程序里面的命令都是使用的root权限(即默认的qmake版本)。所以会导致这种情况。
 
    ```
-   #解决办法：更换文件权限，使用leslie用户下执行cmake ..即可
+    #解决办法：更换文件权限，使用leslie用户下执行cmake ..即可
    ```
 
 5. 开启流程：
 
-   1. 前端界面：`/opt/apps/chenxin/bin/JYNRRJJH2`   ，必须用sudo启动(正常不应该是使用sudo)
-
-   2. 后端中控+防护+主防：`systremctl start jyn*`     #JYNSAFED防护模块 、JYNGJCZ2中控模块、JYNZDFY主防模块
+         1. 前端界面：`/opt/apps/chenxin/bin/JYNRRJJH2`   
+      2. 后端中控+防护+主防：`systremctl start jyn*`     #JYNSAFED防护模块 、JYNGJCZ2中控模块、JYNZDFY主防模块
 
    ```
-      #主动启动服务，适用于调试，看日志
-      cd /opt/apps/chenxinsd/bin
-      ./JYNRJJH2
-      sudo ./JYNSAFED
-      sudo ./JYNGJCZ show 
-      ```
+     #主动启动服务，适用于调试，看日志
+     cd /opt/apps/chenxinsd/bin
+     ./JYNRJJH2
+     sudo ./JYNSAFED
+     sudo ./JYNGJCZ show 
+   ```
 
 6. cmake显示缺失LIB_CPR：拷贝lib到normal_development文件夹下
 
@@ -2240,7 +2237,7 @@ m_pPool->submit([this, pBundle]() {
        返回值是一个描述错误的字符串，或 NULL 表示没有错误。
        ```
 
-65. 事件是如何定义、触发、使用的
+65. **事件**是如何定义、触发、使用的
 
     1. 事件拦截：通过事件过滤器，某个对象可以捕获并处理其他对象的事件；
 
@@ -2550,7 +2547,11 @@ m_pPool->submit([this, pBundle]() {
 
 2. qrc文件和rcc文件    gcc？
 
-3. 针对不同版本(开发环境)的右键库：
+3. titlebar？如何将titlebar单独的放到别的界面中
+
+4. RJJH中的event？cur_user干什么的？归纳下qy_ui（UI层）的具体构造
+
+5. 针对不同版本(开发环境)的右键库：
 
    ```
    #add_subdirectory(libsource/nautilus_scan)
@@ -2558,11 +2559,11 @@ m_pPool->submit([this, pBundle]() {
    #add_subdirectory(libsource/peony_scan)
    ```
 
-4. 如何修改ubuntu下的权限，省的每次都得用sudo
+6. 如何修改ubuntu下的权限，省的每次都得用sudo
 
-5. 查看`.clang-format`如何设置，规格化工具
+7. 查看`.clang-format`如何设置，规格化工具
 
-6. 使用VScode插件
+8. 使用VScode插件
 
    ```
    Clang-Format  代码格式化插件
@@ -2575,15 +2576,15 @@ m_pPool->submit([this, pBundle]() {
    Color Highlight 显示代码中关于颜色的代码直接显示颜色
    ```
 
-7. qt的moudle层如何与safed通信的？safed如何与中控通信的？
+9. qt的moudle层如何与safed通信的？safed如何与中控通信的？
 
    > RJJH下面的ipc文件夹下的IIPCBaseModelInterface，负责send和receive助手之间的数据
 
-8. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
+10. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
 
-9. 动态库之间如何相互调用，动态库是如何使用的
+11. 动态库之间如何相互调用，动态库是如何使用的
 
-10. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
+12. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
 
    ```
    #下面两句如何实现的?
@@ -2610,6 +2611,8 @@ m_pPool->submit([this, pBundle]() {
        ```
 
 ### 2. 工作部分
+
+#### 2.1 正在进行
 
 1. 后续暴力破解需要合并到主防，且前端有可能要重构。后续可能要我参加前端的操作，下月主要解bug，脚本和界面优化：颜色、`tableview`展示设计整体框架。
 
@@ -2647,10 +2650,29 @@ m_pPool->submit([this, pBundle]() {
 3. 界面重新配置
 
    1. 图标为logo_64_grey.png。界面左侧颜色：上main_left.png 下main_left_bottom.png
+   2. 托盘图标位置在RJJH/main_window中对SystemTray的设置上
+   3. 桌面图标和文件管理中心的图标在 RJJH.desktop中
+   4. 升级界面图标更改
+   5. 产品名称更换：在desktop里面更改(和关于我们里面的一样)，实际应该在打包脚本中修改
 
-4. 查看麒麟系统下的右键扫描是否可ls
+4. bug修改
 
-5. 根据不同的版本使用不同的右键库
+   1. 病毒库版本上报，看是什么问题
+   2. 试用授权三次后，右键还可以查杀
+
+5. 隔离区的恢复和清除：在`scan_task`上增加删除和恢复的任务处理。
+
+   思路：看RJJH那块如何给safed处理的，直接调用那块的处理方式即可。
+
+
+
+
+
+#### 2.2 暂时搁置
+
+1. 查看麒麟系统下的右键扫描是否可ls
+
+2. 根据不同的版本使用不同的右键库
 
    2. 在bvin.cmake中解注释对应的库
 
@@ -2664,7 +2686,7 @@ m_pPool->submit([this, pBundle]() {
       
       1. 对文件右键打开程序，实际上就是执行 ./JYNRJJH2 --/home (文件名)
 
-6. 打包脚本bug：
+3. 打包脚本bug：
 
    **问题**：
 
@@ -2676,7 +2698,7 @@ m_pPool->submit([this, pBundle]() {
 
    1. 根据老脚本-贴牌配置脚本，使用python实现新脚本，注：单独放一个文件夹中
 
-7. 防卸载bug:
+4. 防卸载bug:
 
    **问题**：
 
@@ -2745,7 +2767,9 @@ m_pPool->submit([this, pBundle]() {
     git stash apply <commit-hash>	#恢复到对应stash记录下
     ```
 
-    
+13. UI层，main_window才是主界面，其在构造的时候初始化了FramelessWindow。
+
+    rjjh_main是RJJH进程的入口，只有main才会执行app.exec事件循环
 
 ### 4. 末尾
 
