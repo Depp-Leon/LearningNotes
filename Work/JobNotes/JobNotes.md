@@ -226,7 +226,7 @@
 
 5. 组件之间通信都是靠`message_center`的发布-订阅模式进行传递消息并执行相应操作。给组件传递消息是通过`plugin_manager`的注册消息订阅以及对回调时对不同插件调用`onNewNotify`函数
 
-
+6. core中插件管理是通过使用动态库来使用不同的插件类的。(`dlopen、dlclose`)
 
 #### 2.3.2 运转核心/core
 
@@ -242,17 +242,24 @@
 7. main:safed执行主函数
 ```
 
-##### 2. 插件管理`plugin_manager`
+##### 2. 组件管理 `component_manager`
 
 ```
-loadPlugin：根据plugin.conf加载插件到map中(通过dlsym获取到插件接口的CreatePlugin函数创建插件接口实			 例)
+1. 通过createComponent创建对应组件接口实例，并将他们插入到std::vector<std::shared_ptr<IComponentInterface>>中
+2. 统一进行开启，释放
+```
+
+##### 3. 插件管理`plugin_manager`
+
+```
+loadPlugin：根据plugin.conf加载插件到map中(通过dlsym读取动态库的方式、获取到插件接口的CreatePlugin函数创建插件接口实例)
 enablePlugin：遍历map，依次启动插件的init和start，并注册消息订阅，触发消息时执行publishPlugin
 unloadPlugin：根据插件名称卸载插件
 disablePlugin: 停止所有插件，启动插件的stop和release
 publishPlugin：找到对应插件，执行对应插件的onNewNotify操作
 ```
 
-##### 3. 消息队列/message_center
+##### 4. 消息队列`message_center`
 
 用于消息的订阅和发布，提前订阅好(subscribe)，就可以根据key执行发布(publish)；比如任务队列中，从任务队列中获取到任务，将key和value封装为Buddle，通过publish从消息处理队列中(m_handlers)执行绑定过的函数(包括向组件(terminal_detatil)中执行中控下发信息填写命令、向插件(Scan)中执行扫描任务等)。
 
@@ -337,7 +344,7 @@ m_pPool->submit([this, pBundle]() {
    ctrl_center组件，实现向中控发送信息(asyncReport)
    local_service组件：实现接收UI层和中控的消息(插入消息队列，依次调用回调);向UI层发送信息
    protect_logger组件：实现UI层面的日志上报和详细日志上报(recordProtectionLogs)
-   authorize组件：实现各种认证、版本信息、病毒库信息、引擎信息等
+   authorize组件：实现各种认证、版本信息、病毒库信息、引擎信息、授权信息等
    timed_tasks组件：实现注册定时任务(registerTask)
    task_manager组件：实现任务队列(添加、删除任务到任务队列)
    upgrade组件：实现软件和病毒库更新。没有在general_Operator_impl中定义(插件用不了)。
@@ -2135,9 +2142,9 @@ m_pPool->submit([this, pBundle]() {
     1. 如果 `.cpp` 文件是你自己定义的，并且它们需要被编译成库的一部分，你必须将这些 `.cpp` 文件列出在 `add_library` 中。如果你仅通过 `include_directories` 引用了其他目录的头文件，而没有将对应的 `.cpp` 文件包含到 `add_library` 中，编译器将找不到这些源文件并报错
     2. 如果你的代码依赖于外部库（比如系统库或第三方库），你可以通过 `target_link_libraries` 来指定这些库
 
-59. 通过逗号分割提取字符串
+51. 通过逗号分割提取字符串
 
-    ```
+    ```c++
     std::istringstream stream(ipList);
     std::string ip;
     while (std::getline(stream, ip, ',')) {
@@ -2149,7 +2156,42 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-60. 关于槽函数slot的访问权限(public protected private)
+    1. `std::istringstream` 是 C++ 中的一个输入流类，它允许你将一个字符串作为流进行处理。通过它，你可以像读取其他输入流（如 `std::cin`）一样读取字符串内容。
+
+    2. `std::getline()`的几种用法：
+
+       1. 从输入流读取一行数据
+
+          ```
+          std::getline(std::cin, line); // 默认以换行符分隔
+          ```
+
+       2. 从输入流读取一行数据并指定分隔符，默认为换行符（`\n`）。此处使用`istringstream`模拟流数据
+
+          ```c++
+          std::string input = "apple,banana,orange,grape";
+          std::istringstream stream(input);
+          std::string token;
+          
+          // 使用逗号作为分隔符
+          while (std::getline(stream, token, ',')) {
+              std::cout << token << std::endl;
+          }
+          ```
+
+       3. 从文件中逐行读取
+
+          ```c++
+          std::ifstream file("example.txt");
+          std::string line;
+          
+          // 逐行读取文件内容
+          while (std::getline(file, line)) {
+              std::cout << line << std::endl;
+          }
+          ```
+
+52. 关于槽函数slot的访问权限(public protected private)
 
     1. signal没有访问权限限制。
     2. **访问权限只对外部代码的直接调用有效**，对信号-槽机制无影响(只要是槽函数就可以进行信号-槽机制的连接)。
@@ -2162,7 +2204,7 @@ m_pPool->submit([this, pBundle]() {
     | **子类访问**         | 不可以                       | 可以                         | 可以                       |
     | **外部代码直接调用** | 不可以                       | 不可以                       | 可以                       |
 
-63. Qt的Warnging弹窗，执行exec()模态框时，会阻塞当前界面，直到用户点击确定(返回`QDialog::Accepted`)或者关闭/取消(返回`QDialog::Rejected`)
+53. Qt的Warnging弹窗，执行exec()模态框时，会阻塞当前界面，直到用户点击确定(返回`QDialog::Accepted`)或者关闭/取消(返回`QDialog::Rejected`)
 
     ```
     if (wDlg.exec() == QDialog::Rejected){
@@ -2172,7 +2214,7 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-64. `dlopen`、`dlsym` 和 `dlclose` 是 Linux 动态链接库相关的函数，用于**在运行时加载和使用共享库**（动态库）。它们定义在 `<dlfcn.h>` 头文件中，属于 POSIX 标准的一部分
+54. `dlopen`、`dlsym` 和 `dlclose` 是 Linux 动态链接库相关的函数，用于**在运行时加载和使用共享库**（动态库）。它们定义在 `<dlfcn.h>` 头文件中，属于 POSIX 标准的一部分
 
     1. `dlopen`：用于加载共享库，并返回一个句柄以供后续操作
 
@@ -2237,7 +2279,7 @@ m_pPool->submit([this, pBundle]() {
        返回值是一个描述错误的字符串，或 NULL 表示没有错误。
        ```
 
-65. **事件**是如何定义、触发、使用的
+55. **事件**是如何定义、触发、使用的
 
     1. 事件拦截：通过事件过滤器，某个对象可以捕获并处理其他对象的事件；
 
@@ -2412,15 +2454,15 @@ m_pPool->submit([this, pBundle]() {
        全局监听：使用事件过滤器
        ```
 
-66. `event->type() > QEvent::User` 的含义：`QEvent::User` 是一个事件类型常量，用于标识用户自定义事件的起始范围。它的值通常定义为一个整数（如 1000），大于这个值的事件类型都属于用户定义事件。
+56. `event->type() > QEvent::User` 的含义：`QEvent::User` 是一个事件类型常量，用于标识用户自定义事件的起始范围。它的值通常定义为一个整数（如 1000），大于这个值的事件类型都属于用户定义事件。
 
-67. `QApplication::instance()`获取当前正在运行的 `QApplication` 对象
+57. `QApplication::instance()`获取当前正在运行的 `QApplication` 对象
 
     ```
     QApplication::instance()->installEventFilter(this);
     ```
 
-68. `QEventLoop`:主要用于执行事件循环，以便处理不同类型的事件（如用户输入、定时器事件、信号和槽的调用等）
+58. `QEventLoop`:主要用于执行事件循环，以便处理不同类型的事件（如用户输入、定时器事件、信号和槽的调用等）
 
     1. **事件循环**是 Qt 应用程序中不可或缺的一部分，它是一个等待并处理事件的机制。Qt 中的事件循环通过 `QEventLoop` 类来实现，基本的事件循环由 `QCoreApplication` 或 `QApplication` 管理。每个 Qt 程序都需要一个事件循环来处理用户输入（如鼠标点击、键盘输入），系统事件（如定时器超时），以及其他组件之间的信号和槽的调用。
 
@@ -2463,7 +2505,7 @@ m_pPool->submit([this, pBundle]() {
        3. 如果信号与槽的连接是 **队列连接**，槽函数会在事件循环的下一次迭代中执行，而不会阻塞当前的槽函数。
        4. 如果信号与槽的连接是 **直接连接**，槽函数会同步执行（通常是在信号发射的地方
 
-69. 如果在使用lambda的情况下使用信号槽，需要解绑时，需要保存lambda函数的实例。
+59. 如果在使用lambda的情况下使用信号槽，需要解绑时，需要保存lambda函数的实例。
 
     ```
     // 定义一个 lambda 函数
@@ -2472,18 +2514,18 @@ m_pPool->submit([this, pBundle]() {
         };
     ```
 
-76. 可以发射成员对象里的信号
+60. 可以发射成员对象里的信号
 
     ```
     emit m_authManager->sigRegistInfoTable();
     ```
 
-77. 信号和槽函数都使用 `void` 类型的原因：
+61. 信号和槽函数都使用 `void` 类型的原因：
 
     1. 设计如此，**异步事件处理**不需要关心返回值
     2. 信号槽机制，信号只管发射，可以有多个槽函数应答；同理，多个信号可以只有一个槽函数应答。
 
-78. 操作系统、架构、指令集、内核之间的关系
+62. 操作系统、架构、指令集、内核之间的关系
 
     1. 操作系统内核
 
@@ -2531,9 +2573,9 @@ m_pPool->submit([this, pBundle]() {
 
           **CISC 架构** 的设计理念更为复杂，因为每条指令可能包含多个操作，硬件需要更多的解码器和执行单元来处理这些复杂的指令。**x86** 是典型的 CISC 架构，它拥有庞大的指令集，处理器需要支持各种复杂的指令解析和执行机制。
 
-79. md5:MD5（Message-Digest Algorithm 5）是一种广泛使用的加密哈希函数，能够将任意长度的输入数据（通常称为消息）转换为固定长度的输出，具体来说是 128 位（16 字节）长的哈希值。
+63. md5:MD5（Message-Digest Algorithm 5）是一种广泛使用的加密哈希函数，能够将任意长度的输入数据（通常称为消息）转换为固定长度的输出，具体来说是 128 位（16 字节）长的哈希值。
 
-80. 计算md5的值
+64. 计算md5的值
 
     ```
     md5sum <库名>
@@ -2549,9 +2591,11 @@ m_pPool->submit([this, pBundle]() {
 
 3. titlebar？如何将titlebar单独的放到别的界面中
 
-4. RJJH中的event？cur_user干什么的？归纳下qy_ui（UI层）的具体构造
+4. RJJH中的event文件夹？cur_user干什么的？归纳下qy_ui（UI层）的具体构造
 
-5. 针对不同版本(开发环境)的右键库：
+5. 看下Frameless中的720行事件过滤器
+
+6. 针对不同版本(开发环境)的右键库：
 
    ```
    #add_subdirectory(libsource/nautilus_scan)
@@ -2559,11 +2603,11 @@ m_pPool->submit([this, pBundle]() {
    #add_subdirectory(libsource/peony_scan)
    ```
 
-6. 如何修改ubuntu下的权限，省的每次都得用sudo
+7. 如何修改ubuntu下的权限，省的每次都得用sudo
 
-7. 查看`.clang-format`如何设置，规格化工具
+8. 查看`.clang-format`如何设置，规格化工具
 
-8. 使用VScode插件
+9. 使用VScode插件
 
    ```
    Clang-Format  代码格式化插件
@@ -2576,15 +2620,15 @@ m_pPool->submit([this, pBundle]() {
    Color Highlight 显示代码中关于颜色的代码直接显示颜色
    ```
 
-9. qt的moudle层如何与safed通信的？safed如何与中控通信的？
+10. qt的moudle层如何与safed通信的？safed如何与中控通信的？
 
    > RJJH下面的ipc文件夹下的IIPCBaseModelInterface，负责send和receive助手之间的数据
 
-10. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
+11. 执行文件(SAFED ZDFY GZCZ)和包(.so)的分布情况
 
-11. 动态库之间如何相互调用，动态库是如何使用的
+12. 动态库之间如何相互调用，动态库是如何使用的
 
-12. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
+13. plugin.conf的message的Key，在哪个地方初始化。如果key没有卸载config文件里面会如何
 
    ```
    #下面两句如何实现的?
@@ -2631,7 +2675,7 @@ m_pPool->submit([this, pBundle]() {
       1. 原因：在stop停止信号未发送到界面时，点击暂停，之后界面收到stop数据切换界面。但是暂停任务继续执行，又向界面发送暂停信息。导致后续再执行查杀，显示已有查杀正在进行。
       2. 查看是否是scan_flow中，暂停和停止的信号冲突了，考虑加一个判断
 
-   2. - [ ] 任务二：
+   2. - [x] 任务二：
 
       1. 界面颜色：根据给的切图，oem/jyn文件夹下是景云版本的要替换的图片。
 
@@ -2647,7 +2691,8 @@ m_pPool->submit([this, pBundle]() {
       
       5. 在rjjh_main函数中OEMChooser::Load() --> qproduct_rcc_file --> get_oem，通过etc/version.ini中的版本号来执行不同的贴牌rcc
 
-3. 界面重新配置
+3. - [x] 界面重新配置
+
 
    1. 图标为logo_64_grey.png。界面左侧颜色：上main_left.png 下main_left_bottom.png
    2. 托盘图标位置在RJJH/main_window中对SystemTray的设置上
@@ -2655,16 +2700,31 @@ m_pPool->submit([this, pBundle]() {
    4. 升级界面图标更改
    5. 产品名称更换：在desktop里面更改(和关于我们里面的一样)，实际应该在打包脚本中修改
 
-4. bug修改
+4. - [x] bug修改
+
 
    1. 病毒库版本上报，看是什么问题
+
+      **解决**：无需更新时没有上传旧的版本号导致传递的版本号为空
+
+      **隐患**：
+
    2. 试用授权三次后，右键还可以查杀
 
-5. 隔离区的恢复和清除：在`scan_task`上增加删除和恢复的任务处理。
+      **解决**：在执行扫描的时候加上判断，是否试用授权超过三次，超过则不执行
 
+5. - [ ] 隔离区的恢复和清除：在`scan_task`上增加删除和恢复的任务处理。
+
+   
    思路：看RJJH那块如何给safed处理的，直接调用那块的处理方式即可。
 
+6. - [ ] 网络防护增加逻辑：
 
+   1. 检测时间改为1秒内5次
+   2. 界面禁用网络防护时，把配置文件清除掉(把之前封禁的ip去除、把hosts.deny清除掉)
+   3. 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
+
+   > 下一步先看隔离区的数据展示如何实现的，先解决5，为自己实现新窗口打铺垫
 
 
 
@@ -2756,7 +2816,9 @@ m_pPool->submit([this, pBundle]() {
    ```
 
 9. `git pull --rebase`
+
 10. `make  -j8`  编译多线程
+
 11. `git restore --staged <文件>...`
 
 12. git stash找到删除的记录
@@ -2770,6 +2832,19 @@ m_pPool->submit([this, pBundle]() {
 13. UI层，main_window才是主界面，其在构造的时候初始化了FramelessWindow。
 
     rjjh_main是RJJH进程的入口，只有main才会执行app.exec事件循环
+    
+14. 关于Frameless中的事件过滤器`eventFilter`:（以scanModel为例）
+
+    1. scanmodel在收到safed传来的扫描过程中的异常事件，将会通过信号槽`emit`将该`event`传递到Frameless
+
+    2. Framless在槽函数中执行`postEvent`，发送事件，交给事件过滤器`eventfliter`处理
+
+       ```
+       QApplication::postEvent(this, pEvent);
+       ```
+
+    3. 事件处理器将会依次处理本轮事件队列，直到下一轮(app.exec)
+    4. 事件event的总类(自定义事件)在event文件夹下
 
 ### 4. 末尾
 
