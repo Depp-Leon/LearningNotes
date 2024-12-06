@@ -1565,7 +1565,7 @@ m_pPool->submit([this, pBundle]() {
 
    > 这是因为 C++ 中的文件流类（如 `ifstream` 和 `ofstream`）遵循 RAII（Resource Acquisition Is Initialization）的原则。RAII 确保当对象超出其作用域时，自动调用其析构函数来释放资源，包括关闭文件流。
 
-10. 使用迭代器遍历时，`first`和`second`是成员变量而不是函数，不需要加括号
+10. 使用map容器进行迭代器遍历时，`first`和`second`是成员变量而不是函数，不需要加括号(因为map使用`pair`对组作为成员，只有map使用`first`和`second`)
 
     ```c++
     for(auto it = time_map.begin();it != time_map.end(); ){
@@ -2716,13 +2716,24 @@ m_pPool->submit([this, pBundle]() {
 5. - [ ] 隔离区的恢复和清除：在`scan_task`上增加删除和恢复的任务处理。
 
    
-   思路：看RJJH那块如何给safed处理的，直接调用那块的处理方式即可。
+   思路：
+   
+   1. 看RJJH那块如何给safed处理的，直接调用那块的处理方式即可。
+   2. 删除和恢复都新建scan任务，和get写到同一个/或者不写同一个。
+   3. 在safed中看能否在safed中直接实现删除/恢复功能，然后同步/上传/上报数据到UI界面和中控
+   4. 把需要彻底删除的文件统计到VirusIsolateRemoveInfoList中（scan_flow590行），然后传递给scan_flow中的virusScanProcessIsolateThoroughDelete进行删除。
+   5. 同样，把要恢复的文件统计到VirusIsolateRecoverInfoList中（521行），然后传递给virusScanProcessIsolateRecover进行恢复
+   6. 看一下界面到这块的逻辑，是否还需要更新界面等操作，是否需要跟界面交互
 
 6. - [ ] 网络防护增加逻辑：
 
    1. 检测时间改为1秒内5次
    2. 界面禁用网络防护时，把配置文件清除掉(把之前封禁的ip去除、把hosts.deny清除掉)
-   3. 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
+   3. 日志记录里面二级分类为`-`，不是未知。
+   4. bug: 
+      1. 仅记录时，来一个攻击日志就记录一次。网络防护那块也是
+      2. 弹窗只第一次有效，后续再有弹窗就无效了，不弹窗了
+   5. 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
 
    > 下一步先看隔离区的数据展示如何实现的，先解决5，为自己实现新窗口打铺垫
 
@@ -2845,6 +2856,84 @@ m_pPool->submit([this, pBundle]() {
 
     3. 事件处理器将会依次处理本轮事件队列，直到下一轮(app.exec)
     4. 事件event的总类(自定义事件)在event文件夹下
+
+15. Qt图片路径：使用了 `:/` 前缀，表示这是一个 Qt 资源路径；资源文件必须在项目的资源文件（`.qrc` 文件）中声明。
+
+    ```
+    QIcon jy_icon(":/skins/icon/logo_64_blue.png");
+    app.setWindowIcon(jy_icon);
+    ```
+
+16. `QAbstractListModel` 是 Qt 框架中的一个抽象基类，用于实现基于列表的数据模型。它继承自 `QAbstractItemModel`，并简化了仅需要一维数据结构（如列表或数组）的模型实现。
+
+17. `QTableWidget`和`QTableView`的区别：
+
+    1. `QTableWidget`基于项（Item-based）的表格控件，适合简单的表格数据展示，当数据量较大时，性能不如 `QTableView`
+
+       ```c++
+       #include <QApplication>
+       #include <QTableWidget>
+       #include <QTableWidgetItem>
+       
+       int main(int argc, char *argv[]) {
+           QApplication app(argc, argv);
+       
+           QTableWidget table(3, 3); // 3行3列
+           table.setWindowTitle("QTableWidget Example");
+       
+           // 添加数据
+           for (int row = 0; row < 3; ++row) {
+               for (int col = 0; col < 3; ++col) {
+                   QTableWidgetItem *item = new QTableWidgetItem(QString("Item %1,%2").arg(row).arg(col));
+                   table.setItem(row, col, item);
+               }
+           }
+       
+           table.show();
+           return app.exec();
+       }
+       ```
+
+    2. `QTableView`基于模型（Model-based）的表格控件，`QTableView` 是 `QAbstractItemView` 的子类，必须配合数据模型（`QAbstractTableModel` 或 `QStandardItemModel`）使用。符合MVC框架的支持。适合展示大量数据，性能较高，并可以自定义数据模型，支持动态数据更新。
+
+       ```c++
+       #include <QApplication>
+       #include <QTableView>
+       #include <QStandardItemModel>
+       
+       int main(int argc, char *argv[]) {
+           QApplication app(argc, argv);
+       
+           QTableView tableView;
+           tableView.setWindowTitle("QTableView Example");
+       
+           // 创建数据模型
+           QStandardItemModel model(3, 3); // 3行3列
+           for (int row = 0; row < 3; ++row) {
+               for (int col = 0; col < 3; ++col) {
+                   QStandardItem *item = new QStandardItem(QString("Item %1,%2").arg(row).arg(col));
+                   model.setItem(row, col, item);
+               }
+           }
+       
+           tableView.setModel(&model);
+           tableView.show();
+       
+           return app.exec();
+       }
+       ```
+
+    18. 全选/取消全选操作：`CheckBoxHeaderView` 通常是指一个自定义的 **表格头部** 组件（例如，继承自 `QHeaderView`），它可以包含一个 **复选框（CheckBox）**，通常用于全选或取消全选的功能。
+
+    19. 使用`static_cast`的时机：避免编译器执行隐式转换时可能会因为损失精度等提示异常。提前使用该类型告知，这是可以进行的，是已知的情况的。**它不会进行类型检查，所以需要用户提前确保这是正确的。**
+
+        ```
+        auto it = m_task.find(static_cast<CmdType>(item.operate()));
+        
+        #例子：此处的map，key为自定义enum类型。而获取到的是protobuffer数据格式的枚举，没有规定两者之间进行隐式转换的定义，会报错，此时使用static_cast就可以正常使用了
+        ```
+
+        
 
 ### 4. 末尾
 
