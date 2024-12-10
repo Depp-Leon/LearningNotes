@@ -352,8 +352,11 @@ m_pPool->submit([this, pBundle]() {
    	1. 在init初始化时就通过messageCenter订阅，待任务队列到达他们时再pulish
    	2. registerResetRequest，接收到中控消息，任务队列中执行插入任务
    	3. registerResetResponse，收到UI层传来完成信息，任务队列中关闭掉任务
+   virus_scan_engine组件：
+	1. 调用引擎的服务(通过调用src2.0/virus_scan_engine_plugin/include/scan_engine_api里面	   提供的接口)，进行病毒文件的扫描、病毒文件清理、恢复、获取病毒文件信息等
+   	2. 该接口具体是由virus_Scan_plugin_helper进行对接口实例的实现，具体使用		     了"lib/modules/libJYVirusScanEnginePlugin.so"动态库(该动态库就在该include文件夹下面的cmakelist中创建的)，使用GetEnginePluginIns函数返回的  GetEnginePluginIns对象进行启动引擎、扫描任务、病毒清理等功能
    ```
-
+   
    
 
 ##### 2. 更新组件/upgrade
@@ -452,7 +455,7 @@ m_pPool->submit([this, pBundle]() {
 
    ```c++
    ReportProtect report;				#ReportProtect是protbuf生成的class
-   report.SerializeAsString()
+   report.SerializeAsString() 或 report.SerializePartialAsString()
    ```
 
 4. 获取非重复非嵌套字段
@@ -525,6 +528,7 @@ m_pPool->submit([this, pBundle]() {
 11. 枚举类型直接通过下标_获取
 
     ```c++
+    #如果有package必须用包名::后面的下标路径；如果没有则不需要加包名，直接使用后面的下标路径
     HmiToScan::VirusScan_ScanType_THREAT_CLEAN
     ```
 
@@ -2595,7 +2599,9 @@ m_pPool->submit([this, pBundle]() {
 
 5. 看下Frameless中的720行事件过滤器
 
-6. 针对不同版本(开发环境)的右键库：
+6. 看src/moudles/virus_scan_engine_plugin/src libEngineScan动态库(扫描引擎)的组成成分。
+
+7. 针对不同版本(开发环境)的右键库：
 
    ```
    #add_subdirectory(libsource/nautilus_scan)
@@ -2603,11 +2609,11 @@ m_pPool->submit([this, pBundle]() {
    #add_subdirectory(libsource/peony_scan)
    ```
 
-7. 如何修改ubuntu下的权限，省的每次都得用sudo
+8. 如何修改ubuntu下的权限，省的每次都得用sudo
 
-8. 查看`.clang-format`如何设置，规格化工具
+9. 查看`.clang-format`如何设置，规格化工具
 
-9. 使用VScode插件
+10. 使用VScode插件
 
    ```
    Clang-Format  代码格式化插件
@@ -2620,7 +2626,7 @@ m_pPool->submit([this, pBundle]() {
    Color Highlight 显示代码中关于颜色的代码直接显示颜色
    ```
 
-10. qt的moudle层如何与safed通信的？safed如何与中控通信的？
+11. qt的moudle层如何与safed通信的？safed如何与中控通信的？
 
    > RJJH下面的ipc文件夹下的IIPCBaseModelInterface，负责send和receive助手之间的数据
 
@@ -2713,31 +2719,55 @@ m_pPool->submit([this, pBundle]() {
 
       **解决**：在执行扫描的时候加上判断，是否试用授权超过三次，超过则不执行
 
-5. - [ ] 隔离区的恢复和清除：在`scan_task`上增加删除和恢复的任务处理。
+3. - [x] 隔离区的恢复和清除：在`scan_task`上增加删除和恢复的任务处理。
 
-   
+
    思路：
-   
+
    1. 看RJJH那块如何给safed处理的，直接调用那块的处理方式即可。
+
    2. 删除和恢复都新建scan任务，和get写到同一个/或者不写同一个。
+
    3. 在safed中看能否在safed中直接实现删除/恢复功能，然后同步/上传/上报数据到UI界面和中控
+
    4. 把需要彻底删除的文件统计到VirusIsolateRemoveInfoList中（scan_flow590行），然后传递给scan_flow中的virusScanProcessIsolateThoroughDelete进行删除。
+
    5. 同样，把要恢复的文件统计到VirusIsolateRecoverInfoList中（521行），然后传递给virusScanProcessIsolateRecover进行恢复
-   6. 看一下界面到这块的逻辑，是否还需要更新界面等操作，是否需要跟界面交互
 
-6. - [ ] 网络防护增加逻辑：
+   6. 整体逻辑：
 
-   1. 检测时间改为1秒内5次
-   2. 界面禁用网络防护时，把配置文件清除掉(把之前封禁的ip去除、把hosts.deny清除掉)
-   3. 日志记录里面二级分类为`-`，不是未知。
-   4. bug: 
-      1. 仅记录时，来一个攻击日志就记录一次。网络防护那块也是
+      1. 界面根据所选的item，整合为list传递给safed(scan_Flow)中进行处理。其中将会遍历该文件列表，每处理一个就会发送Progress信息给UI，UI收到后就会更新隔离区展示列表
+
+   7. - [x] bug: 删除的没有删除掉？导致隔离区再次打开/界面刷新 后 重新出现病毒地址。
+
+      **原因**：1. virusScanProcessResultSync ，在界面启动时就会从某个地方获取到病毒文件列表发送给界面
+
+      			2. scan_flow_controller中新写的那4个函数中有问题
+         			3. 是否是因为没有执行virusFileClean，去virus_scan_engine_plugin/src/scan_engine_impl中看
+
+      **解决**：动态库中，删除文件的时候并没有把它从数据库中删除
+
+4. 网络防护增加逻辑：
+
+   - [x] 检测时间改为1秒内5次
+
+   - [ ] 界面禁用网络防护时，把配置文件清除掉(把之前封禁的ip去除、把hosts.deny清除掉)
+
+     > 是否当点击禁用时，走插件的stop函数
+
+   - [x] 日志记录里面二级分类为`-`，不是未知。
+
+   - [ ] bug: 
       2. 弹窗只第一次有效，后续再有弹窗就无效了，不弹窗了
-   5. 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
+
+   - [ ] 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
 
    > 下一步先看隔离区的数据展示如何实现的，先解决5，为自己实现新窗口打铺垫
 
+5. - [ ] UI优化：
 
+   1. title_bar改为浅色的
+   2. about_new_aboutus使用垂直布局将两个布局合一起，最后使用about_us图片作为背景图
 
 #### 2.2 暂时搁置
 
@@ -2933,7 +2963,56 @@ m_pPool->submit([this, pBundle]() {
         #例子：此处的map，key为自定义enum类型。而获取到的是protobuffer数据格式的枚举，没有规定两者之间进行隐式转换的定义，会报错，此时使用static_cast就可以正常使用了
         ```
 
-        
+18. `QAtomicInt` 是 Qt 提供的一个 **原子整数类型**，主要用于在多线程环境下进行线程安全的整数操作。
+
+    `storeRelease` 和 `loadAcquire` 配合使用可以保证多线程操作的内存一致性：
+
+    - **Release** 语义：确保当前线程的写操作在 `storeRelease` 之前对其他线程可见。
+    - **Acquire** 语义：确保当前线程的读取操作在 `loadAcquire` 之后看到其他线程的最新写操
+
+19. protobuffer中：定义了package就相当于使用了c++中的`namespace`，当使用其中的字段时都需要加上包名(命名空间)。
+    1. 在 C++ 中：package 会生成对应的 namespace。
+    2. 不定义 package，所有类型直接生成在顶层命名空间中，可以直接访问使用
+
+20. `SerializePartialAsString()` 和 `SerializeAsString()` 是 Protocol Buffers（protobuf）库中用于将消息序列化为字符串的函数，但它们的行为在处理消息完整性方面有所不同：
+
+    1.  `SerializeAsString()` :序列化整个消息到字符串：在序列化之前，会检查消息是否有效（完整性检查），即所有被标记为 **必需字段**（`required`）的字段是否都已设置。如果消息中缺少必需字段，则序列化会失败，并抛出异常（在某些实现中可能是返回错误状态）。使用较旧的 protobuf 版本（2.x 系列）时，因为 2.x 版本支持 `required` 字段
+    2. `SerializePartialAsString()`：序列化部分（可能不完整）的消息到字符串：不检查消息的完整性。即使消息中有必需字段未设置，也会继续序列化现有字段；在 protobuf 3.x 及更高版本中更为常用，因为这些版本中不再支持 `required` 字段，消息的完整性检查不再是主要关注点。
+
+21. 在大多数平台上，`std::time_t` 是一个 64 位有符号整数（例如 Linux 的 x86-64 平台）。表示时间戳
+
+    ```
+    // 获取秒级时间戳
+    int64_t timestamp = static_cast<int64_t>(time(nullptr));
+    ```
+
+22. ubuntu进程关闭
+
+    ```
+    ctrl + z   #中断进程，后台还会有进程号
+    ctrl + c   #取消进程，后台无该进程
+    ```
+
+23. C++删除文件中的某行
+    1.  读文件，将不符合删除条件的行使用vector\<std::string>存储起来
+    2. 覆盖写文件，将vector中的数据重写到文件中
+
+24. 当创建文件读/写对象时，就已经打开文件了
+
+    ```
+    std::ifstream infile(m_sshDenyPath);
+    
+    #判断开发方式1：
+    if(!infile){
+    	throw std::runtime_error("Unable to open either log file:"+m_sshDenyPath); 
+    }
+    #判断打开方式2：
+     if (!inputFile.is_open()) {
+         std::cerr << "Error: Could not open file " << filePath << "\n";
+    }
+    ```
+
+25. `std::string::npos` 是 C++ 标准库中 `std::string` 类的一个特殊常量，用于表示 "未找到" 的情况,它的值通常是一个非常大的整数（例如 `-1` 的无符号表示
 
 ### 4. 末尾
 
