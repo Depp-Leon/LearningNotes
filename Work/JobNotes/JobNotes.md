@@ -165,6 +165,20 @@
    		ZDFY主要负责系统防护和数据防护；
    		GJCZ是实现扫描功能(插件scan只是调度GJCZ)；
    		两个可执行文件开启系统后就在后台启动。
+   		
+   		
+   src_2.0的具体分布
+   1. moudles模块：PostDataReport
+   			   UploadFile
+   			   ZyScanPlug
+   			   virus_scan_engine_plugin	
+   2. oem: 贴牌文件夹
+   3. qt_ui: 前端界面文件：RJJH 主界面
+   					  Udish_protection U盘界面
+   					  ZyUpdateUi 升级界面
+   					  cur_user 跟用户相关？
+   4. safed: 助手层
+   5. tools: 工具文件夹
    ```
 
 2. 组件(`modules/component`)主要是一些共用的功能模块，插件(`plugins`)是单独的可以增加、去掉的模块。比如不同的插件都可以使用组件里的认证、防护日志、任务管理、定时任务、更新等
@@ -341,10 +355,11 @@ m_pPool->submit([this, pBundle]() {
 3. 组件成员
 
    ```
-   ctrl_center组件，实现向中控发送信息(asyncReport)
-   local_service组件：实现接收UI层和中控的消息(插入消息队列，依次调用回调);向UI层发送信息
-   protect_logger组件：实现UI层面的日志上报和详细日志上报(recordProtectionLogs)
    authorize组件：实现各种认证、版本信息、病毒库信息、引擎信息、授权信息等
+   config:组件：实现配置信息；接收界面、中控下发的配置(UI设置界面里面)并相互转发转发配置
+   ctrl_center组件，实现向中控发送信息、上报中控(asyncReport)
+   local_service组件：向UI层发送信息(sendMsgTo),获取界面连接状态、IPC实现与界面通信
+   protect_logger组件：实现UI层面的日志上报和详细日志上报(recordProtectionLogs)
    timed_tasks组件：实现注册定时任务(registerTask)
    task_manager组件：实现任务队列(添加、删除任务到任务队列)
    upgrade组件：实现软件和病毒库更新。没有在general_Operator_impl中定义(插件用不了)。
@@ -352,8 +367,8 @@ m_pPool->submit([this, pBundle]() {
    	1. 在init初始化时就通过messageCenter订阅，待任务队列到达他们时再pulish
    	2. registerResetRequest，接收到中控消息，任务队列中执行插入任务
    	3. registerResetResponse，收到UI层传来完成信息，任务队列中关闭掉任务
-   virus_scan_engine组件：
-	1. 调用引擎的服务(通过调用src2.0/virus_scan_engine_plugin/include/scan_engine_api里面	   提供的接口)，进行病毒文件的扫描、病毒文件清理、恢复、获取病毒文件信息等
+	virus_scan_engine组件(之前的gjcz)：
+       1. 调用引擎服务(调用src2.0/moudle/svirus_scan_engine_plugin/include/scan_engine_api里面提供的接口)，进行病毒文件的扫描、病毒文件清理、恢复、获取病毒文件信息等
    	2. 该接口具体是由virus_Scan_plugin_helper进行对接口实例的实现，具体使用		     了"lib/modules/libJYVirusScanEnginePlugin.so"动态库(该动态库就在该include文件夹下面的cmakelist中创建的)，使用GetEnginePluginIns函数返回的  GetEnginePluginIns对象进行启动引擎、扫描任务、病毒清理等功能
    ```
    
@@ -421,6 +436,29 @@ m_pPool->submit([this, pBundle]() {
     2. ScanPostman: 负责与gjcz之间通信(包括暂停、继续、清理等)
 9. post: 上报服务，(上报client_action到中控)
 # 4-9全部作为flow的成员对象进行任务处理调度
+```
+
+
+
+#### 2.3.5 公用/common
+
+`common`文件夹里面主要包含的是整个项目封装好的工具类，比如`nlohman`(`json`文件)、`thread`(线程)、`utils`(工具包，各种时间、类型转换)、`epoll`(`io`相关)
+
+```
+1. framewor框架：里面定义了插件接口头文件、实现插件使用组件功能的接口抽象
+2. epoll：I/O 多路复用机制
+3. clipp： C++ 库，用于构建命令行解析器，程序启动的时候可以带参数
+4. thread多线程：里面包含使用线程的的模板函数(jy_thread)、
+				线程管理类(managed_thread)(需要继承并实现run 和 release)、
+				线程池(thread_pool)
+5. utils工具： 定义了类型转换、
+			  时间相关、
+			  文件相关、
+			  JSON对象的写入和读取文件(nlohman)、
+			  安全队列、
+			  单例模板(singleton)、
+			  string转换、
+			  获取本机信息(sys_utils)
 ```
 
 
@@ -771,7 +809,7 @@ m_pPool->submit([this, pBundle]() {
    
    sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libSysMonManage.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so /opt/apps/chenxinsd/lib/modules/
    
-   sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so /opt/apps/chenxinsd/lib/plugins/system/
+   sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so  /opt/apps/chenxinsd/lib/plugins/system/
    ```
 
 3. 什么时候需要重新执行cmake和make
@@ -934,6 +972,9 @@ m_pPool->submit([this, pBundle]() {
 
    ```
    admin	vsecure2020		#中控账号密码
+   
+   192.168.3.87 	#正式中控授权
+   192.168.1.112 	#试用中控
    ```
 
 7. 测试远程ip、账号、密码
@@ -2285,7 +2326,81 @@ m_pPool->submit([this, pBundle]() {
 
 55. **事件**是如何定义、触发、使用的
 
-    1. 事件拦截：通过事件过滤器，某个对象可以捕获并处理其他对象的事件；
+    1. 重载特定事件处理函数(`QWidget`定义好的虚函数)：每个控件都有一组专门的事件处理函数，你可以重载这些函数以实现自定义行为
+
+       ```
+       #常用事件处理函数
+       鼠标事件：mousePressEvent、mouseReleaseEvent、mouseMoveEvent。
+       键盘事件：keyPressEvent、keyReleaseEvent。
+       窗口事件：resizeEvent、paintEvent。
+       焦点事件：focusInEvent、focusOutEvent。
+       ```
+       
+       ```c++
+    #include <QWidget>
+       #include <QMouseEvent>
+       #include <QDebug>
+       
+       #示例：鼠标事件处理
+       class MyWidget : public QWidget {
+       protected:
+           void mousePressEvent(QMouseEvent *event) override {
+               if (event->button() == Qt::LeftButton) {
+                   qDebug() << "Left mouse button clicked at:" << event->pos();
+               }
+           }
+    };
+       ```
+       
+    2. 自定义事件
+
+       ```
+       #步骤
+       1. 创建自定义事件类，继承自 QEvent。
+       2. 使用 QCoreApplication::postEvent 或 QApplication::sendEvent 发送事件。
+       3. 重载 event() 函数处理事件。
+       ```
+
+       ```c++
+       #include <QEvent>
+       #include <QApplication>
+       #include <QWidget>
+       #include <QDebug>
+       
+       // 自定义事件类型
+       class MyCustomEvent : public QEvent {
+       public:
+           static const QEvent::Type EventType;
+           MyCustomEvent() : QEvent(EventType) {}
+       };
+       
+       const QEvent::Type MyCustomEvent::EventType = static_cast<QEvent::Type>(QEvent::User + 1);
+       
+       class MyWidget : public QWidget {
+       protected:
+           bool event(QEvent *event) override {
+               if (event->type() == MyCustomEvent::EventType) {
+                   qDebug() << "Custom event received!";
+                   return true;
+               }
+               return QWidget::event(event);
+           }
+       };
+       
+       int main(int argc, char *argv[]) {
+           QApplication app(argc, argv);
+       
+           MyWidget widget;
+           widget.show();
+       
+           // 发送自定义事件
+           QCoreApplication::postEvent(&widget, new MyCustomEvent());
+       
+           return app.exec();
+       }
+       ```
+
+    3. `eventFilter`事件拦截器：用于拦截和过滤某个对象的事件，它允许你在事件到达目标对象之前对其进行预处理
 
        ```
        installEventFilter(QObject *filterObj)
@@ -2347,81 +2462,7 @@ m_pPool->submit([this, pBundle]() {
        }
        ```
 
-    2. 自定义事件
-
-       ```
-       #步骤
-       1. 创建自定义事件类，继承自 QEvent。
-       2. 使用 QCoreApplication::postEvent 或 QApplication::sendEvent 发送事件。
-       3. 重载 event() 函数处理事件。
-       ```
-
-       ```c++
-       #include <QEvent>
-       #include <QApplication>
-       #include <QWidget>
-       #include <QDebug>
-       
-       // 自定义事件类型
-       class MyCustomEvent : public QEvent {
-       public:
-           static const QEvent::Type EventType;
-           MyCustomEvent() : QEvent(EventType) {}
-       };
-       
-       const QEvent::Type MyCustomEvent::EventType = static_cast<QEvent::Type>(QEvent::User + 1);
-       
-       class MyWidget : public QWidget {
-       protected:
-           bool event(QEvent *event) override {
-               if (event->type() == MyCustomEvent::EventType) {
-                   qDebug() << "Custom event received!";
-                   return true;
-               }
-               return QWidget::event(event);
-           }
-       };
-       
-       int main(int argc, char *argv[]) {
-           QApplication app(argc, argv);
-       
-           MyWidget widget;
-           widget.show();
-       
-           // 发送自定义事件
-           QCoreApplication::postEvent(&widget, new MyCustomEvent());
-       
-           return app.exec();
-       }
-       ```
-
-    3. 重载特定事件处理函数：每个控件都有一组专门的事件处理函数，你可以重载这些函数以实现自定义行为
-
-       ```
-       #常用事件处理函数
-       鼠标事件：mousePressEvent、mouseReleaseEvent、mouseMoveEvent。
-       键盘事件：keyPressEvent、keyReleaseEvent。
-       窗口事件：resizeEvent、paintEvent。
-       焦点事件：focusInEvent、focusOutEvent。
-       ```
-
-       ```c++
-       #include <QWidget>
-       #include <QMouseEvent>
-       #include <QDebug>
-       
-       #示例：鼠标事件处理
-       class MyWidget : public QWidget {
-       protected:
-           void mousePressEvent(QMouseEvent *event) override {
-               if (event->button() == Qt::LeftButton) {
-                   qDebug() << "Left mouse button clicked at:" << event->pos();
-               }
-           }
-       };
-       ```
-
-    4. 重载 `event()` 函数：`event()` 是所有事件的**入口点**。如果需要统一处理某些事件类型，可以重载 `event()`。
+    4. 重载 `event()` 函数：拦截特定种类的事件。`event()` 是所有事件的**入口点**。它是事件分发的主要入口，Qt 框架会调用这个函数，将事件分发到具体的处理函数（如 `mousePressEvent`、`keyPressEvent` 等）。如果需要统一处理某些事件类型，可以重载 `event()`。
 
        ```c++
        #include <QEvent>
@@ -2435,7 +2476,8 @@ m_pPool->submit([this, pBundle]() {
                    qDebug() << "Key press detected!";
                    return true; // 阻止进一步处理
                }
-               return QWidget::event(event); // 调用基类处理
+               // 其他事件交给基类处理
+               return QWidget::event(event); // 调用基类处理,进入特定事件处理函数
            }
        };
        
@@ -2455,7 +2497,7 @@ m_pPool->submit([this, pBundle]() {
        简单事件处理：重载特定事件处理函数。
        复杂事件处理：重载 event()。
        自定义事件：扩展 QEvent，并通过 postEvent 或 sendEvent 发送。
-       全局监听：使用事件过滤器
+       全局监听：使用事件过滤器,适合跨对象的事件监控和过滤
        ```
 
 56. `event->type() > QEvent::User` 的含义：`QEvent::User` 是一个事件类型常量，用于标识用户自定义事件的起始范围。它的值通常定义为一个整数（如 1000），大于这个值的事件类型都属于用户定义事件。
@@ -2595,13 +2637,17 @@ m_pPool->submit([this, pBundle]() {
 
 3. titlebar？如何将titlebar单独的放到别的界面中
 
-4. RJJH中的event文件夹？cur_user干什么的？归纳下qy_ui（UI层）的具体构造
+4. 信号槽、控件、事件的底层实现原理？moc？mvc模型？
 
-5. 看下Frameless中的720行事件过滤器
+5. RJJH中的event文件夹？cur_user干什么的？归纳下qy_ui（UI层）的具体构造
 
-6. 看src/moudles/virus_scan_engine_plugin/src libEngineScan动态库(扫描引擎)的组成成分。
+6. 看下Frameless中的720行事件过滤器
 
-7. 针对不同版本(开发环境)的右键库：
+7. 看src/moudles/virus_scan_engine_plugin/src libEngineScan动态库(扫描引擎)的组成成分。
+
+8. 线程池thread_pool如何实现的
+
+9. 针对不同版本(开发环境)的右键库：
 
    ```
    #add_subdirectory(libsource/nautilus_scan)
@@ -2609,11 +2655,11 @@ m_pPool->submit([this, pBundle]() {
    #add_subdirectory(libsource/peony_scan)
    ```
 
-8. 如何修改ubuntu下的权限，省的每次都得用sudo
+10. 如何修改ubuntu下的权限，省的每次都得用sudo
 
-9. 查看`.clang-format`如何设置，规格化工具
+11. 查看`.clang-format`如何设置，规格化工具
 
-10. 使用VScode插件
+12. 使用VScode插件
 
    ```
    Clang-Format  代码格式化插件
@@ -2699,75 +2745,81 @@ m_pPool->submit([this, pBundle]() {
 
 3. - [x] 界面重新配置
 
-
-   1. 图标为logo_64_grey.png。界面左侧颜色：上main_left.png 下main_left_bottom.png
-   2. 托盘图标位置在RJJH/main_window中对SystemTray的设置上
-   3. 桌面图标和文件管理中心的图标在 RJJH.desktop中
-   4. 升级界面图标更改
-   5. 产品名称更换：在desktop里面更改(和关于我们里面的一样)，实际应该在打包脚本中修改
+      1. 图标为logo_64_grey.png。界面左侧颜色：上main_left.png 下main_left_bottom.png
+      2. 托盘图标位置在RJJH/main_window中对SystemTray的设置上
+      3. 桌面图标和文件管理中心的图标在 RJJH.desktop中
+      4. 升级界面图标更改
+      5. 产品名称更换：在desktop里面更改(和关于我们里面的一样)，实际应该在打包脚本中修改
 
 4. - [x] bug修改
 
+      1. 病毒库版本上报，看是什么问题
 
-   1. 病毒库版本上报，看是什么问题
+         **解决**：无需更新时没有上传旧的版本号导致传递的版本号为空
 
-      **解决**：无需更新时没有上传旧的版本号导致传递的版本号为空
+         **隐患**：
 
-      **隐患**：
+      2. 试用授权三次后，右键还可以查杀
 
-   2. 试用授权三次后，右键还可以查杀
+         **解决**：在执行扫描的时候加上判断，是否试用授权超过三次，超过则不执行
 
-      **解决**：在执行扫描的时候加上判断，是否试用授权超过三次，超过则不执行
+5. - [x] 隔离区的恢复和清除：在`scan_task`上增加删除和恢复的任务处理。
 
-3. - [x] 隔离区的恢复和清除：在`scan_task`上增加删除和恢复的任务处理。
+       思路：
 
+       1. 看RJJH那块如何给safed处理的，直接调用那块的处理方式即可。
 
-   思路：
+       2. 删除和恢复都新建scan任务，和get写到同一个/或者不写同一个。
 
-   1. 看RJJH那块如何给safed处理的，直接调用那块的处理方式即可。
+       3. 在safed中看能否在safed中直接实现删除/恢复功能，然后同步/上传/上报数据到UI界面和中控
 
-   2. 删除和恢复都新建scan任务，和get写到同一个/或者不写同一个。
+       4. 把需要彻底删除的文件统计到VirusIsolateRemoveInfoList中（scan_flow590行），然后传递给scan_flow中的virusScanProcessIsolateThoroughDelete进行删除。
 
-   3. 在safed中看能否在safed中直接实现删除/恢复功能，然后同步/上传/上报数据到UI界面和中控
+       5. 同样，把要恢复的文件统计到VirusIsolateRecoverInfoList中（521行），然后传递给virusScanProcessIsolateRecover进行恢复
 
-   4. 把需要彻底删除的文件统计到VirusIsolateRemoveInfoList中（scan_flow590行），然后传递给scan_flow中的virusScanProcessIsolateThoroughDelete进行删除。
+       6. 整体逻辑：
 
-   5. 同样，把要恢复的文件统计到VirusIsolateRecoverInfoList中（521行），然后传递给virusScanProcessIsolateRecover进行恢复
+          1. 界面根据所选的item，整合为list传递给safed(scan_Flow)中进行处理。其中将会遍历该文件列表，每处理一个就会发送Progress信息给UI，UI收到后就会更新隔离区展示列表
 
-   6. 整体逻辑：
+   6. - [x] bug: 删除的没有删除掉？导致隔离区再次打开/界面刷新 后 重新出现病毒地址。
 
-      1. 界面根据所选的item，整合为list传递给safed(scan_Flow)中进行处理。其中将会遍历该文件列表，每处理一个就会发送Progress信息给UI，UI收到后就会更新隔离区展示列表
+      **原因**：
 
-   7. - [x] bug: 删除的没有删除掉？导致隔离区再次打开/界面刷新 后 重新出现病毒地址。
-
-      **原因**：1. virusScanProcessResultSync ，在界面启动时就会从某个地方获取到病毒文件列表发送给界面
-
-      			2. scan_flow_controller中新写的那4个函数中有问题
-         			3. 是否是因为没有执行virusFileClean，去virus_scan_engine_plugin/src/scan_engine_impl中看
+      	1. virusScanProcessResultSync ，在界面启动时就会从某个地方获取到病毒文件列表发送给界面
+       	2. scan_flow_controller中新写的那4个函数中有问题
+       	3.  是否是因为没有执行virusFileClean，去virus_scan_engine_plugin/src/scan_engine_impl中看
 
       **解决**：动态库中，删除文件的时候并没有把它从数据库中删除
 
-4. 网络防护增加逻辑：
+7. 网络防护增加逻辑：
 
    - [x] 检测时间改为1秒内5次
-
-   - [ ] 界面禁用网络防护时，把配置文件清除掉(把之前封禁的ip去除、把hosts.deny清除掉)
-
-     > 是否当点击禁用时，走插件的stop函数
+   - [x] 界面禁用网络防护时，把配置文件清除掉(把之前封禁的ip去除、把hosts.deny清除掉)
 
    - [x] 日志记录里面二级分类为`-`，不是未知。
-
-   - [ ] bug: 
-      2. 弹窗只第一次有效，后续再有弹窗就无效了，不弹窗了
-
+   - [x] bug: 弹窗只第一次有效，后续再有弹窗就无效了，不弹窗了:   关闭的时候没有清空容器，导致下一次重启不会弹窗
    - [ ] 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
 
    > 下一步先看隔离区的数据展示如何实现的，先解决5，为自己实现新窗口打铺垫
 
-5. - [ ] UI优化：
+8. - [x] UI优化：
 
    1. title_bar改为浅色的
-   2. about_new_aboutus使用垂直布局将两个布局合一起，最后使用about_us图片作为背景图
+   2. about_new_aboutus使用垂直布局将两个布局合一起，最后使用about_us图片作为背景图。并在这个界面代码中设置titlebar的样式颜色与该图片同色。
+
+9. - [x] 授权超过三次弹窗，正式授权也会弹窗。
+
+     **解决**：加个判断类型
+
+   ```
+   192.168.3.87	正式授权中控
+   ```
+
+10. - [ ] 查看本地SN号保存在哪里
+
+    **解决**：
+
+    ​	1. 存放中控IP号：`terminal_details_component_impl.cpp/334行`：当连接中控时，会将该IP存放再安装目录下的"`etc/UrlService.ini`"文件里面
 
 #### 2.2 暂时搁置
 
@@ -2999,7 +3051,7 @@ m_pPool->submit([this, pBundle]() {
 
 24. 当创建文件读/写对象时，就已经打开文件了
 
-    ```
+    ```c++
     std::ifstream infile(m_sshDenyPath);
     
     #判断开发方式1：
@@ -3013,6 +3065,100 @@ m_pPool->submit([this, pBundle]() {
     ```
 
 25. `std::string::npos` 是 C++ 标准库中 `std::string` 类的一个特殊常量，用于表示 "未找到" 的情况,它的值通常是一个非常大的整数（例如 `-1` 的无符号表示
+
+26. 只有在使用sudo启动的程序中，才可以进行读写文件操作。
+
+27. Qt快捷键：
+
+    ```
+    QtCreator的界面预览： Shift + Alt + R
+    运行快捷键：Ctrl+R
+    只构建快捷键：Ctrl+B
+    ```
+
+28. 自定义控件：例`title_bar`
+
+    1. 创建类继承于`QWidget`(所有窗口的父类)
+
+    2. 在需要使用的UI设计中，拖入一个`Widget`组件
+    3. 对该组件选择“提升为”，填入刚写的自定义控件类名
+
+29. Qt的自定义控件、自定义事件、事件过滤器。
+
+    1. `QWidget` 是所有控件的父类，在 `Protected Functions` 中**提供了各种事件的虚函数**。只要在子类中重写这些事件函数，则在这个部件类触发这个事件时就会产生相应操作。系统自动触发，开发者无需调用
+    2. 自带的事件和自定义事件用于触发事件；`event`和`eventfliter`用于处理/拦截事件
+    3. 自定义控件可以让其他widget都可以使用同一种规格的控件，不用重复创建。比如`title_bar`
+
+30. 绘图事件(`paintEvent`):
+
+    1. 事件驱动机制：每当需要重新绘制窗口（如窗口大小改变、最小化还原、控件需要刷新等），Qt 会自动触发 `paintEvent`。
+
+    2. 双缓冲机制：Qt 使用双缓冲技术进行绘图：先在离屏缓冲区绘制内容，再一次性更新到屏幕。
+
+    3. 核心组件：
+
+       1. **`paintEvent` 方法**：绘图事件的**入口**，系统自动触发
+       2. **`QPainter` 类**：提供一组高效的绘图**功能**，在`paintEvent` 方法中使用，进行绘图
+       3. `QPaintDevice` **目标**：需要进行绘图的**目标**，所有的窗口部件(可以作为绘图目标的对象)都继承于`QPaintDevice`类。
+
+    4. 只能绘制单一控件：当你在 `paintEvent` 中使用 `QPainter` 绘制时，它只会影响当前控件的区域（即你重载的 `QWidget` 控件），而不会直接影响该控件下的其他子控件
+
+    5. 绘图事件实例：
+
+       ```c++
+       void AboutusNewDlg::paintEvent(QPaintEvent *event){
+               QPainter painter(this);
+           	// 启用抗锯齿，使图形看起来更加平滑和柔和
+               painter.setRenderHint(QPainter::Antialiasing);
+       
+               // 绘制上部 60% 的渐变背景
+           	// 创建线性渐变对象，起点为 (0, 0)，终点为 (0, height() * 0.6)
+               QLinearGradient gradient(0, 0, 0, height() * 0.6); // 渐变高度为控件高度的 60%
+               gradient.setColorAt(0.0, QColor("#2952B1")); // 顶部颜色
+               gradient.setColorAt(1.0, QColor("#033B83")); // 渐变到底部颜色
+               painter.fillRect(0, 0, width(), height() * 0.6, gradient);
+       
+               // 绘制下部 40% 的纯白背景
+               painter.fillRect(0, height() * 0.6, width(), height() * 0.4, Qt::white);
+       }
+       
+       #QLinearGradient的构造函数，x为0表示垂直方向的渐变
+       QLinearGradient::QLinearGradient(qreal x1, qreal y1, qreal x2, qreal y2);
+       
+       #setColorAt函数：设置在渐变过程中的特定位置的颜色
+       void QLinearGradient::setColorAt(qreal position, const QColor &color);
+       	#参数1： position：一个浮动值（0.0 到 1.0 之间），表示颜色的位置，0.0 表示起点，1.0 表示			终点。值越接近 0，颜色越接近起点；值越接近 1，颜色越接近终点。
+       	#参数2：color：指定位置的颜色。
+       
+       #fillRect函数：在指定的矩形区域内填充指定的颜色或渐变模式
+       void QPainter::fillRect(int x, int y, int width, int height, const QBrush &brush);
+       	# x, y：矩形左上角的坐标。
+       	# width, height：矩形的宽度和高度。
+       	# brush：用于填充矩形的画刷，可以是颜色（QColor）、渐变（如 QLinearGradient）或纹理				（QPixmap
+       ```
+
+31. cpp中找到自定义控件的子控件的方法：
+
+    ```c++
+    1. findChild<T>() ：通过对象名查找子控件，findChild 会递归搜索子控件树，找到第一个符合条件的子控件
+        // 在 TitleBar 下查找一个 QPushButton 类型的子控件，名字为 "myButton"
+        QPushButton *button = titleBar->findChild<QPushButton *>("myButton");
+       
+    2. findChildren<T>()：如果有多个同类型的子控件，findChildren<T>() 可以返回一个列表
+    	// 查找 TitleBar 下所有 QPushButton 类型的子控件
+    	QList<QPushButton *> buttons = titleBar->findChildren<QPushButton *>();
+    	for (QPushButton *button : buttons) {
+        	button->setText("Found!");
+    	}
+    	
+    3.  children()：如果子控件的类型不确定，可以使用 children() 获取所有子对象
+    	const QObjectList &childObjects = titleBar->children();
+    	for (QObject *child : childObjects) {
+        	qDebug() << "Child object:" << child->objectName();
+    	}
+    ```
+
+32. IPC 是进程间通信的核心机制，帮助进程协调工作、交换数据。常见的 IPC 方式包括管道、消息队列、共享内存、信号、套接字等
 
 ### 4. 末尾
 
