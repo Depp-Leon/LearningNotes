@@ -355,19 +355,19 @@ m_pPool->submit([this, pBundle]() {
 3. 组件成员
 
    ```
-   authorize组件：实现各种认证、版本信息、病毒库信息、引擎信息、授权信息等
-   config:组件：实现配置信息；接收界面、中控下发的配置(UI设置界面里面)并相互转发转发配置
-   ctrl_center组件，实现向中控发送信息、上报中控(asyncReport)
-   local_service组件：向UI层发送信息(sendMsgTo),获取界面连接状态、IPC实现与界面通信
-   protect_logger组件：实现UI层面的日志上报和详细日志上报(recordProtectionLogs)
-   timed_tasks组件：实现注册定时任务(registerTask)
-   task_manager组件：实现任务队列(添加、删除任务到任务队列)
-   upgrade组件：实现软件和病毒库更新。没有在general_Operator_impl中定义(插件用不了)。
-   terminal_details组件：资料组件；实现填写用户信息、更新用户信息、授权、密码文件等功能。
+   authorize组件：“授权”组件：实现各种认证、版本信息、病毒库信息、引擎信息、授权信息等
+   config:组件：实现“配置”信息；接收界面、中控下发的配置(UI设置界面里面)并相互转发转发配置
+   ctrl_center组件，实现“中控连接”以及向中控发送信息、上报中控(asyncReport)
+   local_service组件：“连接代理-IPC”：向UI层发送信息(sendMsgTo),获取界面连接状态、IPC实现与界面通信
+   protect_logger组件：“防护日志”：实现UI层面的日志上报和详细日志上报(recordProtectionLogs)
+   timed_tasks组件：实现注册”定时任务“(registerTask)
+   task_manager组件：实现”任务队列“(添加、删除任务到任务队列)
+   upgrade组件：“升级”：实现软件和病毒库更新。没有在general_Operator_impl中定义(插件用不了)。
+   terminal_details组件：”终端详情“组件；实现填写用户信息、更新用户信息、授权、密码文件等功能。
    	1. 在init初始化时就通过messageCenter订阅，待任务队列到达他们时再pulish
    	2. registerResetRequest，接收到中控消息，任务队列中执行插入任务
    	3. registerResetResponse，收到UI层传来完成信息，任务队列中关闭掉任务
-	virus_scan_engine组件(之前的gjcz)：
+	virus_scan_engine组件(之前的gjcz)：”病毒扫描引擎“
        1. 调用引擎服务(调用src2.0/moudle/svirus_scan_engine_plugin/include/scan_engine_api里面提供的接口)，进行病毒文件的扫描、病毒文件清理、恢复、获取病毒文件信息等
    	2. 该接口具体是由virus_Scan_plugin_helper进行对接口实例的实现，具体使用		     了"lib/modules/libJYVirusScanEnginePlugin.so"动态库(该动态库就在该include文件夹下面的cmakelist中创建的)，使用GetEnginePluginIns函数返回的  GetEnginePluginIns对象进行启动引擎、扫描任务、病毒清理等功能
    ```
@@ -417,7 +417,24 @@ m_pPool->submit([this, pBundle]() {
 
 #### 2.3.4 插件/plugin
 
-##### 1. 扫描插件/scan
+##### 1. 组成部分
+
+```
+1. common: 公用的功能代码：比如把病毒库升级功能放入此处
+2. scan: 扫描插件
+3. net_protection: 网络防护
+4. udisk_protcetion: U盘防护
+5. virus_library_management: 病毒库升级管理
+6. systemctl_controller: 系统控制
+7. file_shredder: 文件粉碎
+8. zdfy: 主动防御
+
+#每个插件都实现了插件接口，用来调用功能类。如果只是单个插件使用该功能就直接写入一个文件夹。如果多个插件使用该功能就写到comon中共同调用。
+```
+
+
+
+##### 2. 扫描插件/scan
 
 关于隔离区数据上报与中控的逻辑：版本号初始可能为空，每次收到中控下发指令比较并保存该版本号，如果说版本号不同那么就上报所有隔离区数据
 
@@ -818,7 +835,7 @@ m_pPool->submit([this, pBundle]() {
    >
    > 若只修改了代码并没有改变项目架构，那么只需要执行make编译就可
 
-4. Cmakelost添加头文件路径时，要指定到最终的文件夹下，不然还是找不到头文件。(它只会在你指定的那个而文件夹下面找头文件)
+4. Cmakelist添加头文件路径时，要指定到最终的文件夹下，不然还是找不到头文件。(它只会在你指定的那个而文件夹下面找头文件)
 
 5. `.cmake`文件：后缀是 `.cmake` 的文件是 **CMake** 使用的脚本文件，通常用于定义构建系统的配置、设置变量、导入/导出目标以及包含其他模块
 
@@ -864,8 +881,6 @@ m_pPool->submit([this, pBundle]() {
    #案例： find_library(LIB_CURL NAMES curl PATHS ${CURL_LIB_PATHS})
    这里用的是 ${CURL_LIB_PATHS}，它们之前通过 list(APPEND ...) 定义了库的多个可能路径。
    ```
-
-   
 
 ### 2.8 调试
 
@@ -1243,7 +1258,7 @@ m_pPool->submit([this, pBundle]() {
     git reset <file>		#撤出特定文件
     ```
 
-    4. git restore --staged的作用：取消暂存，同3
+    4. `git restore --staged`的作用：取消暂存，同3
 
     ```
     git restore --staged <文件>
@@ -2152,11 +2167,12 @@ m_pPool->submit([this, pBundle]() {
 
 54. 关于Qt界面先`init()`后再`show()/exec()`的问题：，在创建 `QDialog` 对象并调用 `init()` 后，`init()` 函数中的代码会立即执行，因为这部分代码并不依赖事件循环。只有那些需要事件循环来触发的操作（如计时器、动画、信号槽的触发等）才不会运行
 
-55. 回调函数`bind`第二个参数是对象类型或者指针类型的区别
+47. 回调函数`bind`第二个参数是对象类型或者指针类型的区别
 
     ```
     auto boundFunc = std::bind(&CupdateVirusLibHelper::UsendMsgToUI, &m_updateVirusLib, std::placeholders::_1);
     当你通过 boundFunc 调用时，std::bind 会自动将 m_updateVirusLib（即指向对象的指针）作为第一个参数传递给 UsendMsgToUI，而其他参数则通过 std::placeholders::_1 来传递。
+    #类成员函数和普通函数一样，存放在代码段。不过需要使用对象指明存储地址
     ```
 
     1. 当你传递 **对象的引用** 给 `std::bind` 时，回调函数会直接通过该对象引用访问对象的成员函数，这里不需要空指针检查，因为引用总是指向一个有效对象
@@ -2786,8 +2802,8 @@ m_pPool->submit([this, pBundle]() {
       **原因**：
 
       	1. virusScanProcessResultSync ，在界面启动时就会从某个地方获取到病毒文件列表发送给界面
-       	2. scan_flow_controller中新写的那4个函数中有问题
-       	3.  是否是因为没有执行virusFileClean，去virus_scan_engine_plugin/src/scan_engine_impl中看
+      	2. scan_flow_controller中新写的那4个函数中有问题
+      	3.  是否是因为没有执行virusFileClean，去virus_scan_engine_plugin/src/scan_engine_impl中看
 
       **解决**：动态库中，删除文件的时候并没有把它从数据库中删除
 
@@ -2815,11 +2831,19 @@ m_pPool->submit([this, pBundle]() {
    192.168.3.87	正式授权中控
    ```
 
-10. - [ ] 查看本地SN号保存在哪里
+10. - [ ] 查看本地SN号保存在哪里，为什么连接一个超过三次的中控之后，再次连接另一个中控就会影响试用授权次数
 
     **解决**：
 
-    ​	1. 存放中控IP号：`terminal_details_component_impl.cpp/334行`：当连接中控时，会将该IP存放再安装目录下的"`etc/UrlService.ini`"文件里面
+    	1. 存放中控IP号：`terminal_details_component_impl.cpp/334行`：当连接中控时，会将该IP存放再安装目录下的"`etc/UrlService.ini`"文件里面
+    
+10. - [x] 中控下发威胁清除的问题：如果将清除过的和未清除的一起下发，将会造成只扫描未清除的情况
+
+   **解决**：scan_model中获取扫描类型的判断移动到`END_INFO`中。
+
+11. - [ ] 强力查杀：病毒库更新为什么是外网失败，和正常更新结果不同
+
+    
 
 #### 2.2 暂时搁置
 
@@ -3159,6 +3183,40 @@ m_pPool->submit([this, pBundle]() {
     ```
 
 32. IPC 是进程间通信的核心机制，帮助进程协调工作、交换数据。常见的 IPC 方式包括管道、消息队列、共享内存、信号、套接字等
+
+33. 智能指针的`get()`函数：在 C++11 中，`std::unique_ptr` 和 `std::shared_ptr` 都提供了一个 `get()` 函数，用于访问底层原始指针。这个函数返回指向智能指针所管理的对象的裸指针。
+
+34. 智能指针的`reset()`函数，减少当前管理对象的引用计数，并释放资源（如果是最后一个 `shared_ptr` 或者是`unique_ptr`管理该资源）。
+
+35. CMakeList常用变量：
+
+    ```
+    CMAKE_SOURCE_DIR：表示 CMake 项目主目录的路径，也就是 CMakeLists.txt 文件首次被执行时所在的目录
+    				  值不会发生变化，即项目cmake时的根cmakelist文件夹地址
+    				  
+    CMAKE_CURRENT_SOURCE_DIR：表示当前正在处理的 CMakeLists.txt 文件所在的目录。
+    						  值会动态变化，即当前cmakelist所在文件夹地址。
+    ```
+
+36. CMakelist，项目使用的cpp放入`add_library`中，项目使用的头文件要把头文件的所在文件夹放入`include_directories`中。打包动态库的时候需要。原理？
+
+37. 使用类成员函数作为回调时，使用`bind`的方式创建回调函数。如果传递的对象在另一方面调用回调之前就销毁了，那么可能访问的是未知内存。
+
+    **解决方式**：确保在调用回调之前，该对象不会提前销毁
+
+38. m_pUpgradeControl = std::make_shared<VirusLibraryUpgradeControl>(m_pScanController);为什么会不行呢
+
+39. protobuffer成员名：当使用protobuffer转化时会默认将大写字母转为小写
+
+40. 调bug，哪个地方可能有问题，在那个地方打断点。使用gdb调试，单一看代码推断耗费时间。
+
+41. 解安装包
+
+    ```
+    dpkg-deb -x chenxinsd_7.0.0.8-24121304_c1.2110.2.1111_amd64.deb a
+    ```
+
+    
 
 ### 4. 末尾
 
