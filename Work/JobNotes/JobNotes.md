@@ -1,6 +1,4 @@
-
-
-## 一、注意事项
+## ****************一****、注意事项
 
 1. 时间转换，修改为98版本的
 
@@ -583,13 +581,31 @@ m_pPool->submit([this, pBundle]() {
 11. 枚举类型直接通过下标_获取
 
     ```c++
-    #如果有package必须用包名::后面的下标路径；如果没有则不需要加包名，直接使用后面的下标路径
+    #如果protoc文件定义了package必须用包名::后面的下标路径；
+    #如果没有则不需要加包名，直接使用后面的下标路径
     HmiToScan::VirusScan_ScanType_THREAT_CLEAN
     ```
 
-12. protobuf的msg使用二进制类型byte和一个type，就可以根据不同的type的message进行解析
+12. protobuf的msg使用二进制类型byte(可以根据不同类型放置不同`message`)和一个`type`(枚举类型)，就可以根据不同的type的message进行解析
 
-    > 详见jy_virus_scan_impl.cpp   158行
+    ```
+    1. SerializeAsString() 是 Protocol Buffers 提供的一个方法，能将整个消息（包括嵌套的 message 和 bytes 字段）序列化为一个字符串（即字节流）。
+    2. 序列化后的数据可以存储或传输，接收方可以使用 ParseFromString() 方法反序列化
+    
+    message MyMessage {
+        bytes data = 1;  // 字节数组类型的字段
+    }
+    #示例：
+    // 创建消息对象
+    MyMessage message;
+    // 创建字节数据（比如从某个文件读取）
+    std::string byte_data = "Hello, Protocol Buffers!";
+    // 将字节数据赋值给 `data` 字段
+    message.set_data(byte_data);
+    // 将消息序列化为字符串
+    std::string serialized_data = message.SerializeAsString();
+    
+    ```
 
 13. 关于`protobuffer`初始化
 
@@ -824,9 +840,9 @@ m_pPool->submit([this, pBundle]() {
    
    sudo cp cur_user JYNGJCZ2 JYNRJJH2 JYNRJJH2-UTRAY1 JYNSAFED JYNZDFY2 JYUpdateUI /opt/apps/chenxinsd/bin/
    
-   sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libSysMonManage.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so /opt/apps/chenxinsd/lib/modules/
+   sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libSysMonManage.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so  /opt/apps/chenxinsd/lib/modules/
    
-   sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so  /opt/apps/chenxinsd/lib/plugins/system/
+   sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/chenxinsd/lib/plugins/system/
    ```
 
 3. 什么时候需要重新执行cmake和make
@@ -1574,6 +1590,29 @@ m_pPool->submit([this, pBundle]() {
     **问题**：点击激活，若直接收到safed返回的信息，则提示激活成功。但是如果中控开启填报信息，则需要等待提交完信息后，待safed回复了信息才会提示激活成功。
 
     **思路**：当填报信息界面开启时，发送信号，在authManage中将计时器停止
+
+17. 增加网络白名单：
+
+    1. 界面、RJJHmodel层
+
+       dialog发送的添加和删除信号，对应在frameless中进行数据库的处理，以及对safed的传递
+
+       fillTrustContent实现在启动RJJH时收到safed的传来的数据库数据
+
+       sigAdd即发送界面添加数据的信号
+
+       sigRemove即发送界面删除数据的信号
+
+    2. 插件zdfy功能：
+
+       1. 在插件中接收界面发来的请求、添加、删除等操作。
+       2. 插件实现一个数据model，负责创建数据库，并进行相应的存储。
+       3. 根据数据库白名单进行对应的功能逻辑
+       4. 接收和向中控发送数据。
+
+    3. 在sqlite文件夹下面创建对应操作数据的对象。
+
+    4. 定义protobuffer字段
 
 ## 三、技术问题
 
@@ -2796,6 +2835,7 @@ m_pPool->submit([this, pBundle]() {
        6. 整体逻辑：
 
           1. 界面根据所选的item，整合为list传递给safed(scan_Flow)中进行处理。其中将会遍历该文件列表，每处理一个就会发送Progress信息给UI，UI收到后就会更新隔离区展示列表
+          2. 界面每次打开都会从数据库中读取数据
 
    6. - [x] bug: 删除的没有删除掉？导致隔离区再次打开/界面刷新 后 重新出现病毒地址。
 
@@ -2814,7 +2854,7 @@ m_pPool->submit([this, pBundle]() {
 
    - [x] 日志记录里面二级分类为`-`，不是未知。
    - [x] bug: 弹窗只第一次有效，后续再有弹窗就无效了，不弹窗了:   关闭的时候没有清空容器，导致下一次重启不会弹窗
-   - [ ] 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
+   - [x] 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
 
    > 下一步先看隔离区的数据展示如何实现的，先解决5，为自己实现新窗口打铺垫
 
@@ -2831,19 +2871,60 @@ m_pPool->submit([this, pBundle]() {
    192.168.3.87	正式授权中控
    ```
 
-10. - [ ] 查看本地SN号保存在哪里，为什么连接一个超过三次的中控之后，再次连接另一个中控就会影响试用授权次数
+9. 查看本地SN号保存在哪里，为什么连接一个超过三次的中控之后，再次连接另一个中控就会影响试用授权次数
 
-    **解决**：
+   **解决**：
 
-    	1. 存放中控IP号：`terminal_details_component_impl.cpp/334行`：当连接中控时，会将该IP存放再安装目录下的"`etc/UrlService.ini`"文件里面
-    
+   	1. 存放中控IP号：`terminal_details_component_impl.cpp/334行`：当连接中控时，会将该IP存放再安装目录下的"`etc/UrlService.ini`"文件里面
+
 10. - [x] 中控下发威胁清除的问题：如果将清除过的和未清除的一起下发，将会造成只扫描未清除的情况
 
    **解决**：scan_model中获取扫描类型的判断移动到`END_INFO`中。
 
-11. - [ ] 强力查杀：病毒库更新为什么是外网失败，和正常更新结果不同
+1. - [ ] 升级界面背景改为蓝色、titlebar的关闭“X”改为大的
 
-    
+     **待商榷**：1. 没有相应的图片 2. 另一个大的图片颜色是白色的，不符合
+
+2. 网络防护白名单功能：
+
+   - [x] 界面参考文件白名单实现：界面、tablemodel、model层
+   - [x] protobuffer字段
+   - [x] 数据库sqlite3的model
+   - [x] zdfy插件中实现存储数据库、与中控和RJJH传递数据
+
+3. - [ ] 隔离区数据每5分钟就上报一次**[bug]**
+
+     **待商榷**：改为每次对隔离区操作都会同步，以及中控的操作都会同步，是否可以取消这个功能。
+
+4. - [ ] 所属用户及权限修改
+5. - [ ] 卸载后删除残留与旧版本处理
+
+6. - [x] 查杀进度上报，改为定时，界面每1秒一次，中控每5秒一次
+
+     **问题**：`scanProgressProcessing`在哪里调用的？
+
+     **解决**： 在该函数中创建一个静态的计时器，当时间达到要求就可以执行。
+
+   - [ ] 扫描大的文件时点击取消可能会导致查杀任务并没有在后台结束。”确认结束查杀任务“这个操作触发后，界面是收到底层end状态后切换界面，还是直接切换的？修改为收到底层状态后再切换
+
+     **问题**：可能是因为zav引擎查杀完成后会调用一个回调函数，又像界面发送数据。所以要改为等待查杀引擎主动发送消息？
+
+7. - [ ] 确认退出时是否删除右键库（多系统）
+   - [ ] 防护日志，如果时间重复，日志详情会被覆盖（自增主键）
+
+8. - [ ] ukey授权对已激活的产品，二次点击已授权，授权信息消失变成未授权字样 **[bug]**
+
+     **思路**：待使用Ukey复现下问题后再解决，应该就是AuthMananger.cpp中541行激活信号槽的问题
+
+9. - [x] 正在执行自定义查杀后，下发闪电查杀，自定义执行完后没执行闪电**[bug]**
+
+     **问题**：任务队列中闪电查杀字段更改为“EMERGENCY_SCAN",而任务队列中的闪电查杀字段仍然是”LIGHTING_SCAN“
+   
+     **解决**：暂时在任务队列中将字段替换
+   
+   
+
+
 
 #### 2.2 暂时搁置
 
@@ -3046,7 +3127,7 @@ m_pPool->submit([this, pBundle]() {
     - **Release** 语义：确保当前线程的写操作在 `storeRelease` 之前对其他线程可见。
     - **Acquire** 语义：确保当前线程的读取操作在 `loadAcquire` 之后看到其他线程的最新写操
 
-19. protobuffer中：定义了package就相当于使用了c++中的`namespace`，当使用其中的字段时都需要加上包名(命名空间)。
+19. protobuffer中：定义了`package`就相当于使用了c++中的`namespace`，当使用其中的字段时都需要加上包名(命名空间)。
     1. 在 C++ 中：package 会生成对应的 namespace。
     2. 不定义 package，所有类型直接生成在顶层命名空间中，可以直接访问使用
 
@@ -3216,7 +3297,377 @@ m_pPool->submit([this, pBundle]() {
     dpkg-deb -x chenxinsd_7.0.0.8-24121304_c1.2110.2.1111_amd64.deb a
     ```
 
+42. 将布局(垂直、水平等)提升为widget的好处：
+
+    1. 自定义外观：作为一个独立的控件，可以设置样式表、背景等
+
+       > 如果不把布局设为widget，那么设置不了布局的高度、样式表。因为布局只能设置边框距离
+
+    2. 响应事件：可以作为widget重写widget事件
+
+    3. 模块化设计：可以单独作为自定义控件从外部导入
+
+43. QT的Design，当样式图标显示右下角为红色禁用标志，意思为**QWidget未设置布局**
+
+    1. QWidget未设置布局(即打破布局)
+    2. 使用了自定义的控件(widget)
+
+    解决办法：
+
+    1. 第一种需要往widget中拖入一个控件，然后对界面右击选择布局。(然后可以在右边设置layout的边距)
+    2. 第二种无需改动
+
+44. **珊瑚布局**，即 **网格布局（Grid Layout）**，是 Qt 中的一种布局管理器，叫做 **QGridLayout**。它将控件按行和列排列，类似于一个二维的网格表格
+
+    1. 按行和列的方式排列控件，每个控件可以占据一个或多个网格单元。
+    2. 可以通过指定行、列的位置和占据的行/列跨度来自定义控件的布局。
+
+45. 自定义控件**不一定只能是 `QWidget` 类**，但通常自定义控件是基于 `QWidget` 或其派生类（如 `QFrame`、`QPushButton` 等）来实现的。这是因为 Qt 的控件体系以 `QWidget` 为基类，所有用户界面控件都继承自 `QWidget`，从而具备基础的显示、事件处理和绘制能力。
+
+46. 功能和业务：
+
+    1. 有了功能之后才能考虑和拓展业务
+    2. 组件学名叫做功能型插件、插件学名叫做业务型插件。
+    3. 功能性插件即这个项目必须有的基础功能，比如通信、上报、任务队列管理等
+    4. 业务性插件就是可扩展的、根据业务需求进行增、删并且可以复用的功能部分。单独的插件就作为动态库调用。
+
+47. 微信回车：
+
+    ```
+    ctrl + enter 
+    shift + enter 
+    ```
+
+48. Ubuntu文字输入法切换页：
+
+    ```
+    PageUp 和 PageDown快捷键
+    ```
+
+49. 设置布局，不方便将控件拖入到布局中时，可以先将控件的上下边界设置大点，就可以拖了。
+
+50. 在 **Qt 的水平布局（`QHBoxLayout`）** 中，如果你调用其中一个控件的 `hide()` 方法，Qt 的布局系统会自动**重新排版**其他可见的控件，隐藏的控件不会占用空间。因为 Qt 的布局管理器（如 `QHBoxLayout` 或 `QVBoxLayout`）会动态调整布局中控件的显示状态。如果控件被隐藏（`hide()`），布局会检测到并重新计算剩余控件的大小和位置。
+
+51. 单次点击的按钮(添加、删除)QPushButton样式表示例，需设置禁用后的状态
+
+    ```
+    QPushButton {
+        border-radius: 5 5 5 5; /* 设置按钮圆角，4个数字分别对应左上、右上、右下、左下的圆角半径 */
+        color: #FFFFFF;        /* 按钮文字颜色为白色 */
+        font: bold;            /* 文字加粗 */
+        border: none;          /* 取消按钮的边框 */
+        background-color: #3883FC; /* 按钮的背景色设置为蓝色 (#3883FC) */
+        border-style: inset;   /* 如果使用边框，它是内凹样式 */
+        border-width: 1px;     /* 边框宽度为 1 像素 */
+        border-color: #1f66c0; /* 边框颜色为较深的蓝色 (#1f66c0) */
+    }
     
+    
+    QPushButton:hover {
+        background-color: #4090FF; /* 鼠标悬停时背景颜色变为更亮的蓝色 (#4090FF) */
+        color: white;             /* 悬停时文字颜色保持白色 */
+    }
+    
+    QPushButton:disabled {
+        color: #808080;           /* 禁用状态下文字颜色为灰色 */
+        background-color: #cccccc; /* 禁用状态下背景颜色为浅灰色 (#cccccc) */
+        border-color: lightgray;  /* 禁用状态下边框颜色为浅灰色 */
+    }
+    
+    ```
+
+52. 类似tab切换页面的QPushButton的样式表示例，将`checkable`选项选中，再在样式表中设置check后的状态
+
+    ```
+    QPushButton{
+    	border:none;
+    	color:#666666;
+    	font-size:16px;
+    }
+    QPushButton:hover{
+    	color:#2883FC;
+    }
+    QPushButton:checked{
+    	color:#2883FC;
+    }
+    ```
+
+53. 类似`:hover`和`:checked`是控件的伪状态。**伪状态（例如 `:hover`、`:disabled` 等）只会覆盖它们显式定义的属性**，未覆盖的属性仍会继承原有的默认样式或父选择器的样式。
+
+54. 移动Qt文件：
+
+    1. 手动迁移文件
+    2. 修改pro文件内容，将`.h` `.cpp` `.ui`文件路径全部修改
+
+55. `QAbstractListModel` 继承自 `QAbstractItemModel`，主要用来处理一维数据（如列表）。Qt的数据模型
+
+    `QModelIndex` 是 Qt 中的一个类，用来表示 **模型中的索引**。它是与 `QAbstractItemModel`（及其子类）结合使用的，允许你在模型中定位和操作特定的数据项。
+
+    `QModelIndex` 对象不仅代表了数据在模型中的位置，还可以包含关于该位置的额外信息（如行、列、父项等），使得它能够在视图与模型之间传递数据。
+
+56. map和hashmap的区别？
+
+57. 修改了QtDesign中控件的名字，在vscode的cpp中访问不到，此时build即可
+
+58. `CheckBoxHeaderView` 是 Qt 中用于在 `QHeaderView` 上显示一个复选框（`QCheckBox`）的自定义视图类，通常用于表格（`QTableView`）或列表（`QListView`）等视图的头部。复选框可以用于执行某种全选/全不选的操作。例如，在表格的头部添加一个复选框来控制所有行的复选框状态。
+
+59. `ptable->cellWidget(i, 0)` 是 `QTableWidget` 中的一个函数，返回位于表格 `i` 行、`0` 列的单元格中嵌入的控件（如果有）。通过这个函数，您可以访问单元格中的控件，通常是一个按钮、文本框、复选框或其他自定义控件。
+
+60. Qt时间相关函数
+
+    ```
+    time_t addtime  = time(nullptr);    #获取当前时间戳，time_t就是保存时间戳的变量
+    
+    QDateTime localDateTime = QDateTime::fromMSecsSinceEpoch(info.addTime*1000);
+    object.m_trusttime = localDateTime.toString("yyyy.MM.dd hh:mm");	#将时间戳转化为字符串
+    ```
+
+61. 样式表直接给控件设置样式是不需要加`":"`的。伪控件才需要加`":"`，子控件需要加`"::"`
+
+62. 使用了布局，如果将某个控件设为`hide()`，那么布局会自动调整
+
+63. ```
+    border: 1px solid rgba(0, 110, 234, 1);
+    border-radius: 2px;
+    
+    1px: 这是边框的宽度，表示边框的厚度为 1 像素。
+    solid: 表示边框是实线。solid 是最常用的边框样式，此外还有 dotted（点线）、dashed（虚线）等选项。
+    rgba(0, 110, 234, 1): 这是边框的颜色，使用的是 rgba（红、绿、蓝、透明度）格式，表示：
+    2px: 表示圆角的半径，决定了边框的圆滑程度。较小的值会有轻微的圆角效果，而较大的值会让控件的角变得更圆。
+    ```
+
+64. `QCheckBox`，每行的选中框如何实现的，TrustandIsoDialog.cpp中666行
+
+    ```
+    m_pIpTrustHeader = new CheckBoxHeaderView(0, Qt::Horizontal, ui->tableIpTrust, 7);  // 头选框
+    QCheckBox *check = new QCheckBox();  //每行的选中框
+    QWidget *w = new QWidget();
+    tablewidget->setCellWidget(row, col, w) //对目标tablewidget，设置参数分别是行、列、widget
+    ```
+
+65. `std::stoi()` 是 C++11 引入的一个标准库函数，用于将一个字符串（`std::string`）转换为整数（`int`）
+
+    `QString` 常用的替代方法有 `QString::toInt()` 和 `QString::toUInt()`。
+
+66. 中控如何实现与safed发送消息的？
+
+67. protobuffer中关于enum和message，默认从0 给初值还是从1开始给
+
+    1. 在 `enum` 中，字段的编号必须是正整数。默认情况下，`enum` 会**为第一个枚举值分配编号 `0`**，并且你可以显式地为其他枚举值指定编号，跟其他枚举类型一样。
+
+       ```
+       enum Status {
+           NONE = 0;   // 默认值
+           SUCCESS = 1;
+           ERROR = 2;
+       }
+       ```
+
+    2. `message` 类型的字段编号从 **1 开始**，而 **0 是保留的编号**，不可用于任何字段。字段编号是用来标识字段在二进制协议中的位置，因此它们必须是唯一的，并且按照升序分配。
+
+68. 为什么要保留编号0？
+
+    1. 在 Protocol Buffers 的编码和解码过程中，如果接收到的消息中没有包含某个字段（例如在序列化时没有该字段的值），它会使用该字段的默认值。如果使用 `0` 作为字段编号，可能会混淆 `0` 作为编号与 `0` 作为默认值的实际含义
+    2. 关于默认值：如果不给 Protocol Buffers 中的字段赋值，那么该字段会使用其类型的默认值，整数类型默认值为`0`，布尔类型默认值为`false`。字符串默认值为空`""`，枚举默认为`0`，
+
+69. ```
+    ln -s  <vir1> <vir2> 	#软链接
+    whereis <文件名/应用名>	#查找包含目标文件的地址
+    ```
+
+70. protobuffer的变量种类、传输原理？
+
+    `bytes`的作用：通常表示一个字节数组（如文件数据、图片等），直接将字节数据赋给该字段。跟传递`message`一样，存储字节流数据。
+
+71. protobuffer中，如果成员是`message`，那么使用`mutable_data()`，不能使用`set_data()`，`set`的方式仅适用于普通类型。
+
+    1. 因为 `message` 类型是一个复杂对象，而非简单数据类型，你需要通过指针来修改它。
+
+       ```
+       mutable_name()	// 单个message
+       add_name()		// repeated类型的message
+       
+       Person person;
+       Address* address = person.mutable_address();  // 获取一个指向 Address 的指针
+       address->set_street("123 Main St");
+       address->set_city("Springfield");
+       ```
+
+    2. **`set_`** 方法通常用于简单的字段类型（如 `int32`, `string`, `bool` 等），它会直接赋值并覆盖字段的内容。对于嵌套的消息，`set_` 方法不适用，因为 `set_` 只能用于基本数据类型的字段。
+
+72. RJJH中的model是如何收到消息的？哪里调用的receive函数
+
+73. String转Qstring ： `toString()`
+
+    QString转String : `QString::fromStdString()` 静态函数需要加QString前缀
+
+74. 在 Qt 中，信号和槽函数在 **定义** 和 **建立信号槽连接(connect)** 时，可以只写 **数据类型** 而省略形参名称。
+
+    信号和槽的功能不受形参名称的影响，关键在于 **数据类型的匹配**，即信号和槽的参数类型需要一致
+
+75. 两种信号槽的连接方式
+
+    ```
+    connect(m_pZDFYModel, SIGNAL(sigSyncCount(std::map<uint8_t, uint64_t>)), this, SLOT(slotSyncCount(std::map<uint8_t, uint64_t>)));
+        connect(m_pZDFYModel,&CZDFYModel::sigSynNetWhite,this,&FramelessWindow::slotSynNetWhite);
+    ```
+
+76. 信号和槽，关于参数是引用类型的话，是否需要同步？是否会导致发送信号后，源数据作用域清除掉导致数据错误？
+
+77. 静态类型转换的用处：两个不同的枚举类型之间不可以自动转换，此时使用静态类型转换
+
+    ```
+    item.type = static_cast<NET_WHITE_LIST_TYPE>(netMsg.info_type());
+    item.reason = static_cast<NET_WHITE_LIST_REASON>(netMsg.source_type());
+    ```
+
+78. `add_subdirectory(zdfy)`是什么意思
+
+    1. 进入子目录构建:`add_subdirectory(zdfy)` 会告诉 CMake 进入 `zdfy` 子目录，查找并执行该目录中的 `CMakeLists.txt` 文件。
+    2. 管理依赖关系:主项目会与 `zdfy` 子目录的目标共享构建环境，例如头文件路径、链接库等。
+
+79. JYNSAFED是组件的可执行文件`add_executable`，插件每个都是JYNSAFED的一个动态库`add_library`
+
+80. sqlite3的存储方式：任何数据都是以字符方式存储的。
+
+    1. SQLite数据以文本形式存储
+    2. SQLite 列的声明类型（如 `INTEGER`、`TEXT`、`REAL`）只是一个“建议”，而不是严格限制。
+    3. SQLite3 中，即使存储的数据是整数、浮点数或其他类型，**查询结果返回时，默认是以字符形式（文本）返回的**。数据以一种通用的动态类型系统存储，取出时通常是字符形式
+
+81. 从sqlite3中取出字符串类型的时间戳。可以使用`long`长整型给`time_t`赋值
+
+    1. `int64_t`规定了64位的整数。适合跨平台。
+
+    2. `long`在不同的系统可能是32位或者64位。
+
+    3. 在现代的 64 位 Linux 系统上，`time_t` 通常是 64 位的（`long` 类型）。所以它俩可以给时间戳赋值
+
+    ```
+    time_t addTime =  std::strtol(p_result[i*col], nullptr, 10);
+    #使用 std::strtol 将字符串 p_result[i * col] 转换为一个 long 整数，并赋值给 info.addTime。
+    1. p_result[i * col] 是一个 char* 指针，指向字符串数据。
+    2. nullptr 表示不需要返回剩余未解析的字符串部分。
+    3. 10 是基数，表示字符串是十进制格式
+    
+    #错误方式：
+    time_t addTime = *p_result[i * col];
+    直接用*取地址，得到的是第一个字符的值。字符指针不能直接取值
+    
+    #补充：std::atoi() 将字符串转为int类型
+    int typeValue =  std::atoi(p_result[i*col+2]);
+    ```
+
+82. ZySingleto.h下存放了懒汉式的单例模板
+
+83. 有时间分析一下SCAN插件和ZDFY插件关于接收消息的任务处理方式。一个是使用`map`，一个直接使用`if/else`
+
+84. 将线程、protobuffer、文件、gdb 单独分出来cpp文档总结。
+
+85. 企业中代码正确的命名方式/格式？
+
+86. 在函数中执行某些函数定时执行，在函数内部使用`static`，并结合`chrono`库
+
+    ```
+    // 静态变量，用于记录上次上报的时间点
+    static auto lastVirusScanMsgTime = std::chrono::steady_clock::now();
+    static auto lastAsyncReportTime = std::chrono::steady_clock::now();
+    // 获取当前时间点
+    auto now = std::chrono::steady_clock::now();
+    bool isUiOntime = std::chrono::duration_cast<std::chrono::seconds>(now - 							  lastVirusScanMsgTime).count() >= 1;
+    bool isCenterOntime = std::chrono::duration_cast<std::chrono::seconds>(now - 						  lastAsyncReportTime).count() >= 5;
+    
+    if(isUiOntime){
+    	//放置函数1
+    }
+    if(isCenterOntime){
+    	//放置函数2
+    }
+    ```
+
+    
+
+87. `chrono`：C++11的时间处理库：
+
+    1. 时钟类型：`std::chrono::steady_clock/system_clock/high_resolution_clock`
+
+       1. **`steady_clock`**：单调递增的时钟，适用于**测量时间间隔**，不受系统时间变化的影响
+       2. **`system_clock`**：系统时钟，代表**当前日历时间**，会受到系统时间修改的影响
+       3. **`high_resolution_clock`**：高分辨率时钟，精度通常最高，适用于高精度计时。
+
+       ```c++
+       // 获取当前时间点
+       auto now = std::chrono::steady_clock::now();  
+       auto now = std::chrono::system_clock::now();
+       ```
+
+    2. 时间间隔：`std::chrono::duration`
+
+       1. `std::chrono::seconds`：以**秒**为单位的时间间隔。
+       2. `std::chrono::milliseconds`：以**毫秒**为单位的时间间隔。
+       3. `std::chrono::microseconds`：以**微秒**为单位的时间间隔。
+       4. `std::chrono::nanoseconds`：以**纳秒**为单位的时间间隔。
+       5. `std::chrono::minutes` / `std::chrono::hours` 等其他单位。
+
+       ```c++
+       std::chrono::seconds sec(5);  // 表示 5 秒
+       std::chrono::milliseconds ms(500);  // 表示 500 毫秒
+       
+       // 加减法：
+       auto total_duration = std::chrono::seconds(5) + std::chrono::milliseconds(300);
+       // 比较时间间隔
+       if (std::chrono::seconds(5) > std::chrono::milliseconds(3000)) {
+           std::cout << "5 seconds is greater than 3000 milliseconds" << std::endl;
+       }
+       ```
+
+    3. 常用场景：
+       1. **获取时间点差值**	使用`steady_clock`
+
+          ```c++
+          auto start = std::chrono::steady_clock::now();
+          auto end = std::chrono::steady_clock::now();
+          auto elapsed = end - start;  // elapsed 是一个 duration 对象
+          
+          // 通过 duration_cast 将时间差转换为具体的单位
+          auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed);
+          // 再通过count() 函数得到差值计数
+          std::cout << "Elapsed time: " << elapsed_ms.count() << " milliseconds" << std::endl;
+          ```
+
+       2. **当前日历时间转换**     使用`system_clock`
+
+          ```c++
+          // 使用 system_clock，可以将时间点转换为人类可读的时间
+          auto now = std::chrono::system_clock::now();
+          auto now_time_t = std::chrono::system_clock::to_time_t(now);
+          std::cout << "Current time: " << std::ctime(&now_time_t);
+          ```
+
+       3. **线程暂停/睡眠**
+
+          ```c++
+          // 使用 std::this_thread::sleep_for 实现在当前线程中暂停(睡眠)
+          std::this_thread::sleep_for(std::chrono::seconds(1));  // 暂停 1 秒
+          
+          // 暂停直到某个时间点：暂停(睡眠)到5秒后
+          auto wake_time = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+          std::this_thread::sleep_until(wake_time);
+          ```
+
+       4. **定时/定期任务**
+
+          ```c++
+          auto next = std::chrono::steady_clock::now();
+              while (true) {
+                  next += std::chrono::seconds(1);  // 每秒执行一次任务
+                  std::cout << "Task executed at " << std::chrono::duration_cast<std::chrono::milliseconds>(
+                      next.time_since_epoch()).count() << " ms" << std::endl;
+          
+                  std::this_thread::sleep_until(next);
+              }
+          ```
+
+          
 
 ### 4. 末尾
 
