@@ -1,4 +1,4 @@
-## ****************一****、注意事项
+## 一、注意事项
 
 1. 时间转换，修改为98版本的
 
@@ -1249,6 +1249,10 @@ m_pPool->submit([this, pBundle]() {
 
     ```
     git show <commit-hash>
+    git show <commit-hash> -- <file-path> #查看某次提交某个文件修改的详细内容
+    
+    git log -- <file-path>		#查看某个文件的历史改动记录
+    git log -p -- <file-path> 	#查看文件在多个提交中的改动, log -p 相当于show
     ```
 
 16. `git checkout` 和`git restore`作用的区别
@@ -1286,6 +1290,7 @@ m_pPool->submit([this, pBundle]() {
     git diff		 	#比较工作目录中的文件和暂存区的文件之间的差异
     git diff --cached	#比较暂存区中的文件和最新提交之间的差异
     git diff commit1 commit2 #比较两个特定提交的差异
+    git diff commit1 commit2 -- <file-path> #比较某个文件在两次提交之间的差异
     git diff [file]		#仅显示某些文件的改动
     git diff branch1 branch2	#比较两个分支的差异
     ```
@@ -1340,7 +1345,7 @@ m_pPool->submit([this, pBundle]() {
 23. git恢复单独文件到之前某个版本
 
     ```
-    git log -- <file-path>		# -- 后面加上想要查找的文件的历史记录
+    git log -- <file-path>		#查看某个文件的历史改动记录
     git checkout <commit-hash> -- <file-path>	# 单独给目标文件恢复到那次提交前的状态(已经add暂存过的)
     ```
 
@@ -1356,7 +1361,74 @@ m_pPool->submit([this, pBundle]() {
     --hard：重置 HEAD、暂存区和工作目录。所有未提交的更改都会丢失，非常危险，但适用于完全回退到某个提交的状态。
     ```
 
+25. `git pull --rebase`：同步远程分支更改并将本地未提交的更改重新应用在最新提交之上的命令。这样先`commit`再`pull`就不会多出来合并提交的记录了
+
+    ```
+    git pull --rebase 相当于执行下面两步
+    1. git fetch：从远程仓库拉取最新的更改到本地。
+    2. git rebase：将本地分支上的未提交更改重新应用在远程分支的最新提交之上。 #只pull的话是这步是merge
+    ```
+
+    **注意事项**：`git pull --rebase` 需要一个“干净”的工作目录（没有未提交的更改）。
+
+    > 所以必须是git add .    -> git commit -> git pull -- rebase
+
+    ```
+    #如果本地有暂存的更改，但尚未提交，git pull --rebase 会提示：
+    You have unstaged changes.
+    Please commit or stash them before you rebase.
+    #此时需要commit 或者 stash
+    ```
+
+    **工作流程**：
+
+    1. 检查远程分支的最新提交（通过 `git fetch` 获取）。
+
+    2. 将本地分支的提交临时保存为补丁（类似 `git stash`但不是。这是把`commit`记录给`stash`了）。
+
+    3. 将本地分支重置为远程分支的最新提交。
+
+    4. 依次应用之前保存的补丁到新的基点。
+
+    5. 如果发生冲突，提示用户解决冲突并继续执行
+
+       ```
+       git status  # 查看冲突文件
+       # 手动解决冲突
+       git add <file>  # 标记已解决的文件
+       git rebase --continue  # 继续 rebase
+       ```
+
+    **优点**：`--rebase` 将避免产生多余的合并提交（`merge commit`），保持分支历史记录的清晰和线性
+
+26. `git rebase`命令：重新整理提交历史，将一个分支上的提交记录移动到另一个分支上(不仅适用于`master`和`branch`分支，也适用于远程分支和本地分支)
+
+    ```
+    git rebase [<upstream>] [<branch>]
+    # <upstream>：要基于的分支（默认当前分支的上游分支）
+    # <branch>： 要进行 rebase 的分支（默认为当前分支）
+    # 将上游分支的commit记录移动到当前
     
+    git rebase --continue  #发生冲突并解决冲突后继续执行rebase
+    git rebase --abort	   #终止当前的 rebase 操作，并恢复到操作前的状态。
+    ```
+
+    **工作流程**:
+
+    1. Git 会将分支的新提交保存为补丁
+    2. 当前分支被移动到新基点。
+    3. 依次将保存的提交应用到新的基点上
+
+    **`rebase`和`merger`的区别**：
+
+    | **操作**             | **`git merge`**                  | **`git rebase`**                       |
+    | -------------------- | -------------------------------- | -------------------------------------- |
+    | **历史记录**         | 可能产生分叉历史                 | 产生线性历史                           |
+    | **是否创建合并提交** | 创建一个 `merge commit`提交记录  | 不创建合并提交                         |
+    | **冲突处理**         | 解决合并冲突                     | 解决 `rebase` 冲突                     |
+    | **适用场景**         | 保留分支开发历史，适用于团队协作 | 清理历史，适用于个人开发或维护整洁历史 |
+
+
 
 ### 2.12 改BUG
 
@@ -2761,6 +2833,23 @@ m_pPool->submit([this, pBundle]() {
        QApplication::instance()->installEventFilter(this)
        ```
 
+14. 修改/增加protobuffer的步骤：
+
+    1. 修改/增加protobuffer字段
+
+    2. 在proto/文件夹下面，将40上该目录下的protoc执行文件复制过来
+
+       > 使用本地的会导致因版本不同造成的、执行/编译错误
+
+    3. 执行`gen_proto.sh`脚本。
+
+15. 修改/替换界面图片的步骤：
+    1. 替换/修改图片
+    2. 如果是修改图片名字或者新增图片，需要在`widget.qrc`文件中修改.增加。替换不需要
+    3. 修改贴牌脚本`oem/gen_rcc.sh`中`rcc`的路径为本地的qt里的rcc，并执行脚本
+    4. 将`OutPut`路径下的生成的`skin_xxx.rcc`替换到本地的对应目录下即可
+    5. git时，只需要`push`改动的图片和生成的`rcc`文件即可，其他的不需`push`
+
 ### 2. 工作部分
 
 #### 2.1 正在进行
@@ -2881,7 +2970,7 @@ m_pPool->submit([this, pBundle]() {
 
    **解决**：scan_model中获取扫描类型的判断移动到`END_INFO`中。
 
-1. - [ ] 升级界面背景改为蓝色、titlebar的关闭“X”改为大的
+1. - [x] 升级界面背景改为蓝色、titlebar的关闭“X”改为大的
 
      **待商榷**：1. 没有相应的图片 2. 另一个大的图片颜色是白色的，不符合
 
@@ -2892,7 +2981,7 @@ m_pPool->submit([this, pBundle]() {
    - [x] 数据库sqlite3的model
    - [x] zdfy插件中实现存储数据库、与中控和RJJH传递数据
 
-3. - [ ] 隔离区数据每5分钟就上报一次**[bug]**
+3. - [x] 隔离区数据每5分钟就上报一次**[bug]**
 
      **待商榷**：改为每次对隔离区操作都会同步，以及中控的操作都会同步，是否可以取消这个功能。
 
@@ -2910,9 +2999,19 @@ m_pPool->submit([this, pBundle]() {
      **问题**：可能是因为zav引擎查杀完成后会调用一个回调函数，又像界面发送数据。所以要改为等待查杀引擎主动发送消息？
 
 7. - [ ] 确认退出时是否删除右键库（多系统）
+
    - [ ] 防护日志，如果时间重复，日志详情会被覆盖（自增主键）
 
-8. - [ ] ukey授权对已激活的产品，二次点击已授权，授权信息消失变成未授权字样 **[bug]**
+     **原因**：防护日志的数据表两块组成，一个就是普通记录，另一个是详细日志。详细日志以time为key。所以导致当记录日志在1秒中记录两次时，普通记录是有的，但是详细日志会被覆盖掉(插入时使用了`insert or replace`)。
+
+     **思路**：
+     
+     1. ProtoBuffer中修改：HmiToHelper的Request的string time字段改为int_64 界面使用时间戳来进行访问。    message ProtectLogInfo里的log字段加入int 64 time 时间戳
+     2. RJJH中的LogDataModel也需要加入int字段。插入表格多设置一列，时间戳格式的，访问详情传递的是时间戳。
+     3. 修改数据库相关
+     4. 修改所有调用日志记录函数的插件、组件
+
+8. - [x] ukey授权对已激活的产品，二次点击已授权，授权信息消失变成未授权字样 **[bug]**
 
      **思路**：待使用Ukey复现下问题后再解决，应该就是AuthMananger.cpp中541行激活信号槽的问题
 
@@ -2921,8 +3020,10 @@ m_pPool->submit([this, pBundle]() {
      **问题**：任务队列中闪电查杀字段更改为“EMERGENCY_SCAN",而任务队列中的闪电查杀字段仍然是”LIGHTING_SCAN“
    
      **解决**：暂时在任务队列中将字段替换
-   
-   
+
+10. - [ ] titlebar的X号有异常。首次打开界面会导致悬浮hover的状态下的关闭符号
+
+    
 
 
 
@@ -3013,13 +3114,11 @@ m_pPool->submit([this, pBundle]() {
    connect(this,&AuthManger::function,[](){})
    ```
 
-9. `git pull --rebase`
+9. `make  -j8`  编译多线程
 
-10. `make  -j8`  编译多线程
+10. `git restore --staged <文件>...`
 
-11. `git restore --staged <文件>...`
-
-12. git stash找到删除的记录
+11. `git stash`找到删除的记录
 
     ```
     git fsck --lost-found		#列出最近删除的stash commit记录
@@ -3027,11 +3126,11 @@ m_pPool->submit([this, pBundle]() {
     git stash apply <commit-hash>	#恢复到对应stash记录下
     ```
 
-13. UI层，main_window才是主界面，其在构造的时候初始化了FramelessWindow。
+12. UI层，main_window才是主界面，其在构造的时候初始化了FramelessWindow。
 
     rjjh_main是RJJH进程的入口，只有main才会执行app.exec事件循环
-    
-14. 关于Frameless中的事件过滤器`eventFilter`:（以scanModel为例）
+
+13. 关于Frameless中的事件过滤器`eventFilter`:（以scanModel为例）
 
     1. scanmodel在收到safed传来的扫描过程中的异常事件，将会通过信号槽`emit`将该`event`传递到Frameless
 
@@ -3044,16 +3143,16 @@ m_pPool->submit([this, pBundle]() {
     3. 事件处理器将会依次处理本轮事件队列，直到下一轮(app.exec)
     4. 事件event的总类(自定义事件)在event文件夹下
 
-15. Qt图片路径：使用了 `:/` 前缀，表示这是一个 Qt 资源路径；资源文件必须在项目的资源文件（`.qrc` 文件）中声明。
+14. Qt图片路径：使用了 `:/` 前缀，表示这是一个 Qt 资源路径；资源文件必须在项目的资源文件（`.qrc` 文件）中声明。
 
     ```
     QIcon jy_icon(":/skins/icon/logo_64_blue.png");
     app.setWindowIcon(jy_icon);
     ```
 
-16. `QAbstractListModel` 是 Qt 框架中的一个抽象基类，用于实现基于列表的数据模型。它继承自 `QAbstractItemModel`，并简化了仅需要一维数据结构（如列表或数组）的模型实现。
+15. `QAbstractListModel` 是 Qt 框架中的一个抽象基类，用于实现基于列表的数据模型。它继承自 `QAbstractItemModel`，并简化了仅需要一维数据结构（如列表或数组）的模型实现。
 
-17. `QTableWidget`和`QTableView`的区别：
+16. `QTableWidget`和`QTableView`的区别：
 
     1. `QTableWidget`基于项（Item-based）的表格控件，适合简单的表格数据展示，当数据量较大时，性能不如 `QTableView`
 
@@ -3120,41 +3219,41 @@ m_pPool->submit([this, pBundle]() {
         #例子：此处的map，key为自定义enum类型。而获取到的是protobuffer数据格式的枚举，没有规定两者之间进行隐式转换的定义，会报错，此时使用static_cast就可以正常使用了
         ```
 
-18. `QAtomicInt` 是 Qt 提供的一个 **原子整数类型**，主要用于在多线程环境下进行线程安全的整数操作。
+17. `QAtomicInt` 是 Qt 提供的一个 **原子整数类型**，主要用于在多线程环境下进行线程安全的整数操作。
 
     `storeRelease` 和 `loadAcquire` 配合使用可以保证多线程操作的内存一致性：
 
     - **Release** 语义：确保当前线程的写操作在 `storeRelease` 之前对其他线程可见。
     - **Acquire** 语义：确保当前线程的读取操作在 `loadAcquire` 之后看到其他线程的最新写操
 
-19. protobuffer中：定义了`package`就相当于使用了c++中的`namespace`，当使用其中的字段时都需要加上包名(命名空间)。
+18. protobuffer中：定义了`package`就相当于使用了c++中的`namespace`，当使用其中的字段时都需要加上包名(命名空间)。
     1. 在 C++ 中：package 会生成对应的 namespace。
     2. 不定义 package，所有类型直接生成在顶层命名空间中，可以直接访问使用
 
-20. `SerializePartialAsString()` 和 `SerializeAsString()` 是 Protocol Buffers（protobuf）库中用于将消息序列化为字符串的函数，但它们的行为在处理消息完整性方面有所不同：
+19. `SerializePartialAsString()` 和 `SerializeAsString()` 是 Protocol Buffers（protobuf）库中用于将消息序列化为字符串的函数，但它们的行为在处理消息完整性方面有所不同：
 
     1.  `SerializeAsString()` :序列化整个消息到字符串：在序列化之前，会检查消息是否有效（完整性检查），即所有被标记为 **必需字段**（`required`）的字段是否都已设置。如果消息中缺少必需字段，则序列化会失败，并抛出异常（在某些实现中可能是返回错误状态）。使用较旧的 protobuf 版本（2.x 系列）时，因为 2.x 版本支持 `required` 字段
     2. `SerializePartialAsString()`：序列化部分（可能不完整）的消息到字符串：不检查消息的完整性。即使消息中有必需字段未设置，也会继续序列化现有字段；在 protobuf 3.x 及更高版本中更为常用，因为这些版本中不再支持 `required` 字段，消息的完整性检查不再是主要关注点。
 
-21. 在大多数平台上，`std::time_t` 是一个 64 位有符号整数（例如 Linux 的 x86-64 平台）。表示时间戳
+20. 在大多数平台上，`std::time_t` 是一个 64 位有符号整数（例如 Linux 的 x86-64 平台）。表示时间戳
 
     ```
     // 获取秒级时间戳
     int64_t timestamp = static_cast<int64_t>(time(nullptr));
     ```
 
-22. ubuntu进程关闭
+21. ubuntu进程关闭
 
     ```
     ctrl + z   #中断进程，后台还会有进程号
     ctrl + c   #取消进程，后台无该进程
     ```
 
-23. C++删除文件中的某行
+22. C++删除文件中的某行
     1.  读文件，将不符合删除条件的行使用vector\<std::string>存储起来
     2. 覆盖写文件，将vector中的数据重写到文件中
 
-24. 当创建文件读/写对象时，就已经打开文件了
+23. 当创建文件读/写对象时，就已经打开文件了
 
     ```c++
     std::ifstream infile(m_sshDenyPath);
@@ -3169,11 +3268,11 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-25. `std::string::npos` 是 C++ 标准库中 `std::string` 类的一个特殊常量，用于表示 "未找到" 的情况,它的值通常是一个非常大的整数（例如 `-1` 的无符号表示
+24. `std::string::npos` 是 C++ 标准库中 `std::string` 类的一个特殊常量，用于表示 "未找到" 的情况,它的值通常是一个非常大的整数（例如 `-1` 的无符号表示
 
-26. 只有在使用sudo启动的程序中，才可以进行读写文件操作。
+25. 只有在使用sudo启动的程序中，才可以进行读写文件操作。
 
-27. Qt快捷键：
+26. Qt快捷键：
 
     ```
     QtCreator的界面预览： Shift + Alt + R
@@ -3181,20 +3280,20 @@ m_pPool->submit([this, pBundle]() {
     只构建快捷键：Ctrl+B
     ```
 
-28. 自定义控件：例`title_bar`
+27. 自定义控件：例`title_bar`
 
     1. 创建类继承于`QWidget`(所有窗口的父类)
 
     2. 在需要使用的UI设计中，拖入一个`Widget`组件
     3. 对该组件选择“提升为”，填入刚写的自定义控件类名
 
-29. Qt的自定义控件、自定义事件、事件过滤器。
+28. Qt的自定义控件、自定义事件、事件过滤器。
 
     1. `QWidget` 是所有控件的父类，在 `Protected Functions` 中**提供了各种事件的虚函数**。只要在子类中重写这些事件函数，则在这个部件类触发这个事件时就会产生相应操作。系统自动触发，开发者无需调用
     2. 自带的事件和自定义事件用于触发事件；`event`和`eventfliter`用于处理/拦截事件
     3. 自定义控件可以让其他widget都可以使用同一种规格的控件，不用重复创建。比如`title_bar`
 
-30. 绘图事件(`paintEvent`):
+29. 绘图事件(`paintEvent`):
 
     1. 事件驱动机制：每当需要重新绘制窗口（如窗口大小改变、最小化还原、控件需要刷新等），Qt 会自动触发 `paintEvent`。
 
@@ -3242,7 +3341,7 @@ m_pPool->submit([this, pBundle]() {
        	# brush：用于填充矩形的画刷，可以是颜色（QColor）、渐变（如 QLinearGradient）或纹理				（QPixmap
        ```
 
-31. cpp中找到自定义控件的子控件的方法：
+30. cpp中找到自定义控件的子控件的方法：
 
     ```c++
     1. findChild<T>() ：通过对象名查找子控件，findChild 会递归搜索子控件树，找到第一个符合条件的子控件
@@ -3263,13 +3362,13 @@ m_pPool->submit([this, pBundle]() {
     	}
     ```
 
-32. IPC 是进程间通信的核心机制，帮助进程协调工作、交换数据。常见的 IPC 方式包括管道、消息队列、共享内存、信号、套接字等
+31. IPC 是进程间通信的核心机制，帮助进程协调工作、交换数据。常见的 IPC 方式包括管道、消息队列、共享内存、信号、套接字等
 
-33. 智能指针的`get()`函数：在 C++11 中，`std::unique_ptr` 和 `std::shared_ptr` 都提供了一个 `get()` 函数，用于访问底层原始指针。这个函数返回指向智能指针所管理的对象的裸指针。
+32. 智能指针的`get()`函数：在 C++11 中，`std::unique_ptr` 和 `std::shared_ptr` 都提供了一个 `get()` 函数，用于访问底层原始指针。这个函数返回指向智能指针所管理的对象的裸指针。
 
-34. 智能指针的`reset()`函数，减少当前管理对象的引用计数，并释放资源（如果是最后一个 `shared_ptr` 或者是`unique_ptr`管理该资源）。
+33. 智能指针的`reset()`函数，减少当前管理对象的引用计数，并释放资源（如果是最后一个 `shared_ptr` 或者是`unique_ptr`管理该资源）。
 
-35. CMakeList常用变量：
+34. CMakeList常用变量：
 
     ```
     CMAKE_SOURCE_DIR：表示 CMake 项目主目录的路径，也就是 CMakeLists.txt 文件首次被执行时所在的目录
@@ -3279,25 +3378,25 @@ m_pPool->submit([this, pBundle]() {
     						  值会动态变化，即当前cmakelist所在文件夹地址。
     ```
 
-36. CMakelist，项目使用的cpp放入`add_library`中，项目使用的头文件要把头文件的所在文件夹放入`include_directories`中。打包动态库的时候需要。原理？
+35. CMakelist，项目使用的cpp放入`add_library`中，项目使用的头文件要把头文件的所在文件夹放入`include_directories`中。打包动态库的时候需要。原理？
 
-37. 使用类成员函数作为回调时，使用`bind`的方式创建回调函数。如果传递的对象在另一方面调用回调之前就销毁了，那么可能访问的是未知内存。
+36. 使用类成员函数作为回调时，使用`bind`的方式创建回调函数。如果传递的对象在另一方面调用回调之前就销毁了，那么可能访问的是未知内存。
 
     **解决方式**：确保在调用回调之前，该对象不会提前销毁
 
-38. m_pUpgradeControl = std::make_shared<VirusLibraryUpgradeControl>(m_pScanController);为什么会不行呢
+37. m_pUpgradeControl = std::make_shared<VirusLibraryUpgradeControl>(m_pScanController);为什么会不行呢
 
-39. protobuffer成员名：当使用protobuffer转化时会默认将大写字母转为小写
+38. protobuffer成员名：当使用protobuffer转化时会默认将大写字母转为小写
 
-40. 调bug，哪个地方可能有问题，在那个地方打断点。使用gdb调试，单一看代码推断耗费时间。
+39. 调bug，哪个地方可能有问题，在那个地方打断点。使用gdb调试，单一看代码推断耗费时间。
 
-41. 解安装包
+40. 解安装包
 
     ```
     dpkg-deb -x chenxinsd_7.0.0.8-24121304_c1.2110.2.1111_amd64.deb a
     ```
 
-42. 将布局(垂直、水平等)提升为widget的好处：
+41. 将布局(垂直、水平等)提升为widget的好处：
 
     1. 自定义外观：作为一个独立的控件，可以设置样式表、背景等
 
@@ -3307,7 +3406,7 @@ m_pPool->submit([this, pBundle]() {
 
     3. 模块化设计：可以单独作为自定义控件从外部导入
 
-43. QT的Design，当样式图标显示右下角为红色禁用标志，意思为**QWidget未设置布局**
+42. QT的Design，当样式图标显示右下角为红色禁用标志，意思为**QWidget未设置布局**
 
     1. QWidget未设置布局(即打破布局)
     2. 使用了自定义的控件(widget)
@@ -3317,38 +3416,38 @@ m_pPool->submit([this, pBundle]() {
     1. 第一种需要往widget中拖入一个控件，然后对界面右击选择布局。(然后可以在右边设置layout的边距)
     2. 第二种无需改动
 
-44. **珊瑚布局**，即 **网格布局（Grid Layout）**，是 Qt 中的一种布局管理器，叫做 **QGridLayout**。它将控件按行和列排列，类似于一个二维的网格表格
+43. **珊瑚布局**，即 **网格布局（Grid Layout）**，是 Qt 中的一种布局管理器，叫做 **QGridLayout**。它将控件按行和列排列，类似于一个二维的网格表格
 
     1. 按行和列的方式排列控件，每个控件可以占据一个或多个网格单元。
     2. 可以通过指定行、列的位置和占据的行/列跨度来自定义控件的布局。
 
-45. 自定义控件**不一定只能是 `QWidget` 类**，但通常自定义控件是基于 `QWidget` 或其派生类（如 `QFrame`、`QPushButton` 等）来实现的。这是因为 Qt 的控件体系以 `QWidget` 为基类，所有用户界面控件都继承自 `QWidget`，从而具备基础的显示、事件处理和绘制能力。
+44. 自定义控件**不一定只能是 `QWidget` 类**，但通常自定义控件是基于 `QWidget` 或其派生类（如 `QFrame`、`QPushButton` 等）来实现的。这是因为 Qt 的控件体系以 `QWidget` 为基类，所有用户界面控件都继承自 `QWidget`，从而具备基础的显示、事件处理和绘制能力。
 
-46. 功能和业务：
+45. 功能和业务：
 
     1. 有了功能之后才能考虑和拓展业务
     2. 组件学名叫做功能型插件、插件学名叫做业务型插件。
     3. 功能性插件即这个项目必须有的基础功能，比如通信、上报、任务队列管理等
     4. 业务性插件就是可扩展的、根据业务需求进行增、删并且可以复用的功能部分。单独的插件就作为动态库调用。
 
-47. 微信回车：
+46. 微信回车：
 
     ```
     ctrl + enter 
     shift + enter 
     ```
 
-48. Ubuntu文字输入法切换页：
+47. Ubuntu文字输入法切换页：
 
     ```
     PageUp 和 PageDown快捷键
     ```
 
-49. 设置布局，不方便将控件拖入到布局中时，可以先将控件的上下边界设置大点，就可以拖了。
+48. 设置布局，不方便将控件拖入到布局中时，可以先将控件的上下边界设置大点，就可以拖了。
 
-50. 在 **Qt 的水平布局（`QHBoxLayout`）** 中，如果你调用其中一个控件的 `hide()` 方法，Qt 的布局系统会自动**重新排版**其他可见的控件，隐藏的控件不会占用空间。因为 Qt 的布局管理器（如 `QHBoxLayout` 或 `QVBoxLayout`）会动态调整布局中控件的显示状态。如果控件被隐藏（`hide()`），布局会检测到并重新计算剩余控件的大小和位置。
+49. 在 **Qt 的水平布局（`QHBoxLayout`）** 中，如果你调用其中一个控件的 `hide()` 方法，Qt 的布局系统会自动**重新排版**其他可见的控件，隐藏的控件不会占用空间。因为 Qt 的布局管理器（如 `QHBoxLayout` 或 `QVBoxLayout`）会动态调整布局中控件的显示状态。如果控件被隐藏（`hide()`），布局会检测到并重新计算剩余控件的大小和位置。
 
-51. 单次点击的按钮(添加、删除)QPushButton样式表示例，需设置禁用后的状态
+50. 单次点击的按钮(添加、删除)QPushButton样式表示例，需设置禁用后的状态
 
     ```
     QPushButton {
@@ -3376,7 +3475,7 @@ m_pPool->submit([this, pBundle]() {
     
     ```
 
-52. 类似tab切换页面的QPushButton的样式表示例，将`checkable`选项选中，再在样式表中设置check后的状态
+51. 类似tab切换页面的QPushButton的样式表示例，将`checkable`选项选中，再在样式表中设置check后的状态
 
     ```
     QPushButton{
@@ -3392,28 +3491,28 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-53. 类似`:hover`和`:checked`是控件的伪状态。**伪状态（例如 `:hover`、`:disabled` 等）只会覆盖它们显式定义的属性**，未覆盖的属性仍会继承原有的默认样式或父选择器的样式。
+52. 类似`:hover`和`:checked`是控件的伪状态。**伪状态（例如 `:hover`、`:disabled` 等）只会覆盖它们显式定义的属性**，未覆盖的属性仍会继承原有的默认样式或父选择器的样式。
 
-54. 移动Qt文件：
+53. 移动Qt文件：
 
     1. 手动迁移文件
     2. 修改pro文件内容，将`.h` `.cpp` `.ui`文件路径全部修改
 
-55. `QAbstractListModel` 继承自 `QAbstractItemModel`，主要用来处理一维数据（如列表）。Qt的数据模型
+54. `QAbstractListModel` 继承自 `QAbstractItemModel`，主要用来处理一维数据（如列表）。Qt的数据模型
 
     `QModelIndex` 是 Qt 中的一个类，用来表示 **模型中的索引**。它是与 `QAbstractItemModel`（及其子类）结合使用的，允许你在模型中定位和操作特定的数据项。
 
     `QModelIndex` 对象不仅代表了数据在模型中的位置，还可以包含关于该位置的额外信息（如行、列、父项等），使得它能够在视图与模型之间传递数据。
 
-56. map和hashmap的区别？
+55. map和hashmap的区别？
 
-57. 修改了QtDesign中控件的名字，在vscode的cpp中访问不到，此时build即可
+56. 修改了QtDesign中控件的名字，在vscode的cpp中访问不到，此时build即可
 
-58. `CheckBoxHeaderView` 是 Qt 中用于在 `QHeaderView` 上显示一个复选框（`QCheckBox`）的自定义视图类，通常用于表格（`QTableView`）或列表（`QListView`）等视图的头部。复选框可以用于执行某种全选/全不选的操作。例如，在表格的头部添加一个复选框来控制所有行的复选框状态。
+57. `CheckBoxHeaderView` 是 Qt 中用于在 `QHeaderView` 上显示一个复选框（`QCheckBox`）的自定义视图类，通常用于表格（`QTableView`）或列表（`QListView`）等视图的头部。复选框可以用于执行某种全选/全不选的操作。例如，在表格的头部添加一个复选框来控制所有行的复选框状态。
 
-59. `ptable->cellWidget(i, 0)` 是 `QTableWidget` 中的一个函数，返回位于表格 `i` 行、`0` 列的单元格中嵌入的控件（如果有）。通过这个函数，您可以访问单元格中的控件，通常是一个按钮、文本框、复选框或其他自定义控件。
+58. `ptable->cellWidget(i, 0)` 是 `QTableWidget` 中的一个函数，返回位于表格 `i` 行、`0` 列的单元格中嵌入的控件（如果有）。通过这个函数，您可以访问单元格中的控件，通常是一个按钮、文本框、复选框或其他自定义控件。
 
-60. Qt时间相关函数
+59. Qt时间相关函数
 
     ```
     time_t addtime  = time(nullptr);    #获取当前时间戳，time_t就是保存时间戳的变量
@@ -3422,11 +3521,11 @@ m_pPool->submit([this, pBundle]() {
     object.m_trusttime = localDateTime.toString("yyyy.MM.dd hh:mm");	#将时间戳转化为字符串
     ```
 
-61. 样式表直接给控件设置样式是不需要加`":"`的。伪控件才需要加`":"`，子控件需要加`"::"`
+60. 样式表直接给控件设置样式是不需要加`":"`的。伪控件才需要加`":"`，子控件需要加`"::"`
 
-62. 使用了布局，如果将某个控件设为`hide()`，那么布局会自动调整
+61. 使用了布局，如果将某个控件设为`hide()`，那么布局会自动调整
 
-63. ```
+62. ```
     border: 1px solid rgba(0, 110, 234, 1);
     border-radius: 2px;
     
@@ -3436,7 +3535,7 @@ m_pPool->submit([this, pBundle]() {
     2px: 表示圆角的半径，决定了边框的圆滑程度。较小的值会有轻微的圆角效果，而较大的值会让控件的角变得更圆。
     ```
 
-64. `QCheckBox`，每行的选中框如何实现的，TrustandIsoDialog.cpp中666行
+63. `QCheckBox`，每行的选中框如何实现的，TrustandIsoDialog.cpp中666行
 
     ```
     m_pIpTrustHeader = new CheckBoxHeaderView(0, Qt::Horizontal, ui->tableIpTrust, 7);  // 头选框
@@ -3445,13 +3544,13 @@ m_pPool->submit([this, pBundle]() {
     tablewidget->setCellWidget(row, col, w) //对目标tablewidget，设置参数分别是行、列、widget
     ```
 
-65. `std::stoi()` 是 C++11 引入的一个标准库函数，用于将一个字符串（`std::string`）转换为整数（`int`）
+64. `std::stoi()` 是 C++11 引入的一个标准库函数，用于将一个字符串（`std::string`）转换为整数（`int`）
 
     `QString` 常用的替代方法有 `QString::toInt()` 和 `QString::toUInt()`。
 
-66. 中控如何实现与safed发送消息的？
+65. 中控如何实现与safed发送消息的？
 
-67. protobuffer中关于enum和message，默认从0 给初值还是从1开始给
+66. protobuffer中关于enum和message，默认从0 给初值还是从1开始给
 
     1. 在 `enum` 中，字段的编号必须是正整数。默认情况下，`enum` 会**为第一个枚举值分配编号 `0`**，并且你可以显式地为其他枚举值指定编号，跟其他枚举类型一样。
 
@@ -3465,21 +3564,21 @@ m_pPool->submit([this, pBundle]() {
 
     2. `message` 类型的字段编号从 **1 开始**，而 **0 是保留的编号**，不可用于任何字段。字段编号是用来标识字段在二进制协议中的位置，因此它们必须是唯一的，并且按照升序分配。
 
-68. 为什么要保留编号0？
+67. 为什么要保留编号0？
 
     1. 在 Protocol Buffers 的编码和解码过程中，如果接收到的消息中没有包含某个字段（例如在序列化时没有该字段的值），它会使用该字段的默认值。如果使用 `0` 作为字段编号，可能会混淆 `0` 作为编号与 `0` 作为默认值的实际含义
     2. 关于默认值：如果不给 Protocol Buffers 中的字段赋值，那么该字段会使用其类型的默认值，整数类型默认值为`0`，布尔类型默认值为`false`。字符串默认值为空`""`，枚举默认为`0`，
 
-69. ```
+68. ```
     ln -s  <vir1> <vir2> 	#软链接
     whereis <文件名/应用名>	#查找包含目标文件的地址
     ```
 
-70. protobuffer的变量种类、传输原理？
+69. protobuffer的变量种类、传输原理？
 
     `bytes`的作用：通常表示一个字节数组（如文件数据、图片等），直接将字节数据赋给该字段。跟传递`message`一样，存储字节流数据。
 
-71. protobuffer中，如果成员是`message`，那么使用`mutable_data()`，不能使用`set_data()`，`set`的方式仅适用于普通类型。
+70. protobuffer中，如果成员是`message`，那么使用`mutable_data()`，不能使用`set_data()`，`set`的方式仅适用于普通类型。
 
     1. 因为 `message` 类型是一个复杂对象，而非简单数据类型，你需要通过指针来修改它。
 
@@ -3495,46 +3594,46 @@ m_pPool->submit([this, pBundle]() {
 
     2. **`set_`** 方法通常用于简单的字段类型（如 `int32`, `string`, `bool` 等），它会直接赋值并覆盖字段的内容。对于嵌套的消息，`set_` 方法不适用，因为 `set_` 只能用于基本数据类型的字段。
 
-72. RJJH中的model是如何收到消息的？哪里调用的receive函数
+71. RJJH中的model是如何收到消息的？哪里调用的receive函数
 
-73. String转Qstring ： `toString()`
+72. String转Qstring ： `toString()`
 
     QString转String : `QString::fromStdString()` 静态函数需要加QString前缀
 
-74. 在 Qt 中，信号和槽函数在 **定义** 和 **建立信号槽连接(connect)** 时，可以只写 **数据类型** 而省略形参名称。
+73. 在 Qt 中，信号和槽函数在 **定义** 和 **建立信号槽连接(connect)** 时，可以只写 **数据类型** 而省略形参名称。
 
     信号和槽的功能不受形参名称的影响，关键在于 **数据类型的匹配**，即信号和槽的参数类型需要一致
 
-75. 两种信号槽的连接方式
+74. 两种信号槽的连接方式
 
     ```
     connect(m_pZDFYModel, SIGNAL(sigSyncCount(std::map<uint8_t, uint64_t>)), this, SLOT(slotSyncCount(std::map<uint8_t, uint64_t>)));
         connect(m_pZDFYModel,&CZDFYModel::sigSynNetWhite,this,&FramelessWindow::slotSynNetWhite);
     ```
 
-76. 信号和槽，关于参数是引用类型的话，是否需要同步？是否会导致发送信号后，源数据作用域清除掉导致数据错误？
+75. 信号和槽，关于参数是引用类型的话，是否需要同步？是否会导致发送信号后，源数据作用域清除掉导致数据错误？
 
-77. 静态类型转换的用处：两个不同的枚举类型之间不可以自动转换，此时使用静态类型转换
+76. 静态类型转换的用处：两个不同的枚举类型之间不可以自动转换，此时使用静态类型转换
 
     ```
     item.type = static_cast<NET_WHITE_LIST_TYPE>(netMsg.info_type());
     item.reason = static_cast<NET_WHITE_LIST_REASON>(netMsg.source_type());
     ```
 
-78. `add_subdirectory(zdfy)`是什么意思
+77. `add_subdirectory(zdfy)`是什么意思
 
     1. 进入子目录构建:`add_subdirectory(zdfy)` 会告诉 CMake 进入 `zdfy` 子目录，查找并执行该目录中的 `CMakeLists.txt` 文件。
     2. 管理依赖关系:主项目会与 `zdfy` 子目录的目标共享构建环境，例如头文件路径、链接库等。
 
-79. JYNSAFED是组件的可执行文件`add_executable`，插件每个都是JYNSAFED的一个动态库`add_library`
+78. JYNSAFED是组件的可执行文件`add_executable`，插件每个都是JYNSAFED的一个动态库`add_library`
 
-80. sqlite3的存储方式：任何数据都是以字符方式存储的。
+79. sqlite3的存储方式：任何数据都是以字符方式存储的。
 
     1. SQLite数据以文本形式存储
     2. SQLite 列的声明类型（如 `INTEGER`、`TEXT`、`REAL`）只是一个“建议”，而不是严格限制。
     3. SQLite3 中，即使存储的数据是整数、浮点数或其他类型，**查询结果返回时，默认是以字符形式（文本）返回的**。数据以一种通用的动态类型系统存储，取出时通常是字符形式
 
-81. 从sqlite3中取出字符串类型的时间戳。可以使用`long`长整型给`time_t`赋值
+80. 从sqlite3中取出字符串类型的时间戳。可以使用`long`长整型给`time_t`赋值
 
     1. `int64_t`规定了64位的整数。适合跨平台。
 
@@ -3557,9 +3656,11 @@ m_pPool->submit([this, pBundle]() {
     int typeValue =  std::atoi(p_result[i*col+2]);
     ```
 
-82. ZySingleto.h下存放了懒汉式的单例模板
+81. ZySingleto.h下存放了懒汉式的单例模板
 
-83. 有时间分析一下SCAN插件和ZDFY插件关于接收消息的任务处理方式。一个是使用`map`，一个直接使用`if/else`
+82. 有时间分析一下SCAN插件和ZDFY插件关于接收消息的任务处理方式。一个是使用`map`，一个直接使用`if/else`
+
+83. 根据网络白名单实现逻辑进行画图(RJJH->safed->中控之间的操作逻辑)，所有的功能大概都是一样的
 
 84. 将线程、protobuffer、文件、gdb 单独分出来cpp文档总结。
 
@@ -3567,7 +3668,7 @@ m_pPool->submit([this, pBundle]() {
 
 86. 在函数中执行某些函数定时执行，在函数内部使用`static`，并结合`chrono`库
 
-    ```
+    ```c++
     // 静态变量，用于记录上次上报的时间点
     static auto lastVirusScanMsgTime = std::chrono::steady_clock::now();
     static auto lastAsyncReportTime = std::chrono::steady_clock::now();
@@ -3667,7 +3768,172 @@ m_pPool->submit([this, pBundle]() {
               }
           ```
 
-          
+88. `std::time`： C函数里面的时间的精确到秒的时间处理函数。`chrono`精确范围更大
+
+    1. 获取当前时间戳：
+
+    ```c++
+    std::time_t now = std::time(nullptr); // 当前时间戳
+    std::time_t tt = mktime(&tm);		  // 使用mktime将tm类型转为时间戳
+    ```
+
+    2. `ctime`函数将时间戳（`time_t` 类型）转换为人类可读的字符串形式（本地时间）
+
+    ```c++
+    #include <ctime>
+    char* ctime(const std::time_t* timer);
+    //返回的字符串格式为 Www Mmm dd hh:mm:ss yyyy\n\0    如"Thu Dec 21 14:36:45 2024\n"
+    ```
+
+    3. `localtime`函数将 `time_t` 类型的时间戳转换为本地时间的 `struct tm` 结构
+
+    ```c++
+    std::time_t now = std::time(nullptr);
+    std::tm* local = std::localtime(&now);
+    ```
+
+    4. 日历格式与时间戳之间的互相转化
+
+    ```c++
+    // 1. strftime: 将 struct tm 结构体中的时间信息格式化为字符串
+    char buffer[80];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", local);
+    std::cout << "Formatted time: " << buffer << std::endl;
+    
+    //2. strptime: 将符合指定格式的日期时间字符串解析为 struct tm 结构体。
+    // 格式为：string为"%Y-%m-%d %H:%M:%S"的字符串
+    struct tm tm = {};	// std::tm 类型的结构体
+    strptime(string.c_str(), format.c_str(), &tm)	// 将string转化为tm格式的数据
+    time_t tt = mktime(&tm);   // 使用mktime函数将tm格式的数据转为时间戳
+    ```
+
+89. `safed/common/utils`下的`datetime.h`里面封装了对时间处理的函数：
+
+    ```c++
+    # 	获取当前时间戳： 精确到精确毫秒
+    int64_t currentTimeStamp = CDateTime::currentMSecsSinceEpoch();
+    # 	获取当前时间戳： 精确到整毫秒
+    int64_t currentTimeStamp = CDateTime::currentMSecsEpoch();
+    #	获取当前时间戳： 精确到整秒
+    int64_t currentTimeStamp = CDateTime::currentSecsEpoch();	
+    #	获取日历格式的时间戳
+    int64_t recordTime = CDateTime::fromString(record.time, "%Y-%m-%d %H:%M:%S");
+    #	将毫秒级时间戳转化为时:分:秒的字符串格式。如“01:02:03”
+    std::string CDateTime::int64ToString(int64_t milliseconds);
+    # 	将时间戳转化为日历格式
+    std::string strProtectTime = CDateTime::fromMSecsSinceEpoch(CDateTime::currentMSecsEpoch()).toString("yyyy-MM-dd HH:mm:ss");
+    ```
+
+90. `::gettimeofday(&tv, 0);`函数前面加上`::`，这是作用域解释符，表明该函数调用的是全局函数
+
+    1. 在函数名前添加 **`::`**，可以明确表示调用的是全局命名空间中的函数，而不是类的成员函数或命名空间中的其他函数
+    2. 通过 `::` 可以直接调用全局作用域中的函数，避免通过 `using namespace` 引入了其他库中的命名空间冲突
+    3. 显式使用 `::` 调用全局函数，增强代码可读性
+
+91. 全局函数指的是整个程序内，只要导入其头文件就可以调用的**非static声明的**函数。
+
+    如果声明`static`那么该函数只能在该cpp内部进行链接，其他cpp文件只能获取到声明，拿不到内部函数定义
+
+92. 在 Protocol Buffers (Protobuf) 中，如果一个字段的类型是 `bytes`，它表示该字段可以存储任意的二进制数据。以下为使用`bytes`存储`message`类型的数据
+
+    `string` 类型在 Protobuf 中也是以 **UTF-8 编码的字节序列** 存储的，因此也可以视为某种二进制数据类型，尽管它通常用于存储文本数据。
+
+    **核心在于：将message序列化和反序列化**
+
+    ```c++
+    // protobuffer
+    message MyMessage {
+        string name = 1;
+        int32 age = 2;
+    }
+    
+    message Wrapper {
+        bytes data = 1;
+    }
+    
+    // 存
+    // 创建一个 MyMessage 实例
+        MyMessage msg;
+        msg.set_name("John");
+        msg.set_age(30);
+     // 序列化 MyMessage
+        std::string serialized_msg;
+        if (!msg.SerializeToString(&serialized_msg)) {
+            std::cerr << "Failed to serialize MyMessage." << std::endl;
+            return -1;
+        }
+    // 创建 Wrapper 实例，并将 serialized_msg 存放到 data 字段
+        Wrapper wrapper;
+        wrapper.set_data(serialized_msg);  // 将 MyMessage 的序列化数据存入 Wrapper 的 data 字段
+        
+    // 取
+    // 从 Wrapper 中提取 data 字段（即 bytes 数据）
+        std::string serialized_msg = wrapper.data();
+    
+    // 反序列化为 MyMessage
+        MyMessage msg;
+        if (!msg.ParseFromString(serialized_msg)) {
+            std::cerr << "Failed to parse MyMessage from bytes." << std::endl;
+            return -1;
+        }
+    ```
+
+93. Protobuf 的所有数据类型，包括基本类型（如 `int32`, `float`, `string` 等）和复杂类型（如 `message` 和 `enum`），最终都会被转换为 **二进制数据**。这些二进制数据都可以通过 `bytes` 类型存储，并通过序列化和反序列化进行传输和存储。
+
+    **实际上：`protobuffer`本质上就是使用二进制进行传输的，所以它可以用到的基本数据类型都可以转化为`bytes`。通过序列化和反序列化都可以将`message`转化为不同二进制格式进行存储或传输。比如(serialAsToString,serialAsToInt ....)**
+
+    - **`bytes`**：专门用于存储**任意**二进制数据的类型。
+    - **`string`**：虽然是文本类型，但实际上它是以 UTF-8 编码的字节序列存储的，因此也可以视为存储二进制数据。
+    - **数字类型**（如 `int32`, `int64`, `fixed32`, `fixed64` 等）：这些类型虽然本质上是整数或浮点数，但在存储和传输时是以二进制格式表示的。
+    - **enum和message**
+    - **bool**
+
+94. `Protobuf` 使用二进制格式而不是文本格式（如 JSON 或 XML）有几个优势：
+
+    - **高效性**：二进制格式更紧凑，占用的空间更小，因此在传输和存储时更加高效。
+    - **速度**：二进制格式的序列化和反序列化通常比文本格式要快，尤其是当数据量较大时。
+    - **跨平台**：`Protobuf` 的二进制格式可以在不同的编程语言和平台之间高效地传输，保证了平台的独立性。
+
+95. `qint64`和`QString`的互相转换
+
+    ```c++
+    // qint64 --- QString
+    qint64 value = 123456789012345;
+    QString str = QString::number(value);
+    
+    // QSting --- qint64
+    QString str = "123456789012345";
+    bool ok;
+    qint64 value = str.toLongLong(&ok);
+    if (ok) {
+        // 转换成功，value 是有效的 qint64 数值
+    } else {
+        // 转换失败
+    }
+    ```
+
+96. `std::strtol()`和`std::atoll`都是用于将字符串转化为`long`类型有什么区别？
+
+    1. `std::strtol()` 是一个功能更灵活的字符串转换函数，支持不同进制的转换，并可以报告错误。
+
+       ```c++
+       long int strtol(const char *str, char **endptr, int base);
+       /* base 参数指定进制，常见值有：
+       	10 表示十进制
+       	16 表示十六进制
+       	8 表示八进制 
+       */
+       // endptr 是一个指针，用于指示字符串中第一个无效字符的位置。
+       ```
+
+    2. `std::atoll()` 是一种简单的字符串转换函数，用于将字符串直接转换为 `long long int` 类型。
+
+       ```c++
+       // 仅支持十进制：`std::atoll()` 只能处理十进制字符串，无法转换其他进制。
+       long long int atoll(const char *str);
+       ```
+
+       > 有`atol()`和`atoll()`;
 
 ### 4. 末尾
 
