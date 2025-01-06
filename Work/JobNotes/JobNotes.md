@@ -76,7 +76,7 @@
     ctrl + L		#等同于clear
     ```
 
-13. 远程文件拷贝
+12. 远程文件拷贝
 
     ```
     scp file.txt user@remote_host:/path/to/destination/
@@ -84,6 +84,9 @@
     # file.txt 是本地文件。
     # user@remote_host 是远程主机用户名和地址。
     # /path/to/destination/ 是远程主机上的目标路径。
+    
+    scp -r <fileDocument>  user@remote_host:/path/to/destination/
+    # 如果是文件夹需要加上-r参数
     ```
 
 14. ubuntu给非root用户添加sudo权限
@@ -1773,13 +1776,13 @@ m_pPool->submit([this, pBundle]() {
 7. - [x] 网络防护增加逻辑：
 
            1. 检测时间改为1秒内5次
-    
+        
            2. 界面禁用网络防护时，把配置文件清除掉(把之前封禁的ip去除、把hosts.deny清除掉)
-    
+        
            3. 日志记录里面二级分类为`-`，不是未知。
-    
+        
            4. bug: 弹窗只第一次有效，后续再有弹窗就无效了，不弹窗了:   关闭的时候没有清空容器，导致下一次重启不会弹窗
-    
+        
            5. 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
 
         > 下一步先看隔离区的数据展示如何实现的，先解决5，为自己实现新窗口打铺垫
@@ -3035,7 +3038,7 @@ m_pPool->submit([this, pBundle]() {
 | :----------------------------------------------------------: | :----: | :--: | :--: |
 | 扫描内存时，需要扫描进程携带参数；清理时。需要kill进程并清理有毒文件 |   低   |  3   |      |
 |         闪电和全盘扫描时：优化子任务类型扫描展示逻辑         |   中   |  3   |      |
-|        增加系统关键位置扫描(例如增加contab的任务参数)        |   中   |      |      |
+|        增加系统关键位置扫描(例如增加contab的任务参数)        |        |      |      |
 |               界面自动锁屏之后，点击登录会卡住               |   高   |      |      |
 
 1. 增加系统关键位置扫描
@@ -3070,6 +3073,8 @@ m_pPool->submit([this, pBundle]() {
 3. 界面自动锁屏之后，点击登录会卡住。
 
    **思路**：RJJH下面的tool/screen里面的screen_status.cpp是根据main.c，使用qt重写的c代码(**dbus**);写个小的项目，将这块代码移植到项目中，在不同的系统下面测试这块代码是否生效
+
+   问题：ubuntu18会报错，丢失widget.so
 
 4. bug：
 
@@ -4213,6 +4218,164 @@ m_pPool->submit([this, pBundle]() {
      2. `postinst`（安装后脚本）
      3. `prerm`（卸载前脚本）
      4. `postrm`（卸载后脚本）
+
+114. DBus? 内核通信，获取界面锁定信息
+
+115. Qt项目移植，如何让不同系统使用到这部分代码？打包如何实现？
+
+116. QApplication类：
+
+     `QApplication` 是 Qt 应用程序的主类，管理应用程序的控制流和主要设置。它是所有 GUI 应用程序的核心类，负责处理事件循环、窗口管理、资源加载等功能。
+
+     **主要功能**：
+
+     1. **事件循环管理**：处理事件（鼠标点击、键盘输入等）并分发给应用程序中的对象。
+     2. **应用程序配置**：设置窗口默认字体；应用程序名称、组织名称等元信息。
+     3. **全局资源管理**：负责加载样式表、图标和其他应用资源。
+     4. **窗口管理**：提供主窗口的集中化管理。
+
+     **使用方式**：
+
+     1. 每个 GUI 应用程序只能有一个 `QApplication` 实例。
+     2. 必须在创建任何窗口之前实例化 `QApplication`。
+
+     **主要函数**：
+
+     1. 事件循环相关
+
+        `QApplication::exec()` 是应用程序的 **事件循环启动函数**，它会启动 Qt 的事件循环并持续运行，直到应用程序退出。
+
+        **实现原理**：
+
+        ```c++
+        int QCoreApplication::exec() {
+            if (!QCoreApplication::instance()) {
+                qFatal("No QApplication instance!");
+                return -1;
+            }
+        
+            // 启动事件循环
+            QEventLoop loop;
+            return loop.exec(); // 开始事件循环
+        }
+        
+        int QEventLoop::exec() {
+            while (!quit) {
+                // 等待事件触发（阻塞）
+                event = waitForEvent();
+                
+                // 处理事件
+                processEvent(event);
+            }
+            return exitCode; // 返回退出代码
+        }
+        
+        ```
+
+        `QApplication::processEvents()` 手动处理事件队列中的事件，常用于长时间运行的任务以避免 GUI 卡顿
+
+        `QApplication::sendEvent()` / `QApplication::postEvent()` 手动向对象发送或发布事件
+
+        > `sendEvent()`: 同步发送事件并立即处理。
+        >
+        > `postEvent()`: 异步将事件加入队列稍后处理。
+
+        `QApplication::quit()` 退出事件循环，相当于调用 `exit()`。
+
+        `QApplication::exit(int code = 0)` 退出应用程序，并返回指定的退出代码。
+
+     2. 应用程序信息相关
+
+        `QApplication::applicationName()/QApplication::setApplicationName()` 获取或设置应用程序名称。
+
+        `QApplication::organizationName()` / `QApplication::setOrganizationName()` 设置或获取应用程序所属组织名称。
+
+        `QApplication::applicationVersion()` / `QApplication::setApplicationVersion()` 设置或获取应用程序的版本信息
+
+     3. 全局资源管理：用于管理应用程序的全局资源，如字体、样式、图标等
+
+        `QApplication::setStyle()` / `QApplication::style()` 设置或获取应用程序的全局样式
+
+117. QEventLoop事件循环：
+
+     **原理**：
+
+     1. **事件循环的启动**
+        - `exec()` 会启动事件循环，进入**阻塞状态**，并开始监听事件队列。
+        - 当事件（如信号、用户输入等）到达时，事件循环会调用适当的槽或处理函数。
+     2. **事件的处理**
+        - 事件通过 `QCoreApplication::postEvent()` 被放入事件队列。
+        - `QEventLoop::exec()` 会从**队列中提取事件，并将它们分发到对应的对象**。
+     3. **退出事件循环**
+        - 调用 `quit()` 或 `exit()` 方法时，事件循环会停止运行，`exec()` 返回。
+        - 如果指定了返回码，`exit(int)` 将返回该值
+
+     **常见的使用场景**：
+
+     1. **异步操作的同步化**
+
+        - 在需要等待异步操作完成的场景中，`QEventLoop` 是一个有效的工具。
+        - 比如：等待网络请求完成或等待用户输入。
+
+     2. **处理嵌套事件循环**
+
+        - 比如：模态对话框、阻塞操作等。
+
+        ```c++
+        #include <QApplication>
+        #include <QEventLoop>
+        #include <QPushButton>
+        #include <QMessageBox>
+        int main(int argc, char *argv[]) {
+            QApplication app(argc, argv);
+        
+            QPushButton button("Open Modal Dialog");
+            button.show();
+        	
+            // 模态对话框 
+            QObject::connect(&button, &QPushButton::clicked, [&]() {
+                QEventLoop loop;
+                QMessageBox::information(&button, "Modal Dialog", "This is a modal dialog.");
+                loop.exec(); // 等待用户关闭对话框后退出事件循环
+                qDebug() << "Dialog closed. Continuing program.";
+            });
+        
+            return app.exec();
+        }
+        ```
+
+     3. **延迟执行任务**
+
+        - 使用 `processEvents()` 或 `QTimer` 配合 `QEventLoop` 可以实现定时操作。
+
+118. QEventLoop事件循环和信号槽连接函数`connect`第五个参数连接类型之间的关系：
+
+     ```c++
+     int QEventLoop::exec() {
+         while (!quit) {
+             // 等待事件触发（阻塞）
+             event = waitForEvent();
+             
+             // 处理事件
+             processEvent(event);
+         }
+         return exitCode; // 返回退出代码
+     }
+     ```
+
+     1. 使用QEventLoop的`exec()`后会阻塞等待事件触发
+
+     2. 当事件触发后，Qt 的事件系统会根据**信号槽连接类型**和**线程上下文**决定是直接触发还是排队处理。
+
+        > 比如connect函数是直接连接，那么此处使用`sendEvent()`**同步**发送事件并立即处理。
+        >
+        > 如果是队列连接，那么此处使用`postEvent()`**异步**将事件加入队列稍后处理。
+        >
+        > 注意： 使用队列连接时，信号槽**依赖目标线程的事件循环**；如果目标线程没有事件循环，信号不会被处理。
+
+     3. 直到执行了`quit()`或`exit()`函数会停止循环，并返回
+
+     4. 信号槽连接方式使用队列连接实质：当你在 Qt 中使用 `Qt::QueuedConnection` 来连接信号和槽时，信号并不会立即触发槽函数，而是**将信号作为事件放入目标线程的事件队列中**。这个事件队列中的事件需要通过 **目标线程的事件循环**（即该线程调用的 `exec()` 函数）来处理。
 
      
 
