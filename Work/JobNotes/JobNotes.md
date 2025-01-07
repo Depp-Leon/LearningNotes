@@ -1776,13 +1776,13 @@ m_pPool->submit([this, pBundle]() {
 7. - [x] 网络防护增加逻辑：
 
            1. 检测时间改为1秒内5次
-        
+            
            2. 界面禁用网络防护时，把配置文件清除掉(把之前封禁的ip去除、把hosts.deny清除掉)
-        
+            
            3. 日志记录里面二级分类为`-`，不是未知。
-        
+            
            4. bug: 弹窗只第一次有效，后续再有弹窗就无效了，不弹窗了:   关闭的时候没有清空容器，导致下一次重启不会弹窗
-        
+            
            5. 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
 
         > 下一步先看隔离区的数据展示如何实现的，先解决5，为自己实现新窗口打铺垫
@@ -3037,9 +3037,9 @@ m_pPool->submit([this, pBundle]() {
 |                           任务名称                           | 优先级 | 时间 | 截至 |
 | :----------------------------------------------------------: | :----: | :--: | :--: |
 | 扫描内存时，需要扫描进程携带参数；清理时。需要kill进程并清理有毒文件 |   低   |  3   |      |
-|         闪电和全盘扫描时：优化子任务类型扫描展示逻辑         |   中   |  3   |      |
-|        增加系统关键位置扫描(例如增加contab的任务参数)        |        |      |      |
+| 闪电和全盘扫描时：优化子任务类型扫描展示逻辑，增加系统关键位置扫描(例如增加contab的任务参数) |   中   |  3   |      |
 |               界面自动锁屏之后，点击登录会卡住               |   高   |      |      |
+| 隔离区恢复：数据量很大的情况下(1000往上)，恢复隔离区会导致磁盘占用显示问题，并且导致界面卡死 |        |      |      |
 
 1. 增加系统关键位置扫描
 
@@ -3068,13 +3068,29 @@ m_pPool->submit([this, pBundle]() {
       2. 返回界面时，stage设为1，2，3封装给scanTaskMessage
    3. 主要在scan_model中
 
-2. 中控同时下发升级和查杀，升级不生效
-
-3. 界面自动锁屏之后，点击登录会卡住。
+2. 界面自动锁屏之后，点击登录会卡住。
 
    **思路**：RJJH下面的tool/screen里面的screen_status.cpp是根据main.c，使用qt重写的c代码(**dbus**);写个小的项目，将这块代码移植到项目中，在不同的系统下面测试这块代码是否生效
 
-   问题：ubuntu18会报错，丢失widget.so
+   **解决**：
+
+   1. 创建Qt 终端项目
+
+      > 创建无界面程序，防止一些Qt需要的插件
+
+   2. 将build后的包拉到目标系统中
+
+   3. 将执行文件拉到杀毒`lib`文件夹下
+
+      ```
+      cd /opt/apps/chenxinsd/lib/externals/qt.d/lib
+      ```
+
+   4. 使用该文件夹下的动态库执行
+
+      ```
+      LD_LIBRARY_PATH=$PWD ./ScreenStatusMonitor
+      ```
 
 4. bug：
 
@@ -3089,6 +3105,8 @@ m_pPool->submit([this, pBundle]() {
    - [x] 隔离区界面恢复时没有实时同步给中控
 
      **思路**：将全部数据进行删除或者恢复时会导致没有同步，部分的话可以，查看是什么原因(**上报不了空**？)
+     
+   - [ ] 防护日志记录时间和详情时间不一致
 
 
 #### 2.2 暂时搁置
@@ -4376,6 +4394,79 @@ m_pPool->submit([this, pBundle]() {
      3. 直到执行了`quit()`或`exit()`函数会停止循环，并返回
 
      4. 信号槽连接方式使用队列连接实质：当你在 Qt 中使用 `Qt::QueuedConnection` 来连接信号和槽时，信号并不会立即触发槽函数，而是**将信号作为事件放入目标线程的事件队列中**。这个事件队列中的事件需要通过 **目标线程的事件循环**（即该线程调用的 `exec()` 函数）来处理。
+
+119. Qt的`main`函数中使用`connect`函数注意事项：
+
+     1. SIGNAL和SLOT类都得继承于QObject
+
+     2. 使用`QObjdet::connect`
+
+        ```
+        QObject::connect(&a, &a::signal_a, &b, &b::slot_b);
+        ```
+
+     3. SIGNAL和SLOT类使用`new`创建堆对象，不能创建栈对象。因为一般是两个类之间的通信，栈对象出了函数作用域会被销毁。
+
+120. `LD_LIBRARY_PATH=$PWD` 这个命令与 Linux 系统中的动态链接库加载机制相关，它的作用是设置一个环境变量，指示系统在查找共享库时首先查找当前目录（由 `$PWD` 表示）
+
+     ```c++
+     LD_LIBRARY_PATH=$PWD ./ScreenStatusMonitor
+     ```
+
+     1. `LD_LIBRARY_PATH` 是一个环境变量，用于指定动态链接库的搜索路径。当你运行一个可执行程序时，程序会依赖一些共享库（例如 `.so` 文件），系统会根据该环境变量指定的路径来查找这些库。
+
+     2. **设置环境变量**: `LD_LIBRARY_PATH=$PWD` 使得当前目录（`$PWD`）被加入到 `LD_LIBRARY_PATH` 中。
+
+        > 这意味着系统会在当前目录中查找动态链接库，而不仅仅是默认的标准路径（如 `/lib` 或 `/usr/lib`）。
+
+     3. 后面加上可执行程序，则表示可执行程序中所需要的动态库优先在设置的动态库搜索路径下查找。
+
+121. Qt创建项目->Qt Console Application  创建的是终端应用(无界面)，
+
+     1. 此时pro文件配置为
+
+        ```
+        QT += core
+        QT -= gui	// 去掉gui
+        ```
+
+     2. main函数中使用`QCoreApplication`
+
+        ```
+        QCoreApplication a(argc, argv);
+        ```
+
+        > `QCoreApplication` 是 Qt 的基础应用程序类，主要用于纯计算型应用程序或后端服务，适用于非图形化的应用程序。不需要图形用户界面，但仍需要 Qt 的事件处理、定时器、文件操作等功能
+        >
+        > `QApplication` 是一个继承自 `QCoreApplication` 的子类，专为 GUI 应用程序设计。必须用于图形界面应用程序，包含对窗口、控件、布局等的支持。
+
+122. `ldd`命令：查看程序所依赖的动态库
+
+     ```
+     ldd    <file>
+     // 显示文件的共享库依赖关系（即列出动态库）,用于检查程序或库依赖了哪些共享库
+     ldd   -r  <file>
+     // 显示未解析的符号及其依赖问题，列出缺失的符号或库,用于查找库依赖问题和缺失的符号
+     ```
+
+123. ```
+     qdbus org.cdos.ScreenSaver /org/cdos/ScreenSaver org.cdos.ScreenSaver.GetActive
+     
+     // 第一个 org.cdos.ScreenSaver 是D-Bus 服务的名称，这个服务负责屏幕保护和锁定功能
+     // 第二个/org/cdos/ScreenSaver 是对象路径，指向与锁屏功能相关的 D-Bus 对象。
+     // 第三个org.cdos.ScreenSaver 是接口名称，定义了锁屏相关的函数和信号
+     // "ActiveChanged"：是信号名称，此处即调用接口的函数和信号。
+     
+     #在linux下执行下面命令
+     qdbus	// 获取qdbus提供的服务列表
+     qdbus org.cdos.ScreenSaver	// 获取该服务下面的对象路径
+     qdbus org.cdos.ScreenSaver /org/cdos/ScreenSaver	// 该对象提供的接口函数/信号
+     qdbus org.cdos.ScreenSaver /org/cdos/ScreenSaver org.cdos.ScreenSaver.GetActive "参数"
+     // 调用该函数
+     
+     qdbus-monitor --session "type='signal',interface='org.cdos.ScreenSaver',member='ActiveChanged'"	// 监听信号
+     qdbus-send --session --dest=org.cdos.ScreenSaver --type=method_call --print-reply /org/cdos/ScreenSaver org.cdos.ScreenSaver.GetActive	// 另一种调用函数的方式
+     ```
 
      
 
