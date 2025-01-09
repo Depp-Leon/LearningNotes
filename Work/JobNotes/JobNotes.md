@@ -3011,7 +3011,7 @@ m_pPool->submit([this, pBundle]() {
        QApplication::instance()->installEventFilter(this)
        ```
 
-14. 修改/增加protobuffer的步骤：
+14. **修改/增加protobuffer的步骤**：
 
     1. 修改/增加protobuffer字段
 
@@ -3021,7 +3021,8 @@ m_pPool->submit([this, pBundle]() {
 
     3. 执行`gen_proto.sh`脚本。
 
-15. 修改/替换界面图片的步骤：
+15. **修改/替换界面图片的步骤**：
+    
     1. 替换/修改图片
     2. 如果是修改图片名字或者新增图片，需要在`widget.qrc`文件中修改.增加。替换不需要
     3. 修改贴牌脚本`oem/gen_rcc.sh`中`rcc`的路径为本地的qt里的rcc，并执行脚本
@@ -3048,25 +3049,28 @@ m_pPool->submit([this, pBundle]() {
    **思路**：
 
    1. FramelessWindow的1620行 界面新插入一行展示关键位置扫描(只有快速和全盘有)
+
    2. FramelessWindow的1652行 界面收到model层传来的插件返回进度信息
 
-   3. scan_model的 223向界面反馈发送进度信息
+   3. scan_model的 223向界面反馈发送进度信息(process不是end)信号，FramelessWindow的361行为槽函数。
 
    4. scan_modeld 307行向safed发送扫描任务
 
-   5. virus_scan_count的70 被引擎插件调用进行进度上报；需要进入里面加一个状态stage。商议这个设为什么，需要与扫描引擎插件内部同步
+   5. virus_scan_count的70 被引擎插件调用进行进度上报；需要进入里面加一个状态stage
 
       54行填充信息  418行进行上报的时候取出信息进行ui传递到scan_model中
 
-   5. proto：toscan: 108行scantaskMessage没有对应信息字段，scanTaskResult有对应信息字段
+   6. scan_flow_controller 193行，execScan函数：从MemoryScanParameter中获取扫描内存的路径
+
+   7. 传给扫描引擎的回调函数virusResut进度上报函数(scan_flow_controller)中：scanProcessWrapper函数统计信息(包括内存、文件扫描的信息)，发送ui
 
    **解决**：
 
-   1. scan_model中根据不同的类型，分配不同的参数(内存和关键给0就行)
-   2. safed添加一个stage：执行扫描的时候scan_flow的173execscan根据不同类型进行处理
-      1. 如果闪电/全盘：如果有内存路径则使用内存路径，如果没有就使用194行获取到的。
-      2. 返回界面时，stage设为1，2，3封装给scanTaskMessage
-   3. 主要在scan_model中
+   1. 先解决sfed中，获取关键路径，并分发给引擎；
+   2. 引擎回调函数获取进度那块增加关键路径的信息，可能需要改protobuffer
+   3. RJJH的model层接收信息，发送ui信号。Frameless进行对应更改
+
+   **问题**：闪电查杀扫描的bug数为什么和标题不统一
 
 2. 界面自动锁屏之后，点击登录会卡住。
 
@@ -3106,7 +3110,9 @@ m_pPool->submit([this, pBundle]() {
 
      **思路**：将全部数据进行删除或者恢复时会导致没有同步，部分的话可以，查看是什么原因(**上报不了空**？)
      
-   - [ ] 防护日志记录时间和详情时间不一致
+   - [x] 防护日志记录时间和详情时间不一致
+   
+     **问题**：保存数据库的时间是扫描结束的时间，也就是上报的时刻。而扫描开始并不是从那开始的时间
 
 
 #### 2.2 暂时搁置
@@ -4468,7 +4474,30 @@ m_pPool->submit([this, pBundle]() {
      qdbus-send --session --dest=org.cdos.ScreenSaver --type=method_call --print-reply /org/cdos/ScreenSaver org.cdos.ScreenSaver.GetActive	// 另一种调用函数的方式
      ```
 
+124. 日志获取信息就一套：`string::find`返回到匹配的起始下标，再使用`substr`截取字符串
+
+125. hpp,其实质就是将.cpp的实现 代码混入.h头文件当中，定义与实现都包含在同一文件，则该类的调用者只需要include该hpp文件即可，无需再将cpp加入到project中进行编译。而实现代码将直接编译到调用者的obj文件中，不再生成单独的obj,采用hpp将大幅度减少调用 project中的cpp文件数与编译次数，也不用再发布烦人的lib与dll,因此非常适合用来编写公用的开源库。一般来说，.h里面只有声明，没有实现，而*.hpp里声明实现都有，后者可以减少.cpp的数量。
+
+126. 几乎所有的 Qt 控件和部件都可以设置 `objectName`。`objectName` 是 Qt 中用于标识一个控件的唯一名称，它可以帮助你在程序中引用和查找这个控件。
+
+     ```c++
+     #define DEF_OBJECT_NAME_SCAN_RUN_PROCESS_ICON "objectNameScanMemoryIcon"
      
+     // 设置objectname：
+     QLabel *icon = new QLabel();
+         icon->setFixedSize(32, 32);
+         if (iconPath.contains("cs_neicun_green"))
+             icon->setObjectName(DEF_OBJECT_NAME_SCAN_RUN_PROCESS_ICON);
+     
+     // 查找objectname：
+     QLabel *lable_icon = ui->tableScanning->findChild<QLabel *>(DEF_OBJECT_NAME_SCAN_RUN_PROCESS_ICON);
+     
+     // 所以使用findChild函数必须提前设置objectname，否则使用该函数不加name，只会返回第一个子控件
+     QLabel *label = ui->findChild<QLabel *>("objectname");
+     QLabel *label = ui->findChild<QLabel *>();		// 返回默认第一个QLabel
+     ```
+
+
 
 ### 4. 末尾
 
