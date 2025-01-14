@@ -1360,15 +1360,30 @@ m_pPool->submit([this, pBundle]() {
 
 24. 关于`git checkout` 和 `git rese`t 的版本回溯
 
-    ```
-    git checkout <commit-hash> -- <file-path>#只是把本地恢复成提交记录的状态，但是不会修改版本历史
-    git checkout ./	#修改到最新的状态
-    
-    git reset <commit-hash>#重置到某次提交的状态，会影响版本历史、暂存区和工作目录。之前的记录都被清掉
-    --soft：只重置 HEAD，不修改工作目录和暂存区。适用于将提交回退，但保留修改，以便重新提交。
-    --mixed（默认）：重置 HEAD 和暂存区，但不修改工作目录。适用于将提交回退，同时将文件移出暂存区。
-    --hard：重置 HEAD、暂存区和工作目录。所有未提交的更改都会丢失，非常危险，但适用于完全回退到某个提交的状态。
-    ```
+    1. `git checkout`:当你使用 `git checkout` 命令切换到历史上的某个提交时，你实际上是进入了一个“分离头指针”（detached HEAD）状态。此时你不再处于任何分支上，而是直接指向了一个具体的提交
+
+       ```
+       // 版本回溯
+       git checkout <commit-hash> -- <file-path>#只是把本地恢复成提交记录的状态，但是不会修改版本历史
+       git checkout ./	#修改到最新的状态
+       
+       // 恢复原始
+       git checkout feature_707_refactoring  #切换到某个提交之后实际上进入分离指针状态，此时再切换回初始
+       ```
+
+    2. `git reset`： 三种模式
+
+       ```
+       // 版本回溯
+       git reset <commit-hash>#重置到某次提交的状态，会影响版本历史、暂存区和工作目录。之前的记录都被清掉
+       --soft：仅重置 HEAD指针指向，不修改工作目录和暂存区。适用于将提交回退，但保留修改，以便重新提交。
+       --mixed（默认）：重置 HEAD 和暂存区，但不修改工作目录。适用于将提交回退，同时将文件移出暂存区。
+       --hard：重置 HEAD、暂存区和工作目录。所有未提交的更改都会丢失，非常危险，但适用于完全回退到某个提交的状态。
+       
+       // 恢复原始
+       1. git reflog  // 获取HEAD@{1}
+       2. git reset --soft|mixed|hard  HEAD@{1}	// 选择之前回溯的类型
+       ```
 
 25. `git push --force` 将远端仓库修改为某一提交版本
 
@@ -1376,7 +1391,7 @@ m_pPool->submit([this, pBundle]() {
     git reset <commit-hash>	// 本地恢复到某一版本(历史提交记录遭到修改)
     git push --force		//强制将本地版本记录更改推送到远程仓库
     ```
-    
+
 26. `git pull --rebase`：同步远程分支更改并将本地未提交的更改重新应用在最新提交之上的命令。这样先`commit`再`pull`就不会多出来合并提交的记录了
 
     ```
@@ -3085,28 +3100,27 @@ m_pPool->submit([this, pBundle]() {
 
 3. - [x] 界面自动锁屏之后，点击登录会卡住。
 
+       **思路**：RJJH下面的tool/screen里面的screen_status.cpp是根据main.c，使用qt重写的c代码(**dbus**);写个小的项目，将这块代码移植到项目中，在不同的系统下面测试这块代码是否生效
 
-      **思路**：RJJH下面的tool/screen里面的screen_status.cpp是根据main.c，使用qt重写的c代码(**dbus**);写个小的项目，将这块代码移植到项目中，在不同的系统下面测试这块代码是否生效
+       **解决**：
 
-      **解决**：
+       1. 创建Qt 终端项目
 
-      1. 创建Qt 终端项目
+          > 创建无界面程序，防止一些Qt需要的插件
 
-         > 创建无界面程序，防止一些Qt需要的插件
+       2. 将build后的包拉到目标系统中
 
-      2. 将build后的包拉到目标系统中
+       3. 将执行文件拉到杀毒`lib`文件夹下
 
-      3. 将执行文件拉到杀毒`lib`文件夹下
+          ```
+          cd /opt/apps/chenxinsd/lib/externals/qt.d/lib
+          ```
 
-         ```
-         cd /opt/apps/chenxinsd/lib/externals/qt.d/lib
-         ```
+       4. 使用该文件夹下的动态库执行
 
-      4. 使用该文件夹下的动态库执行
-
-         ```
-         LD_LIBRARY_PATH=$PWD ./ScreenStatusMonitor
-         ```
+          ```
+          LD_LIBRARY_PATH=$PWD ./ScreenStatusMonitor
+          ```
 
 4. bug：
 
@@ -3129,6 +3143,12 @@ m_pPool->submit([this, pBundle]() {
    - [x] 防护日志记录时间和详情时间不一致
 
      **问题**：保存数据库的时间是扫描结束的时间，也就是上报的时刻。而扫描开始并不是从那开始的时间
+     
+   - [x] 关键路径，不用std::erro使用LOG
+   
+   - [ ] 日志详情改时间统一
+   
+   - [x] 取消查杀，界面问题
 
 
 #### 2.2 暂时搁置
@@ -4556,12 +4576,17 @@ m_pPool->submit([this, pBundle]() {
      ssh leslie@192.168.3.222
      ```
 
-129. 在 Linux 中，`/proc` 是一个虚拟文件系统，它包含了系统和进程的详细信息。每个运行中的进程都有一个与其进程 ID（PID）对应的目录 `/proc/<PID>`，其中包含了与该进程相关的所有信息。
+129. 在 Linux 中，`/proc` 是一个虚拟文件系统，它包含了系统和进程的详细信息。
 
-     ```
-     // 查看进程的命令行及参数， 该文件(cmdline)包含了进程的完整命令行及其参数，以空字符（\0）分隔。
-     cat /proc/<PID>/cmdline
-     ```
+     <img src="source/images/JobNotes/image-20250114095351601.png" alt="image-20250114095351601" style="zoom:80%;" />
+
+     1. 每个运行中的进程都有一个与其进程 ID（**PID**）对应的目录 `/proc/<PID>`，其中包含了与该进程相关的所有信息。
+
+     2. 查看进程的命令行及参数， 该文件(cmdline)包含了进程的完整命令行及其参数(**即上图CMD一列**)，以空字符（\0）分隔。
+
+        ```
+        cat /proc/<PID>/cmdline
+        ```
 
 130. Qt的DataModel实现方式总结
 
@@ -4569,7 +4594,91 @@ m_pPool->submit([this, pBundle]() {
      1. 前面加上`命名空间前缀::`
      2. 在作用域中使用`using namespace XXX`，限定同名变量为命名空间中的
      3. 访问当前全局变量使用`::name`
+
 132. C++编译器：Linux用gcc，Windows 用msvc，ios/mac 用clang
+
+133. 关于**POSIX 标准**是一套**操作系统接口标准**，旨在提高不同 Unix 系统之间的兼容性、可移植性和互操作性。它定义了文件系统、进程管理、线程、信号等基本操作的接口，并为 Shell 和命令行工具提供了标准化的行为。POSIX 标准使得开发人员能够编写跨平台的程序，避免了操作系统特性差异带来的不便。
+
+     1. `dirent` 结构体:`dirent` 是 POSIX 标准提供的一个结构体，用于表示**目录项**。它通常与 `opendir()` 和 `readdir()` 函数一起使用来遍历目录
+
+        ```
+        #include <dirent.h>			// 需要导入头文件
+        
+        struct dirent {
+            ino_t          d_ino;       // 文件的 inode 编号
+            off_t          d_off;       // 目录项在目录流中的偏移
+            unsigned short d_reclen;    // 目录项的长度
+            unsigned char  d_type;      // 文件类型
+            char           d_name[256]; // 文件名
+        };
+        ```
+
+     2. `opendir()` 和 `readdir()`
+
+        ```
+        DIR *opendir(const char *name);		// 用于打开目录，返回一个 DIR* 类型的指针。
+        
+        struct dirent *readdir(DIR *dirp);	// 用于从已打开的目录流中读取下一个目录项。
+        ```
+
+     3. `readlink()`
+
+        ```
+        ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
+        // pathname：符号链接的路径。
+        // buf：用于存储符号链接目标路径的缓冲区。
+        // bufsiz：缓冲区大小。
+        // 成功时返回实际读取的字节数（不包括终止符 '\0'）。
+        ```
+
+     4. `kill()` 函数是一个系统调用，用于向进程发送信号。它属于 **POSIX** 标准
+
+        ```
+        #include <signal.h>
+        
+        int kill(pid_t pid, int sig);
+        // pid为正数时是进程号，-1为所有进程
+        // sig：指定发送的信号，可以是任何合法的信号，如 SIGKILL（杀死进程），SIGTERM（请求终止进程），SIGSTOP（暂停进程）等。
+        ```
+
+134. `sscanf()`和`sprintf()`
+
+     1. `sscanf()` 用于从字符串中提取数据，类似于 `scanf()`，但它从字符串读取而不是从标准输入。
+
+        ```
+        int sscanf(const char *str, const char *format, ...);
+        // str：待处理的字符串。
+        // format：格式字符串，指定输入的格式。
+        // 后续参数：根据格式化字符串，提供相应类型的变量以存储提取的值。
+        
+        示例：
+        int pid = 0;
+        sscanf(ptr->d_name, "%d", &pid);	// 将ptr->d_name作为int类型保存到pid
+        ```
+
+     2. `sprintf()` 用于格式化字符串并将其输出到字符数组中
+
+        ```
+        int sprintf(char *str, const char *format, ...);
+        // str：目标字符数组，用于存储格式化后的字符串。
+        // format：格式字符串，类似于 printf()。
+        // 后续参数：根据格式化字符串，提供需要格式化的值。
+        
+        示例：
+        char buffer[100];
+        int pid = 1234;
+        sprintf(buffer, "Process ID: %d", pid);	// 将pid存储到buffer
+        std::cout << buffer << std::endl;
+        ```
+
+135. 执行`map[key]`会发生的行为：
+     1. **查找**：`m_process_list[token]` 会尝试查找 `m_process_list` 中是否已经存在键为 `token` 的元素。
+     2. **如果元素不存在**：`std::map` 会自动创建一个新的元素，其中键为 `token`，值为该键对应的默认值。
+     3. **如果元素已存在**：`operator[]` 会返回对应的值（即 `std::set<pid_t>`），可以直接对其进行操作。
+
+
+
+
 
 ### 4. 末尾
 
