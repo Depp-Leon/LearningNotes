@@ -1,4 +1,4 @@
-## 一、注意事项
+## **一**、注意事项
 
 1. 时间转换，修改为98版本的
 
@@ -154,6 +154,18 @@
        chmod +x <file>		// 如果+前面不加所属人，那么默认是所有
        chomd -R 777/+x	<filedocument>   // 对目录加-R，则递归授权 
        ```
+
+18. ubuntu终端复制粘贴快捷键
+
+    ```
+     Ctrl+Shift+C
+     Ctrl+Shift+V
+     Ctrl+Shift+W		//关闭当前终端选项卡
+     Ctrl+Shift+T		//在当前终端窗口中打开一个新的选项卡
+     Ctrl+Alt+T			//打开一个新的终端窗口
+    ```
+
+    
 
 ## 二、项目框架
 
@@ -3061,12 +3073,12 @@ m_pPool->submit([this, pBundle]() {
 
 |                           任务名称                           | 优先级 | 时间 | 截至 |
 | :----------------------------------------------------------: | :----: | :--: | :--: |
-| 扫描内存时，需要扫描进程携带参数；清理时，需要kill进程并清理有毒文件 |   低   |  3   |      |
+| 扫描内存时，需要扫描进程携带参数；清理时，需要kill进程并清理有毒文件 |   低   |  3   |  √   |
 | 闪电和全盘扫描时：优化子任务类型扫描展示逻辑，增加系统关键位置扫描(例如增加contab的任务参数) |   中   |  3   |  √   |
 |               界面自动锁屏之后，点击登录会卡住               |   高   |      |  √   |
 | 隔离区恢复：数据量很大的情况下(1000往上)，恢复隔离区会导致磁盘占用显示问题，并且导致界面卡死 |   低   |      |      |
 
-1. - [ ] 内存扫描的时候，需要带上扫描进程所携带的参数。清理时，如果有毒需要kill掉进程并清理有毒文件
+1. - [x] 内存扫描的时候，需要带上扫描进程所携带的参数。清理时，如果有毒需要kill掉进程并清理有毒文件
 
    **思路**：即看Scan插件关于内存扫描那块相关的，将进程所带的参数(文件路径)也进行查杀。如果有毒就将文件清除并kill掉进程。
 
@@ -3146,9 +3158,56 @@ m_pPool->submit([this, pBundle]() {
      
    - [x] 关键路径，不用std::erro使用LOG
    
-   - [ ] 日志详情改时间统一
+   - [x] 日志详情改时间统一
    
    - [x] 取消查杀，界面问题
+   
+   - [ ] 隔离区恢复：数据量很大的情况下(1000往上)，恢复隔离区会导致磁盘占用显示问题，并且导致界面卡死
+   
+     **思路**：查看zav引擎那块的5个process看哪块有问题
+   
+   - [x] 连接授权服务ip后关闭弹窗，打开授权管理展示激活失败
+   
+   - [x] 升级病毒库失败，上报给服务端的病毒库版本为空
+   
+   - [ ] 隔离区恢复的文件权限发生变化
+   
+     **问题**：恢复的时候将权限的rw-rw-r变为rw-r-r
+   
+     ```
+     -rw-r--r-- 1 leslie leslie  147456 1月  20 14:21 4165e5a2ada35e492251f3528506bddce5493c4f
+     ```
+   
+     **解决**：当调用 `open(dest.c_str(), O_WRONLY | O_CREAT, 0664)` 时，操作系统会首先考虑文件权限 `0664`。但是 `umask` 会去掉“其他用户”的写权限，因此如果 `umask` 为 `0002`，最终文件的权限将是 `644`
+   
+     1. 方式一：在创建完并并且写之后，重新授权为0664
+   
+        ```c++
+        chmod(dest.c_str(),0664)
+        ```
+   
+     2. 方式二：将umask临时设置为0000
+   
+        ```c++
+        umask(0000);
+        int fout = open(dest.c_str(), O_WRONLY | O_CREAT, 0664);
+        umask(0002);
+        ```
+   
+   - [ ] 10号版本之后，升级软件这个功能报错
+   
+     **问题**：cpr_update_utils.hpp中的cpr::Download和cpr::Post一执行就报缺少zlibVersion符号
+     
+     ```
+     cpr::Response r = cpr::Post(cpr::Url {url}, cpr::Header {{"Content-Type", "application/json"}}, cpr::Body {body});
+     
+     cpr::Response r = cpr::Download(dFile, cpr::Url(url), cpr::Header {headers}, cpr::ProgressCallback {progressCallback}, cpr::Timeout(timeout));
+     ```
+     
+   - [ ] 软件升级向中控上报了两次
+   
+   - [ ] 查找速度很慢，并且查到结束不会停止卡在界面
+   
 
 
 #### 2.2 暂时搁置
@@ -3936,7 +3995,7 @@ m_pPool->submit([this, pBundle]() {
     ```c++
     # 	获取当前时间戳： 精确到精确毫秒
     int64_t currentTimeStamp = CDateTime::currentMSecsSinceEpoch();
-    # 	获取当前时间戳： 精确到整毫秒
+    # 	获取当前时间戳： 精确到整毫秒(省略小数部分，日志就足够用了)
     int64_t currentTimeStamp = CDateTime::currentMSecsEpoch();
     #	获取当前时间戳： 精确到整秒
     int64_t currentTimeStamp = CDateTime::currentSecsEpoch();	
@@ -4522,7 +4581,11 @@ m_pPool->submit([this, pBundle]() {
      qdbus-send --session --dest=org.cdos.ScreenSaver --type=method_call --print-reply /org/cdos/ScreenSaver org.cdos.ScreenSaver.GetActive	// 另一种调用函数的方式
      ```
 
-124. 日志获取信息就一套：`std::getline()`获取行数据，用`string::find`返回到匹配的起始下标，再使用`substr`截取字符串
+124. 日志获取信息就一套：
+
+     1. `ifstream/ofstream`打开文件
+     2. `std::getline()`获取行数据(可以选择分隔符，默认为回车键)
+     3. 对获取到的字符串进行处理：用`string::find`返回到匹配的起始下标，再使用`substr`截取字符串
 
 125. hpp,其实质就是将.cpp的实现 代码混入.h头文件当中，定义与实现都包含在同一文件，则该类的调用者只需要include该hpp文件即可，无需再将cpp加入到project中进行编译。而实现代码将直接编译到调用者的obj文件中，不再生成单独的obj,采用hpp将大幅度减少调用 project中的cpp文件数与编译次数，也不用再发布烦人的lib与dll,因此非常适合用来编写公用的开源库。一般来说，.h里面只有声明，没有实现，而*.hpp里声明实现都有，后者可以减少.cpp的数量。
 
@@ -4591,9 +4654,9 @@ m_pPool->submit([this, pBundle]() {
 130. Qt的DataModel实现方式总结
 
 131. 如果命名空间和外部cpp变量名有冲突，解决方式
-     1. 前面加上`命名空间前缀::`
+     1. 在cpp中使用的时候前面加上`命名空间前缀::`
      2. 在作用域中使用`using namespace XXX`，限定同名变量为命名空间中的
-     3. 访问当前全局变量使用`::name`
+     3. 访问当前全局变量使用`::name`(也适用于在命名空间内部使用全局/区分全局和自己的同名变量)
 
 132. C++编译器：Linux用gcc，Windows 用msvc，ios/mac 用clang
 
@@ -4676,7 +4739,73 @@ m_pPool->submit([this, pBundle]() {
      2. **如果元素不存在**：`std::map` 会自动创建一个新的元素，其中键为 `token`，值为该键对应的默认值。
      3. **如果元素已存在**：`operator[]` 会返回对应的值（即 `std::set<pid_t>`），可以直接对其进行操作。
 
+136. 连接中控，向`safed`发送跟换`ip`信息，给`ctrl_center`传递一个回调函数，当连接后调用回调向UI界面发送状态
 
+137. `make clean` ：删除在编译过程中生成的所有中间文件（如目标文件 `.o`、可执行文件、自动生成的依赖文件等），目的是清理项目目录，为重新编译做准备。
+
+138. gdb关于设置断点相关命令
+
+     1. 设置断点
+
+        ```
+        break <函数名>    ->  b <函数名>
+        break <文件名>:<行号>    ->  b <文件名>:<行号>
+        
+        break <函数名> if <条件>   ->  b <函数名> if <条件>
+        break <文件名>:<行号> if <条件>  ->  b <文件名>:<行号> if <条件>
+        ```
+
+     2. 管理断点
+
+        ```
+        info breakpoints  ->  i b				// 列出所有断点
+        info break <断点编号>   ->  i b <断点编号>	// 查看断点状态
+        
+        disable <断点编号>   ->  d <断点编号>	  // 禁用某断点
+        enable <断点编号>    ->  e <断点编号>	  // 启用某断点
+        delete <断点编号>    ->  del <断点编号>	  // 删除某断点
+        ```
+
+     3. 执行断点
+
+        ```
+        continue   ->  c	// 继续执行后续程序
+        
+        step       ->  s	// 逐步骤，进入函数内单步执行
+        finish 	   ->  fin	// 在函数内执行剩余的代码直到函数返回，并且在返回时停止在调用该函数的地方
+        
+        next       ->  n	// 逐过程，跳过函数执行
+        ```
+
+139. 关于gdb给目标函数打断点
+
+     1. 只b函数名，那么会匹配所有该函数名的函数(适用**全局函数**)
+
+     2. 对于带有**命名空间**或者**类成员函数**，需要加上**命名空间/类名前缀**
+
+     3. 不需要带返回值和参数。对于**重载函数**或**模板函数**，需要根据需要提供参数类型或模板参数以区分
+
+        ```
+        break my_function@int      	   # 匹配 my_function(int) 的重载版本
+        break my_function@int,double   # 匹配 my_function(int,double) 的重载版本
+        
+        break my_template<int>    	   # 设置在模板函数 my_template<int> 的断点
+        ```
+
+140. 文件加密：`libsource/SqliteMgr/test/IsoAreaOper.cpp` ：59行
+
+     ```
+     char buff[1024] = {'\0'};
+         int len = 0;
+         while((len = read(fin, buff, sizeof(buff))) > 0)
+         {
+             DataEncrypt((BYTE*)buff, len, g_Enkey);
+             write(fout, buff, len);
+             memset(&buff,0,sizeof(buff));
+         }
+     ```
+
+     
 
 
 
