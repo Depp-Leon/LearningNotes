@@ -58,16 +58,18 @@
 
    > 按atrl+shirft+p打开cppconfigure，手动添加头文件路径
 
-11. VScode快捷键：
+10. VScode快捷键：
 
     ```
-    ctrl+p			#查找文件快捷键
+    ctrl+p			#用于快速查找并打开文件快捷键
+    Ctrl+Shift+P	#用于打开命令面板，你可以通过它运行任何命令、设置或插件功能
+    ctrl + ` (esc下面那个) #打开终端
     ctrl + 左键	   #进入函数
     ctrl + alt + -	#默认返回函数，这个-不能用小键盘上的
     alt + leftarrow(左箭头)  #修改后的返回函数快捷键 
-    ctrl + ` (esc下面那个) #打开终端
     选中代码->`ctrl+[`  / `ctrl+]`  #代码整体缩进或者右移：
     ctrl+G			#vs里面查找某一行快捷键
+    ctrl+,			#打开setting设置
     ```
 
 11. ubuntu快捷键
@@ -849,10 +851,12 @@ m_pPool->submit([this, pBundle]() {
 
    
 
-
 ### 2.7 编译
 
 1. 详见**CMakelist**，打包so文件，即动态库
+
+   > 1. `cmake` 只是**配置工具**；执行cmake会根据cmakelist(项目的配置)生成对应的makefile文件，供make使用
+   > 2. `make` 负责实际的**构建**工作（**编译、链接**）。它根据 `Makefile` 文件中的规则和依赖关系，检查哪些部分需要重新构建，生成最终的可执行文件或库。
 
 2. 将编译好的文件移动到程序目录下
 
@@ -3009,7 +3013,7 @@ m_pPool->submit([this, pBundle]() {
    gitlens 展示每行代码的提交人、提交时间
    git history 展示git历史提交记录
    Tabnine 人工智能
-   remote development 远程开发插件
+   Remote - SSH 远程开发插件
    Color Highlight 显示代码中关于颜色的代码直接显示颜色
    ```
 
@@ -3162,15 +3166,11 @@ m_pPool->submit([this, pBundle]() {
    
    - [x] 取消查杀，界面问题
    
-   - [ ] 隔离区恢复：数据量很大的情况下(1000往上)，恢复隔离区会导致磁盘占用显示问题，并且导致界面卡死
-   
-     **思路**：查看zav引擎那块的5个process看哪块有问题
-   
    - [x] 连接授权服务ip后关闭弹窗，打开授权管理展示激活失败
    
    - [x] 升级病毒库失败，上报给服务端的病毒库版本为空
    
-   - [ ] 隔离区恢复的文件权限发生变化
+   - [x] 隔离区恢复的文件权限发生变化
    
      **问题**：恢复的时候将权限的rw-rw-r变为rw-r-r
    
@@ -3194,19 +3194,13 @@ m_pPool->submit([this, pBundle]() {
         umask(0002);
         ```
    
-   - [ ] 10号版本之后，升级软件这个功能报错
-   
-     **问题**：cpr_update_utils.hpp中的cpr::Download和cpr::Post一执行就报缺少zlibVersion符号
-     
-     ```
-     cpr::Response r = cpr::Post(cpr::Url {url}, cpr::Header {{"Content-Type", "application/json"}}, cpr::Body {body});
-     
-     cpr::Response r = cpr::Download(dFile, cpr::Url(url), cpr::Header {headers}, cpr::ProgressCallback {progressCallback}, cpr::Timeout(timeout));
-     ```
-     
-   - [ ] 软件升级向中控上报了两次
+   - [x] 软件升级向中控上报了两次
    
    - [ ] 查找速度很慢，并且查到结束不会停止卡在界面
+   
+     **思路**：查看zav引擎那块的5个process看哪块有问题
+   
+   - [ ] 隔离区恢复：数据量很大的情况下(1000往上)，恢复隔离区会导致磁盘占用显示问题，并且导致界面卡死
    
 
 
@@ -4658,8 +4652,6 @@ m_pPool->submit([this, pBundle]() {
      2. 在作用域中使用`using namespace XXX`，限定同名变量为命名空间中的
      3. 访问当前全局变量使用`::name`(也适用于在命名空间内部使用全局/区分全局和自己的同名变量)
 
-132. C++编译器：Linux用gcc，Windows 用msvc，ios/mac 用clang
-
 133. 关于**POSIX 标准**是一套**操作系统接口标准**，旨在提高不同 Unix 系统之间的兼容性、可移植性和互操作性。它定义了文件系统、进程管理、线程、信号等基本操作的接口，并为 Shell 和命令行工具提供了标准化的行为。POSIX 标准使得开发人员能够编写跨平台的程序，避免了操作系统特性差异带来的不便。
 
      1. `dirent` 结构体:`dirent` 是 POSIX 标准提供的一个结构体，用于表示**目录项**。它通常与 `opendir()` 和 `readdir()` 函数一起使用来遍历目录
@@ -4805,7 +4797,245 @@ m_pPool->submit([this, pBundle]() {
          }
      ```
 
+141. openssl库
+
+142. 为什么git需要输入密码：原因是使用了不同的认证方式（SSH vs HTTPS），当在远端配置了公钥后，可以直接使用SSH拉取，并且后续操作不需要密码。而使用HTTPS则每次都需要输入密码。
+
+     > **SSH 认证**：如果你使用的是 SSH 方式（即 URL 以 `git@` 开头），Git 会使用你本地配置的 SSH 密钥来进行认证。如果你已经设置了 SSH 密钥并且将其添加到你的 Git 服务（如 GitHub）上，Git 就不需要每次都输入密码。
+     >
+     > **HTTPS 认证**：如果你使用的是 HTTPS 方式（即 URL 以 `https://` 开头），Git 会要求输入用户名和密码（或者 Git 服务使用的个人访问令牌 `token`）。如果没有缓存凭据或没有配置凭据助手，每次拉取时就会要求输入密码。
      
+143. 关于分离进程和守护进程：
+
+     **分离进程**：分离进程是指一个进程从其父进程中“分离”出来，不再受父进程的控制。父进程和子进程各自独立运行，父进程不必等待子进程结束。
+
+     > 分离进程通常用于那些需要**在后台独立运行的程序**，例如在启动时与终端会话断开的任务。
+
+     ```c++
+     pid_t pid = fork();
+     if (pid < 0) {
+         // 错误处理
+         exit(1);
+     } else if (pid > 0) {
+         exit(0);  // 父进程退出
+     }
+     // 子进程中 即  pid == 0 为子进程
+     if (setsid() < 0) {				
+         // 错误处理
+         exit(1);
+     }
+     
+     ```
+
+     **守护进程**：守护进程是一种特殊的分离进程，它通常用于长期运行的**后台服务**。守护进程的生命周期**独立于任何控制终端**。
+
+     > 通常需要先调用分离进程`fork`，再将子进程作为守护进程
+
+     ```
+     bool becomeDaemon()
+         {
+             if (chdir("/") == -1) {
+                 return false;
+             }
+     
+             if (daemon(0, 0) != 0) {
+                 std::cerr << "Failed to daemonize." << std::endl;
+                 return false;
+             }
+     
+             std::cout << "Daemon started." << std::endl;
+             return true;
+         }
+     ```
+
+     **两者区别**：
+
+     1. 分离进程作为子进程，会受到父类的**资源管理和生命周期**方面的影响。**不会自动管理资源**，也 **没有恢复机制**，通常用于那些希望在后台执行、但不需要长期稳定服务的进程。
+     2. 守护进程 **脱离了父进程和终端的控制**，并且通过一系列的步骤（如 `setsid()`、`chdir()`、关闭文件描述符等）确保自己可以长期独立稳定地运行。它 **不受父进程结束的影响**，并且具有 **自我管理能力**，如资源回收、自动重启等。通常用于后台服务和长期运行的任务
+
+146. 关于代码编译有感
+
+     **预处理-->编译-->汇编-->链接**
+
+     1. 预处理：将**`include`**要插入的文件插入，并将**宏定义**展开，并处理**using**声明
+
+        > 所以说include包含的头文件，不要加入函数定义，否则会增加编译负担。
+
+     2. 编译阶段：就是将代码通过编译器(g++或者minGW)生成汇编程序
+
+     3. 汇编阶段：将通过汇编器汇编程序生成机器代码(二进制Obj文件)
+
+        > 一般编译器都是集成了编译器和汇编器，统称为编译器
+
+     4. 链接阶段：将目标Obj文件、系统的Obj文件、库文件链接起来**生成可执行程序或者库文件**
+
+        > 又分为动态链接和静态链接，设计到计算机操作系统的内存管理那块的知识。
+        >
+        > 动态链接在程序运行时再链接，一般适用于段式存储。
+
+147. 关于链接过程
+
+     链接之后的可执行二进制文件包含了程序的所有机器代码、数据、符号表、调试信息等。就拿windows为例：
+
+     ```
+     操作系统：Windows
+     文件扩展名：.exe（可执行文件）、.dll（动态链接库）
+     结构：
+     DOS Header：包含 DOS 兼容性信息，Windows 加载器使用这个来判断是否为 Windows 可执行文件。
+     PE Header：标识 Windows 可执行文件格式的部分。
+     Section Headers：包含各个段的信息（如 .text、.data、.rsrc 等）。
+     节（Sections）：
+     .text：代码段，包含程序执行的机器码。
+     .data：包含已初始化的全局变量。
+     .rdata：包含只读数据（如常量字符串、只读变量等）。
+     .bss：未初始化的全局变量。
+     .rsrc：包含资源信息，如图标、菜单等
+     
+     # PE文件具体举例
+     MS DOS Header:
+       e_magic:  4D 5A (标识符)
+       e_lfanew: 0x3C (PE Header 偏移量)
+     
+     PE Header:
+       Signature: 50 45 00 00 (PE 标识符)
+       Machine:   x86_64
+       Number of Sections: 5
+       TimeDateStamp: ...
+       PointerToSymbolTable: ...
+     
+     Section Headers:
+       .text      0x00000000
+       .data      0x00010000
+       .rsrc      0x00020000
+     ```
+
+     1. 链接阶段之后，该文件包含了不同数据段的虚拟地址(可以从上面看到地址从0开始)
+
+        ```
+        程序的代码段（Text Segment）：包含了编译后的机器码，即程序的指令。
+        数据段（Data Segment）：包含初始化过的全局变量和静态变量。
+        BSS段（BSS Segment）：包含未初始化的全局变量和静态变量。
+        堆（Heap）：用于动态分配内存（如 malloc、new 等）。
+        堆栈（Stack）：用于存储局部变量、函数调用信息（如返回地址、保存的寄存器等）。
+        ```
+
+     2. 操作系统加载该可执行程序之后，将不同段的数据(虚拟地址映射为真实地址)
+
+        - 操作系统为每个程序分配一个独立的**虚拟地址空间**。这个虚拟地址空间的分配通常是按照一定的规则来做的，并且是**逻辑连续**的
+        - 操作系统将可执行文件的各个段加载到分配的虚拟地址空间中。操作系统会将虚拟地址空间中的每个段映射到物理内存中的具体位置，这一过程由**虚拟内存管理**和**页表**来处理。
+        - 操作系统通过**页表**将虚拟地址映射到物理地址。页表是一个由操作系统维护的数据结构，它记录了虚拟地址和物理地址之间的映射关系。在程序执行时，CPU会使用页表来将虚拟地址转换为物理地址。
+
+        > 如果操作系统内存分配时连续分配，则逻辑和物理地址都是连续的。如果使用了非连续分配的方式(如页表)，那么逻辑顺序不变，但是物理地址是非连续的。
+        >
+        > 下面图为：**操作系统为每个程序分配的虚拟地址空间**
+
+        <img src="source/images/JobNotes/2103aa39c28a4b41be9a57145304ca8b.png" alt="2103aa39c28a4b41be9a57145304ca8b" style="zoom:50%;" />
+
+148. VSCode是微软出的一款轻量级编辑器，它本身**只是一款文本编辑器**而已，并**不是一个集成开发环境(IDE)**，几乎所有功能都是以插件扩展的形式所存在的。因此，我们想用它编程，不只是把vscode下载下来就行，还需要**安装对应编程语言的扩展**以及**相应的编译器**
+
+     1. C++编译器：
+
+        > - Linux用**gcc**
+        > - Windows 用**msvc**(visual studio使用)，**minGW**(Windows平台上的GNU工具集合)
+        > - ios/mac 用**clang**(也可以在window下使用)
+
+     2. 关于VScode下的`.vscode`文件夹
+
+        1. `c_cpp_properties.json`
+           - **作用**: 用于配置 C/C++ 项目的 IntelliSense（自动补全、语法高亮等）功能。
+           - **主要配置项**:
+             - `includePath`: 指定包含头文件的路径。
+             - `defines`: 定义预处理器宏。
+             - `compilerPath`: 配置编译器的路径，影响 IntelliSense 的工作方式。
+             - `intelliSenseMode`: 设置 IntelliSense 的模式，例如 `gcc`、`clang` 或 `msvc`。
+        2. `settings.json`
+           - **作用**: 存储工作区的特定设置，覆盖全局设置。用于调整 VS Code 编辑器的行为和外观，或者为当前项目定制工作环境。
+           - **主要配置项**:
+             - `files.associations`：用于将文件类型与特定语言进行关联。它允许你指定哪些文件扩展名对应于哪些语言。
+        3. `launch.json`
+           - **作用**: 配置调试环境。它定义了如何启动调试会话，指明要运行的程序、调试器的配置、环境变量等。
+           - **常见字段**:
+             - `program`: 要调试的程序的路径。
+             - `args`: 启动程序时传递的命令行参数。
+             - `stopAtEntry`: 设置是否在程序入口处暂停。
+             - `cwd`: 设置工作目录。
+        4. `tasks.json`
+           - **作用**: 用于配置构建和执行任务。你可以通过这个文件配置项目的构建、测试等自动化任务，并通过 VS Code 的任务系统来运行。
+           - **常见字段**:
+             - `label`: 任务的名称，通常在任务面板中显示。
+             - `type`: 任务的类型（例如，shell、process 等）。
+             - `command`: 执行的命令。
+             - `args`: 命令的参数。
+             - `group`: 将任务分类，便于管理。
+
+        > `launch.json`和`tasks.json`主要用来在vscode这个编辑器中配置调试（debug）和 构建（build）、执行（run）信息。**如果不需要在vscode中调试和执行，那么不需要撰写这两个文件**。比如使用ssh远程连接linux下的文件，只需要保证在linux下有关于C++的编译器和调试器gdb以及项目构建使用的cmake。
+
+149. vscode远程操作，这种模式完美实现了“本地编辑，远程编译调试”，尤其适合跨平台开发或依赖Linux环境的场景
+
+     1. 安装vscode
+
+     2. 安装`Remote - SSH`插件
+
+        ```
+        1. Remote-SSH: Connect to Host.. || 选择“Add New SSH Host...”	添加新的ssh远程主机		(格式为user@192.168.1.10)
+        2. 再次Remote-SSH: Connect to Host..	|| 选择刚刚添加的主机并输入密码等待连接成功
+        3. 会提示选择一个目录作为工作区
+        ```
+
+     3. 首次登录后，VS Code会自动弹出一个新的窗口用于远程工作，并且会自动在远程主机上安装VS Code server。
+     4. 在vscode安装其他插件，比如C/C++拓展...
+
+150. 关于公钥私钥
+
+     1. **作用**：公钥和私钥是一对加密密钥，主要用于加密和身份验证。公钥是公开的，任何人都可以获取；而私钥是保密的，只有你自己拥有。
+
+        > **公钥**：用于加密或验证签名。你将公钥放在服务器上（如 `authorized_keys` 中），然后当你尝试连接时，服务器会使用该公钥验证你的身份。
+        >
+        > **私钥**：用于解密或生成签名。你保存在本地，不应与他人共享
+
+     2. 原则上**只要两个支持SSH协议都可以使用公钥和私钥来实现免密连接**；公钥和私钥是基于 SSH 协议的，与git并没有之间关系。只是连接git仓库使用到了公钥私钥，将本地公钥放入git仓库只是方便仓库认证本地的。
+
+     3. **linux系统下的使用**：
+
+        ```
+        打开终端。
+        运行相同的命令：ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+        这将生成 RSA 密钥对，保存到 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub。
+        将公钥 id_rsa.pub 内容复制到远程服务器的 ~/.ssh/authorized_keys 文件中。
+        ```
+
+     4. **windows系统下的使用**：
+
+        ```
+        打开 Git Bash 或者其他终端工具。
+        运行命令：ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+        这将生成一个 4096 位的 RSA 密钥对。
+        默认情况下，密钥会保存在 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub 中。
+        将公钥 id_rsa.pub 内容复制到远程服务器的 ~/.ssh/authorized_keys 文件中。
+        ```
+
+     5. 生成密钥**命令解析**
+
+        ```
+        ssh-keygen
+        // 默认生成 ED25519 类型的密钥
+        // 默认密钥长度为 256位（ED25519的固定长度）
+        // 默认注释为 username@hostname（例如 jiayuandi@chenxin-jiayuandi）
+        ```
+
+        ```
+        ssh-keygen -t rsa -b 4096 -C "jiayuandi@v-secure.cn -f ~/.ssh/my_rsa_key
+        // -t	指定生成 RSA 类型的密钥。
+        // -b	指定密钥长度为 4096位。
+        // -C	指定注释为 jiayuandi@v-secure.cn。
+        // -f 	指定将密钥生成到目标路径。默认情况下，密钥会保存在用户主目录下的 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub 文件中。上面命令将生成 ~/.ssh/my_rsa_key（私钥）和 ~/.ssh/my_rsa_key.pub（公钥）
+        ```
+
+151. copilot： ai编程如何使用
+
+
+
+
 
 
 
