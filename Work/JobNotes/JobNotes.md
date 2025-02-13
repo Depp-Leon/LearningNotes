@@ -56,7 +56,13 @@
 
 9. vscode导入头文件爆红的解决方式
 
-   > 按ctrl+shift+p打开cpp configure，手动添加头文件路径
+   > 删除 `.cache/vscode-cpptools` 清理磁盘空间时导致 VS Code 找不到头文件
+
+   1. 重启 VS Code (`Ctrl + Shift + P -> Reload Window`)
+   2. 重新安装 C/C++ 插件
+   3. 手动刷新 IntelliSense (`Ctrl+Shift+P -> Rescan Workspace` 、`Reset IntelliSense Database`)
+   4. 检查 `c_cpp_properties.json` 是否正确
+   5. 删除 `.vscode` 目录并重建**
 
 10. VScode快捷键：
 
@@ -93,7 +99,7 @@
     # 如果是文件夹需要加上-r参数
     ```
 
-14. ubuntu给非root用户添加sudo权限
+13. ubuntu给非root用户添加sudo权限
 
     ```
     #方式一：
@@ -110,19 +116,19 @@
     	chenye    ALL=(ALL:ALL) ALL
     ```
 
-15. ubuntu下查看本地的包
+14. ubuntu下查看本地的包
 
     ```
     dpkg -l | grep <包名>
     ```
 
-16. `dpkg -b` 命令用于 **构建** 一个 Debian 包（`.deb` 文件），它将指定的目录或源文件打包为一个 `.deb` 文件。
+15. `dpkg -b` 命令用于 **构建** 一个 Debian 包（`.deb` 文件），它将指定的目录或源文件打包为一个 `.deb` 文件。
 
     ```
     dpkg -b <目录> [<输出文件>]
     ```
 
-17. ubuntu下卸载使用包管理模式安装的包
+16. ubuntu下卸载使用包管理模式安装的包
 
     ```
     sudo apt remove --purge <包名>
@@ -132,7 +138,7 @@
     	#autoremove：清理未使用的依赖项。
     ```
 
-18. linux授权指令
+17. linux授权指令
 
     1. `chown`命令用于更改文件或目录的所有者和/或所属组
 
@@ -577,6 +583,7 @@ m_pPool->submit([this, pBundle]() {
    ```c++
    #先定义嵌套字段类型，再给该类型set数据
    ClientIsolationAreaInfo isoMsg{};
+   #使用add
    ClientIsolationAreaInfo::InfectInfo* isoInfo = isoMsg.add_infects();
    isoInfo->set_infect_name(info.param.virusname);
    isoInfo->set_file_name(info.param.path);
@@ -3101,33 +3108,37 @@ m_pPool->submit([this, pBundle]() {
 
 ### 1. 项目部分
 
-2. qrc文件和rcc文件    gcc？
+2. **如何分析一个项目**？
 
-3. titlebar？如何将titlebar单独的放到别的界面中
+3. **记笔记方式**
 
-4. 信号槽、控件、事件的底层实现原理？moc？mvc模型？
+4. qrc文件和rcc文件    gcc？
 
-5. RJJH中的event文件夹？cur_user干什么的？归纳下qy_ui（UI层）的具体构造
+5. titlebar？如何将titlebar单独的放到别的界面中
 
-6. 看下Frameless中的720行事件过滤器
+6. 信号槽、控件、事件的底层实现原理？moc？mvc模型？
 
-7. 看src/moudles/virus_scan_engine_plugin/src libEngineScan动态库(扫描引擎)的组成成分。
+7. RJJH中的event文件夹？cur_user干什么的？归纳下qy_ui（UI层）的具体构造
 
-8. 线程池thread_pool如何实现的
+8. 看下Frameless中的720行事件过滤器
 
-9. 针对不同版本(开发环境)的右键库：
+9. 看src/moudles/virus_scan_engine_plugin/src libEngineScan动态库(扫描引擎)的组成成分。
 
-   ```
-   #add_subdirectory(libsource/nautilus_scan)
-   #add_subdirectory(libsource/caja_scan)
-   #add_subdirectory(libsource/peony_scan)
-   ```
+10. 线程池thread_pool如何实现的
 
-10. 如何修改ubuntu下的权限，省的每次都得用sudo
+11. 针对不同版本(开发环境)的右键库：
 
-11. 查看`.clang-format`如何设置，规格化工具
+    ```
+    #add_subdirectory(libsource/nautilus_scan)
+    #add_subdirectory(libsource/caja_scan)
+    #add_subdirectory(libsource/peony_scan)
+    ```
 
-12. 使用VScode插件
+12. 如何修改ubuntu下的权限，省的每次都得用sudo
+
+13. 查看`.clang-format`如何设置，规格化工具
+
+14. 使用VScode插件
 
    ```
    Clang-Format  代码格式化插件
@@ -3200,11 +3211,11 @@ m_pPool->submit([this, pBundle]() {
 | :----------------------------------------------------------: | :------: | :------: |
 |              隔离区恢复几千个病毒，界面卡主不动              |   2.14   |          |
 |                 查杀中的MD5优先从缓存中获取                  |   2.28   |          |
-| 关键位置扫描，增加其他扫描项（当前支持扫描crontab）（需调研） |   2.28   |          |
+| 关键位置扫描，增加其他扫描项（当前支持扫描contab）（需调研） |   2.28   |          |
 |            708目录改变，低版本升级适配，shell脚本            |   2.28   |          |
 |                           bug修改                            |          |          |
 
-1. - [ ] 隔离区恢复：数据量很大的情况下(1000往上)，恢复隔离区会导致磁盘占用显示问题，并且导致界面卡死
+1. - [x] 隔离区恢复：数据量很大的情况下(1000往上)，恢复隔离区会导致磁盘占用显示问题，并且导致界面卡死
 
      1. 查杀终止时卡住问题：
 
@@ -3213,10 +3224,30 @@ m_pPool->submit([this, pBundle]() {
      2. 扫描总数问题：默认在所有文件的基础上加了1万，应该是他计算不了所有的总数，只能一个文件夹的计算。如果修改了这块，那么内容多的情况下，进度条直接拉满了，而且还会后退？
 
         **猜测**：是计算文件夹总数那块逻辑有问题
+   
+   **思路**：由于文件恢复是每个文件恢复都会向ui发送一条请求，那么是否可以改变，使得10条发送一条请求(需要修改proto，直到恢复失败时或者数量达到10时)。并向UI发送后睡眠100ms，给UI刷新的机会
+   
+   1. 修改protobuffer，改为文件列表
+   
+   2. 修改safed逻辑，数量为10报一次或者直到失败/成功报一次
+   
+   3. 修改RJJHmodel逻辑，获取文件列表，然后在界面中将其删除，刷新界面、磁盘占用
+   
+   4. 使用信号槽，增加向后台获取隔离区空间的部分
+   
+      > 问题：这种情况由于消息的不及时未能实现同步刷新磁盘占用。后续需要增加操作，即将后台与隔离区相关的操作都要在protobuffer中加入磁盘占用。
 
+2. bug修改：
 
+   - [x] 某些架构因为访问网络白名单导致RJJH启动不起来
 
+     **解决**：因为访问白名单函数返回bool类型但是实际上没有返回值，导致函数卡死在该处。
 
+     > 不同架构对于函数处理不同，比如ubuntuX64就不会出现这种问题，只是会给出警告
+
+   - [ ] 关于我们产品名称不正确
+
+   - [ ] 授权信息：连接中控，授权信息中过期时间 与实际中控授权过期时间不一致
 
 
 #### 2.2 暂时搁置
@@ -4540,6 +4571,8 @@ m_pPool->submit([this, pBundle]() {
      2. **设置环境变量**: `LD_LIBRARY_PATH=$PWD` 使得当前目录（`$PWD`）被加入到 `LD_LIBRARY_PATH` 中。
 
         > 这意味着系统会在当前目录中查找动态链接库，而不仅仅是默认的标准路径（如 `/lib` 或 `/usr/lib`）。
+        >
+        > LD是链接的意思。连接器(ld)
 
      3. 后面加上可执行程序，则表示可执行程序中所需要的动态库优先在设置的动态库搜索路径下查找。
 
@@ -5108,7 +5141,370 @@ m_pPool->submit([this, pBundle]() {
 
 151. asyncScanTask返回的一个操作指针，可以直接使用其中的调用函数操作引擎的继续、停止等
 
+152. clang-format代码的自动格式化工具
 
+     **项目文件操作**：
+
+     1. ubuntu安装clang-format
+
+        ```
+        sudo apt install clang-format
+        ```
+
+     2. 在项目根目录下创建.clang-format配置文件，里面实现配置
+
+     **VScode中操作**：
+
+     1. 下载Clang-Format扩展插件
+
+     2. 在VScode的.vscode/settings.json中添加配置
+
+        ```
+        "[cpp]": {
+            "editor.defaultFormatter": "xaver.clang-format",
+            "editor.formatOnSave": true
+        }
+        ```
+
+     **实际使用**：
+
+     ​	配置完成后VSCode 在保存 C/C++ 文件时自动运行 `clang-format`
+
+153. QList转换为QStringList
+
+     ```
+     QList<QString> qlist = {"file1.txt", "file2.txt", "file3.txt"};
+     QStringList qstringList(qlist);  // 直接转换
+     ```
+
+154. 局部`static` 变量的销毁发生在**程序结束时，而不是在函数执行完毕时**。
+
+155. protobuffer，bytes类型的二进制转为string类型(同样也是二进制)
+
+     ```c++
+     if (virusInfo.action() == ProcessAction::ACTION_TYPE1) {
+             // 将 bytes 转换为 string
+             std::string str_data = std::string(virusInfo.data().begin(), virusInfo.data().end());
+             std::cout << "Parsed string data: " << str_data << std::endl;
+     }
+     ```
+
+156. `const char*` 和 `std::string` 的互相转换
+
+     ```c++
+     const char* cstr = "Hello, world!";
+         
+     // 直接用 std::string 接收 const char* 类型
+     std::string str = cstr;
+     ```
+
+     ```c++
+     std::string cmdstr = "du -sh /path/to/somewhere | awk '{print $1}'";
+         
+     // 将 std::string 转换为 const char* 并传给 getCmdRes
+     getCmdRes(cmdstr.c_str());
+     ```
+     
+157. 项目中的三方库
+
+     1. common目录是拆出来三方库存放地，可以根据要求/协议来更改需要的代码
+
+     2. 下一步就是将include/thirdparty和libsource下的三方库和自己做的库转移到common下
+
+     3. lib目录当前是采用静态库和头文件分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
+
+158. 关于项目中使用第三方库
+
+     **什么是三方库**：**三方库**（Third-party library）是指由第三方开发和维护的、用于在应用程序中提供特定功能的代码库。三方库在 C++ 项目中用于增强功能，减少重复工作，帮助开发者解决常见的编程任务（如网络通信、数据解析、图形渲染等），而不需要从头开始编写每一行代码。
+
+     **下载三方库**：
+
+     1. 通过包管理工具获取
+
+     2. 通过源码编译：大多数开源三方库提供源代码，可以通过克隆仓库并手动编译得到库文件。
+
+        > 一种是使用cmake进行编译；另一种是通过.sh脚本进行编译。一般获取到的都会给一种编译方式
+
+     **三方库的构成**：未编译前，一般带有源码(.cpp .h)和cmakelist/.sh方便自己编译；若下载的是编译后的，那么包含：
+
+     1. 头文件(include): 声明了库的接口，供程序引用，使用头文件，你可以在自己的代码中调用库的功能。
+
+        > 在大多数情况下，编译时使用的头文件和使用库时的头文件是**同一个**。它们的作用是相同的：声明库中的接口（函数、类、结构等），使得编译器可以知道如何与库进行交互。
+        >
+        > 头文件在**编译阶段**告诉编译器如何构建代码，在**链接阶段**则通过提供接口让链接器知道如何连接库的实现
+
+     2. 库文件(lib): 进行编译之后的产物，分为静态库或者动态库
+
+        1. 静态库(.a)：静态库是编译后的文件，包含了库的代码，链接到程序时将代码嵌入到可执行文件中。
+        2. 动态库(.so)：动态库在运行时由操作系统加载，不会嵌入到程序的可执行文件中。
+
+        | 特性           | 静态链接                           | 动态链接                         |
+        | -------------- | ---------------------------------- | -------------------------------- |
+        | **库文件形式** | `.a` / `.lib`                      | `.so` / `.dll`                   |
+        | **链接时间**   | 编译时链接                         | 运行时链接                       |
+        | **文件大小**   | 较大，包含所有库的代码             | 较小，只有程序和库的入口地址     |
+        | **共享性**     | 无法共享，不同程序有不同副本       | 可共享，多个程序可以共享同一个库 |
+        | **部署难度**   | 简单，只需部署可执行文件           | 需要确保动态库文件存在并正确路径 |
+        | **更新**       | 更新库时需要重新编译整个程序       | 更新库时不需要重新编译程序       |
+        | **内存使用**   | 可能较高，多个程序各自有一份库副本 | 内存共享，同一库文件只加载一次   |
+        | **启动速度**   | 较快，不需要加载外部库             | 较慢，程序需要加载动态库         |
+
+     **三方库的使用(使用Cmake)**：
+
+     1. 将编译好的三方库放入到项目的lib文件夹中(里面包含头文件和库文件)
+
+     2. 编写代码的时候就可以引用三方库的头文件
+
+        ```
+        #include <boost/algorithm/string.hpp>  // Boost 库头文件
+        ```
+
+     3. 编译项目的时候在cmakelist中1. 要将头文件和项目引用的头文件放一起 2. 同时要指明链接外部库路径
+
+        > 静态库和动态库的链接都可以通过 `target_link_libraries()` 来实现，无论是静态库还是动态库
+
+        ```
+        target_include_directories(
+                ${BIN_NAME}
+                PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${CMAKE_CURRENT_SOURCE_DIR}/component
+                #libs
+                ${CURL_INCLUDE_DIR}
+                ${CPR_INCLUDE_DIR}
+        )
+        
+        target_link_libraries(
+                ${BIN_NAME}
+                PRIVATE
+                ${LIB_UDEV}
+                ${LIB_CPR}
+                ${LIB_CURL}
+        )
+        ```
+
+     4. 编译整个项目。
+
+     **三方库的使用(单独使用动态库)**：使用动态库（如 `.so` 或 `.dll`），在运行程序时，需要告诉操作系统动态库的位置。对于 Linux/macOS，通常使用环境变量 `LD_LIBRARY_PATH`。
+
+     > 将动态库放到可执行文件的同一目录下，或者将动态库添加到系统环境变量中
+
+     ```
+     export LD_LIBRARY_PATH=/path/to/boost/lib:$LD_LIBRARY_PATH
+     ./my_program
+     ```
+
+     **三方库的使用(使用编译器和链接器)**：
+
+     1. 如果库的头文件不在标准位置，你需要告诉编译器去哪里查找这些头文件。这可以通过编译选项 `-I` 来实现
+
+        ```
+        g++ -I/path/to/boost/include my_program.cpp -o my_program
+        ```
+
+     2. 需要告诉链接器去哪里找库文件（静态库 `.a` 或动态库 `.so`）。这可以通过 `-L` 参数指定。
+
+        ```
+        g++ my_program.cpp -L/path/to/boost/lib -lboost_system -o my_program
+        ```
+
+        > `-l` 后面是库的名称，不需要写前缀 `lib` 和后缀 `.a` 或 `.so`。
+
+     **注意事项**：一般由于不同机子环境不同(gnu所需版本不同)，所以一般下三方源码之后，需要在自己的机子上编译。再移动include头文件和lib静态库到项目路径下。(移动其他机器编译后生成的库可能会出错)
+
+159. 在 CMake 中，生成 **可执行文件**、**静态库** 或 **动态库** 的过程中，执行 `make` 可能涉及 **编译** 和 **链接** 两个不同的阶段。
+
+     1. 如果你的 `CMakeLists.txt` 中生成的是一个 **可执行文件**（例如使用 `add_executable()` 来指定生成可执行文件），执行 `make` 会经历 **编译** 和 **链接** 两个步骤。
+
+        > 编译：每个源文件（`.cpp`）会编译为 `.o` 目标文件。
+        >
+        > 链接：**链接器**（`ld`）将这些目标文件和需要的库文件链接在一起，生成最终的 **可执行文件**
+
+     2. 如果你要生成的是 **静态库**（使用 `add_library()` 且没有指定 `SHARED`）或 **动态库**（使用 `add_library()` 并指定 `SHARED`），则执行 `make` 过程中 **只会进行编译**，而不会进行链接到最终的可执行文件。
+
+        > 编译：
+        >
+        > 1. 每个源文件（`.cpp`）会编译为 `.o` 目标文件。
+        > 2. 如果是静态库，多个 `.o` 文件会被 **打包** 成一个 `.a` 文件。
+        >
+        > 2. 如果是动态库，多个 `.o` 文件会被 **链接** 成一个 `.so` 或 `.dll` 文件，但这个链接是与可执行文件的链接不同，它只是生成一个共享的库文件。
+        >
+        > 不进行最终可执行文件的链接：对于库文件来说，`make` 的目标是生成一个库，而不是一个最终的可执行文件。所以，**链接** 的部分是针对库内部的目标文件，而不是与其他可执行文件链接。
+
+160. 查看可执行文件(二进制文件)链接的动态库：使用 `ldd` 命令查看可执行文件依赖(链接)的动态库
+
+     ```
+     ldd <executable_file>
+     ldd /path/to/your/executable
+     ```
+
+161. `tar`（Tape Archive）是一个用于将多个文件或目录打包成一个单独文件的工具，通常**用于存储和备份**。`tar` 生成的文件叫做 **tar包**，扩展名一般为 `.tar`。该工具本身不会对文件内容进行压缩，但可以与压缩工具（如 `gzip`、`bzip2` 等）一起使用，从而创建压缩的 `.tar.gz`、`.tar.bz2` 或 `.tar.xz` 等文件。
+
+     使用tar包存放源码的原因：
+
+     1. 代表项目已经封存了，不会再进行改动。便于版本控制。每次解压得到的文件和目录结构完全相同
+     2. 时间等文件信息不会随着操作而更改
+     3. 不会因为一些操作产生对应的缓存
+
+162. GNU、GCC、G++
+
+     1. **GNU** 是一个自由软件项目，旨在提供一个类似 Unix 的自由操作系统，包含了许多工具和库
+
+        **GNU 项目内容**：GNU 项目包括许多重要的组件，如：
+
+        - **GNU 操作系统的核心部分**（尽管 Linux 核心也非常流行，许多人将 GNU 与 Linux 操作系统一起使用，称为 GNU/Linux）。
+        - **GNU 工具链**（如编译器、调试器、构建工具等）。
+        - **GNU 编程语言库**，例如 C 库（glibc）等。
+
+     2. **GCC**（GNU Compiler Collection）：是 GNU 项目的一部分，是一个开源的编译器集合，用于将源代码（如 C、C++、Fortran、Ada 等）编译为机器码。
+
+     3. **G++**：是 **GCC** 中专门用于编译 **C++** 源代码的前端编译器。G++ 实际上是 GCC 的一部分，用于支持 C++ 语言的编译
+     
+163. XML、JSON、Protobuf都是用于数据交换和存储的格式。
+
+     > 不管格式如何，他们最终传输时都会转为二进制格式(比如转为std::string)作为传递参数。
+
+     **定义**：
+
+     1. XML：XML（可扩展标记语言)，基于**标签语言**，数据以**树形结构存储**，每个元素都有开始标签、结束标签，和可选的属性；HTML语言就是基于XML，只是XML只用来存储和传输数据
+
+        ```c++
+        <person>
+            <name>Alice</name>
+            <age>30</age>
+            <isActive>true</isActive>
+        </person>
+        ```
+
+     2. JSON：基于**键值对**的数据表示。**key** 是字符串，**value** 可以是字符串、数字、布尔值、数组、对象或 `null`。
+
+        ```c++
+        {
+            "name": "Alice",
+            "age": 30,
+            "isActive": true
+        }
+        ```
+
+     3. Protobuffer：**二进制序列化** 格式。数据定义是基于 `.proto` 文件的，结构化的类型定义（包括消息、字段、数据类型）。
+
+        ```c++
+        message Person {
+            string name = 1;
+            int32 age = 2;
+            bool isActive = 3;
+        }
+        ```
+
+     **对比**：
+
+     | 特性               | **XML**                                          | **JSON**                                  | **Protocol Buffers (protobuf)**                            |
+     | ------------------ | ------------------------------------------------ | ----------------------------------------- | ---------------------------------------------------------- |
+     | **格式类型**       | 文本格式                                         | 文本格式                                  | 二进制格式                                                 |
+     | **可读性**         | 高，适合人类阅读，结构清晰                       | 高，简洁，易于人类理解                    | 低，不适合人类直接阅读（需使用生成的类来处理）             |
+     | **文件大小**       | 较大，包含大量标签和冗余信息                     | 较小，比 XML 小                           | 极小，二进制格式优化了空间占用                             |
+     | **解析速度**       | 较慢，解析文本格式比二进制格式慢                 | 较快，比 XML 快                           | 非常快，二进制解析速度极快                                 |
+     | **类型支持**       | 支持复杂数据结构，类型多样（数字、布尔、文本等） | 支持基本数据类型（数字、字符串、布尔等）  | 完全自定义数据类型，通过 `.proto` 文件定义                 |
+     | **数据表示**       | 通过嵌套标签和属性描述数据                       | 通过键值对表示数据                        | 使用自定义的结构和字段进行数据传输                         |
+     | **支持的数据结构** | 树形结构（元素、属性、文本）                     | 对象（key-value pair）、数组              | 消息（message）、嵌套字段、数组、枚举等                    |
+     | **灵活性**         | 高，可以自由定义标签和结构                       | 灵活，字段可以动态增加和删除              | 需要预定义 `.proto` 文件，较少灵活性                       |
+     | **可扩展性**       | 非常高，可以在不破坏现有结构的情况下增加新元素   | 较高，可以添加新字段，但可能不向后兼容    | 高，支持字段添加、删除，但需要代码重生成                   |
+     | **性能**           | 较差，文件冗长，解析性能较低                     | 一般，虽然比 XML 高效，但仍为文本格式     | 极高，二进制格式高效传输和解析                             |
+     | **人类友好**       | 是，尤其适合复杂的文档结构和描述                 | 是，简洁易读                              | 否，二进制格式不可直接读懂                                 |
+     | **主要用途**       | 配置文件、文档存储、SOAP等                       | Web API（特别是 RESTful API），前后端交互 | 高效数据存储和传输，微服务间通信，跨语言接口               |
+     | **适用场景**       | 配置文件、文档处理、复杂结构的数据交换           | Web 应用、轻量级数据交换、前后端分离      | 数据量大或性能要求高的场景（例如微服务、日志传输）         |
+     | **文件扩展名**     | `.xml`                                           | `.json`                                   | `.proto`（定义数据结构），编译后生成特定语言的文件         |
+     | **兼容性**         | 广泛支持，几乎所有平台和语言都支持               | 广泛支持，尤其是现代 Web 开发             | 需要使用 `protobuf` 库，支持多语言（C++, Java, Python 等） |
+
+164. C++中的JSON库(第三方库)（ [nlohmann/json](https://github.com/nlohmann/json)）提供了许多易用的接口来解析、构造和操作 JSON 数据。
+
+     ```c++
+     std::string json_str = "({
+             "name": "Alice",
+             "age": 30,
+             "isActive": true,
+             "address": {"city": "New York", "zip": "10001"},
+             "tags": ["python", "json", "c++"]
+     })";
+     
+     ```
+
+     1. `parse` - 解析 JSON 字符串
+
+        ```
+        using json = nlohmann::json;  // 可以简化，给类型别名
+        json j = json::parse(json_str);	
+        //功能： parse将一个 JSON 字符串解析为 json 对象。
+        //参数： json_string 是要解析的 JSON 格式的字符串。
+        ```
+
+     2. `dump` - 转换为 JSON 字符串
+
+        ```
+        std::string json_str = j.dump();
+        //功能： dump将 json 对象转换为一个格式化的 JSON 字符串。
+        //参数： indent 可以用来格式化输出，例如 j.dump(4) 会使用四个空格缩进。
+        ```
+
+     3. 访问和遍历Json数据
+
+        ```c++
+        // 访问值，nlohmann/json会自动根据传递的value类型解析对于的类型
+        std::string name = j["name"];
+        int age = j["age"];
+        // 设置值
+        j["name"] = "Bob";
+        j["age"] = 25;
+        
+        // 访问嵌套的 JSON 对象
+        std::string city = j["address"]["city"];
+        // 构建嵌套的 JSON 对象
+        j["address"] = {{"city", "New York"}, {"zip", "10001"}};
+        
+        // 访问数组元素
+        std::string first_tag = j["tags"][0];
+        // 向数组中添加元素
+        j["tags"].push_back("cpp");
+        
+        // 迭代器遍历 JSON 对象 ，items() 返回一个由键值对组成的迭代器
+        for (auto& el : j.items()) {
+            std::cout << el.key() << ": " << el.value() << std::endl;
+        }
+        
+        // 遍历 JSON 数组
+        for (const auto& el : j["tags"]) {
+            std::cout << el << std::endl;
+        }
+        ```
+
+     4. get - 转换为指定类型（可以是 C++ 基本类型，也可以是对象(包括容器)）
+
+        ```c++
+        std::string name = j["name"].get<std::string>();
+        int age = j["age"].get<int>();
+        bool isActive = j["isActive"].get<bool>();
+        std::vector<std::string> tags = j["tags"].get<std::vector<std::string>>(); //将 JSON 数组转换为 C++ 容器类型
+        ```
+
+     5. JSON 转换为 C++ 对象（反序列化）与 C++ 对象转换为 JSON（序列化）
+
+        ```c++
+        struct Person {
+            std::string name;
+            int age;
+            NLOHMANN_DEFINE_TYPE_INTRUSIVE(Person, name, age) 
+            // NLOHMANN_DEFINE_TYPE_INTRUSIVE 宏用于定义如何将 C++ 对象与 JSON 进行转换。
+        };
+        // JSON 转换为 C++ 对象
+        Person p = j.get<Person>();
+        // C++ 对象转换为 JSON
+        json j = person;
+        
+        ```
+
+165. 关于目标架构机调试：目标机器安装的是release包，想要现场调试，需要编译(make)Dbug包，再将对应的执行文件拖到目标架构机的对应位置。
+
+     > 注意带上函数返回值，某些架构因为函数没有返回值会卡住死机，某些架构只是会提醒。
 
 ### 4. 末尾
 
