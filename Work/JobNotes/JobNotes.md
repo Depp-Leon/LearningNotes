@@ -76,6 +76,8 @@
     选中代码->`ctrl+[`  / `ctrl+]`  #代码整体缩进或者右移：
     ctrl+G			#vs里面查找某一行快捷键
     ctrl+,			#打开setting设置
+    
+    ctrl+k   ctrl+s			#设置快捷键
     ```
 
 11. ubuntu快捷键
@@ -1465,16 +1467,17 @@ m_pPool->submit([this, pBundle]() {
     
     git rebase --continue  #发生冲突并解决冲突后继续执行rebase
     git rebase --abort	   #终止当前的 rebase 操作，并恢复到操作前的状态。
-    ```
-
-    **工作流程**:
-
+    git rebase --skip	   #跳过当前的补丁，即跳过正在导致冲突的提交，并继续应用后续的提交
+```
+    
+**工作流程**:
+    
     1. Git 会将分支的新提交保存为补丁
     2. 当前分支被移动到新基点。
-    3. 依次将保存的提交应用到新的基点上
-
-    **`rebase`和`merger`的区别**：
-
+3. 依次将保存的提交应用到新的基点上
+    
+**`rebase`和`merger`的区别**：
+    
     | **操作**             | **`git merge`**                  | **`git rebase`**                       |
     | -------------------- | -------------------------------- | -------------------------------------- |
     | **历史记录**         | 可能产生分叉历史                 | 产生线性历史                           |
@@ -3209,11 +3212,11 @@ m_pPool->submit([this, pBundle]() {
 
 |                           二月任务                           | 截至时间 | 完成情况 |
 | :----------------------------------------------------------: | :------: | :------: |
-|              隔离区恢复几千个病毒，界面卡主不动              |   2.14   |          |
-|                 查杀中的MD5优先从缓存中获取                  |   2.28   |          |
-| 关键位置扫描，增加其他扫描项（当前支持扫描contab）（需调研） |   2.28   |          |
+|              隔离区恢复几千个病毒，界面卡主不动              |   2.14   |    √     |
+|                 查杀中的MD5优先从缓存中获取                  |   2.28   |    √     |
+| 关键位置扫描，增加其他扫描项（当前支持扫描contab）（需调研） |   2.28   |    √     |
 |            708目录改变，低版本升级适配，shell脚本            |   2.28   |          |
-|                           bug修改                            |          |          |
+|                           bug修改                            |   2.28   |          |
 
 1. - [x] 隔离区恢复：数据量很大的情况下(1000往上)，恢复隔离区会导致磁盘占用显示问题，并且导致界面卡死
 
@@ -3224,20 +3227,32 @@ m_pPool->submit([this, pBundle]() {
      2. 扫描总数问题：默认在所有文件的基础上加了1万，应该是他计算不了所有的总数，只能一个文件夹的计算。如果修改了这块，那么内容多的情况下，进度条直接拉满了，而且还会后退？
 
         **猜测**：是计算文件夹总数那块逻辑有问题
-   
-   **思路**：由于文件恢复是每个文件恢复都会向ui发送一条请求，那么是否可以改变，使得10条发送一条请求(需要修改proto，直到恢复失败时或者数量达到10时)。并向UI发送后睡眠100ms，给UI刷新的机会
-   
-   1. 修改protobuffer，改为文件列表
-   
-   2. 修改safed逻辑，数量为10报一次或者直到失败/成功报一次
-   
-   3. 修改RJJHmodel逻辑，获取文件列表，然后在界面中将其删除，刷新界面、磁盘占用
-   
-   4. 使用信号槽，增加向后台获取隔离区空间的部分
-   
-      > 问题：这种情况由于消息的不及时未能实现同步刷新磁盘占用。后续需要增加操作，即将后台与隔离区相关的操作都要在protobuffer中加入磁盘占用。
 
-2. bug修改：
+   **思路**：由于文件恢复是每个文件恢复都会向ui发送一条请求，那么是否可以改变，使得10条发送一条请求(需要修改proto，直到恢复失败时或者数量达到10时)。并向UI发送后睡眠100ms，给UI刷新的机会
+
+   1. 修改protobuffer，改为文件列表
+
+   2. 修改safed逻辑，数量为10报一次或者直到失败/成功报一次
+
+   3. 修改RJJHmodel逻辑，获取文件列表，然后在界面中将其删除，刷新界面、磁盘占用
+
+   4. 使用信号槽，增加向后台获取隔离区空间的部分
+
+      > 问题1：在执行恢复/删除操作时请求同步隔离区空间的信号被放到执行完这个过程之后才被发送
+      >
+      > 问题2：磁盘显示问题，点的快的情况下。切换信任区时，界面也会显示磁盘占用
+
+2. - [x] 查杀中的MD5优先从缓存中获取
+
+3. - [x] 关键位置扫描，增加其他扫描项（当前支持扫描contab）（需调研）
+
+     > 问题：执行find获取高权限文件和最近修改的文件时，会有时间延迟。考虑是否将内存扫描、关键位置扫描做成两个线程,是否能够减少时间延迟？
+     >
+     > bug：扫描的过程中点击隔离区，下面子项的文件数会归0
+
+4. - [ ] 708目录改变，低版本升级适配，shell脚本
+
+5. bug修改：
 
    - [x] 某些架构因为访问网络白名单导致RJJH启动不起来
 
@@ -3245,9 +3260,11 @@ m_pPool->submit([this, pBundle]() {
 
      > 不同架构对于函数处理不同，比如ubuntuX64就不会出现这种问题，只是会给出警告
 
-   - [ ] 关于我们产品名称不正确
-
    - [ ] 授权信息：连接中控，授权信息中过期时间 与实际中控授权过期时间不一致
+
+   - [ ] 引擎设置恢复默认不生效问题
+
+   - [ ] 方德桌面通知管理的界面优化
 
 
 #### 2.2 暂时搁置
@@ -4683,720 +4700,732 @@ m_pPool->submit([this, pBundle]() {
 
 129. 在 Linux 中，`/proc` 是一个虚拟文件系统，它包含了系统和进程的详细信息。
 
-     <img src="source/images/JobNotes/image-20250114095351601.png" alt="image-20250114095351601" style="zoom:80%;" />
+       <img src="source/images/JobNotes/image-20250114095351601.png" alt="image-20250114095351601" style="zoom:80%;" />
 
-     1. 每个运行中的进程都有一个与其进程 ID（**PID**）对应的目录 `/proc/<PID>`，其中包含了与该进程相关的所有信息。
+       1. 每个运行中的进程都有一个与其进程 ID（**PID**）对应的目录 `/proc/<PID>`，其中包含了与该进程相关的所有信息。
 
-     2. 查看进程的命令行及参数， 该文件(cmdline)包含了进程的完整命令行及其参数(**即上图CMD一列**)，以空字符（\0）分隔。
+       2. 查看进程的命令行及参数， 该文件(cmdline)包含了进程的完整命令行及其参数(**即上图CMD一列**)，以空字符（\0）分隔。
 
-        ```
-        cat /proc/<PID>/cmdline
-        ```
+          ```
+          cat /proc/<PID>/cmdline
+          ```
+
+       3. 进程目录下存放的文件
+
+          ```
+          /proc/%d/exe   //这个文件是一个符号链接（symlink），它指向进程 %d 所执行的二进制可执行文件。
+          /proc/%d/status	//这个文件包含了进程 %d 的多种状态信息，包括内存使用、进程状态、PID 等信息
+          /proc/%d/cmdline  //这个文件包含了进程 %d 启动时的命令行参数，即启动该进程时执行的命令以及所有传递给它的参数。
+          ```
 
 130. Qt的DataModel实现方式总结
 
 131. 如果命名空间和外部cpp变量名有冲突，解决方式
-     1. 在cpp中使用的时候前面加上`命名空间前缀::`
-     2. 在作用域中使用`using namespace XXX`，限定同名变量为命名空间中的
-     3. 访问当前全局变量使用`::name`(也适用于在命名空间内部使用全局/区分全局和自己的同名变量)
-
-133. 关于**POSIX 标准**是一套**操作系统接口标准**，旨在提高不同 Unix 系统之间的兼容性、可移植性和互操作性。它定义了文件系统、进程管理、线程、信号等基本操作的接口，并为 Shell 和命令行工具提供了标准化的行为。POSIX 标准使得开发人员能够编写跨平台的程序，避免了操作系统特性差异带来的不便。
-
-     1. `dirent` 结构体:`dirent` 是 POSIX 标准提供的一个结构体，用于表示**目录项**。它通常与 `opendir()` 和 `readdir()` 函数一起使用来遍历目录
-
-        ```
-        #include <dirent.h>			// 需要导入头文件
-        
-        struct dirent {
-            ino_t          d_ino;       // 文件的 inode 编号
-            off_t          d_off;       // 目录项在目录流中的偏移
-            unsigned short d_reclen;    // 目录项的长度
-            unsigned char  d_type;      // 文件类型
-            char           d_name[256]; // 文件名
-        };
-        ```
-
-     2. `opendir()` 和 `readdir()`
-
-        ```
-        DIR *opendir(const char *name);		// 用于打开目录，返回一个 DIR* 类型的指针。
-        
-        struct dirent *readdir(DIR *dirp);	// 用于从已打开的目录流中读取下一个目录项。
-        ```
-
-     3. `readlink()`
-
-        ```
-        ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
-        // pathname：符号链接的路径。
-        // buf：用于存储符号链接目标路径的缓冲区。
-        // bufsiz：缓冲区大小。
-        // 成功时返回实际读取的字节数（不包括终止符 '\0'）。
-        ```
-
-     4. `kill()` 函数是一个系统调用，用于向进程发送信号。它属于 **POSIX** 标准
-
-        ```
-        #include <signal.h>
-        
-        int kill(pid_t pid, int sig);
-        // pid为正数时是进程号，-1为所有进程
-        // sig：指定发送的信号，可以是任何合法的信号，如 SIGKILL（杀死进程），SIGTERM（请求终止进程），SIGSTOP（暂停进程）等。
-        ```
-
-134. `sscanf()`和`sprintf()`
-
-     1. `sscanf()` 用于从字符串中提取数据，类似于 `scanf()`，但它从字符串读取而不是从标准输入。
-
-        ```
-        int sscanf(const char *str, const char *format, ...);
-        // str：待处理的字符串。
-        // format：格式字符串，指定输入的格式。
-        // 后续参数：根据格式化字符串，提供相应类型的变量以存储提取的值。
-        
-        示例：
-        int pid = 0;
-        sscanf(ptr->d_name, "%d", &pid);	// 将ptr->d_name作为int类型保存到pid
-        ```
-
-     2. `sprintf()` 用于格式化字符串并将其输出到字符数组中
-
-        ```
-        int sprintf(char *str, const char *format, ...);
-        // str：目标字符数组，用于存储格式化后的字符串。
-        // format：格式字符串，类似于 printf()。
-        // 后续参数：根据格式化字符串，提供需要格式化的值。
-        
-        示例：
-        char buffer[100];
-        int pid = 1234;
-        sprintf(buffer, "Process ID: %d", pid);	// 将pid存储到buffer
-        std::cout << buffer << std::endl;
-        ```
-
-135. 执行`map[key]`会发生的行为：
-     1. **查找**：`m_process_list[token]` 会尝试查找 `m_process_list` 中是否已经存在键为 `token` 的元素。
-     2. **如果元素不存在**：`std::map` 会自动创建一个新的元素，其中键为 `token`，值为该键对应的默认值。
-     3. **如果元素已存在**：`operator[]` 会返回对应的值（即 `std::set<pid_t>`），可以直接对其进行操作。
-
-136. 连接中控，向`safed`发送跟换`ip`信息，给`ctrl_center`传递一个回调函数，当连接后调用回调向UI界面发送状态
-
-137. `make clean` ：删除在编译过程中生成的所有中间文件（如目标文件 `.o`、可执行文件、自动生成的依赖文件等），目的是清理项目目录，为重新编译做准备。
-
-138. gdb关于设置断点相关命令
-
-     1. 设置断点
-
-        ```
-        break <函数名>    ->  b <函数名>
-        break <文件名>:<行号>    ->  b <文件名>:<行号>
-        
-        break <函数名> if <条件>   ->  b <函数名> if <条件>
-        break <文件名>:<行号> if <条件>  ->  b <文件名>:<行号> if <条件>
-        ```
-
-     2. 管理断点
-
-        ```
-        info breakpoints  ->  i b				// 列出所有断点
-        info break <断点编号>   ->  i b <断点编号>	// 查看断点状态
-        
-        disable <断点编号>   ->  d <断点编号>	  // 禁用某断点
-        enable <断点编号>    ->  e <断点编号>	  // 启用某断点
-        delete <断点编号>    ->  del <断点编号>	  // 删除某断点
-        ```
-
-     3. 执行断点
-
-        ```
-        continue   ->  c	// 继续执行后续程序
-        
-        step       ->  s	// 逐步骤，进入函数内单步执行
-        finish 	   ->  fin	// 在函数内执行剩余的代码直到函数返回，并且在返回时停止在调用该函数的地方
-        
-        next       ->  n	// 逐过程，跳过函数执行
-        ```
-
-139. 关于gdb给目标函数打断点
-
-     1. 只b函数名，那么会匹配所有该函数名的函数(适用**全局函数**)
-
-     2. 对于带有**命名空间**或者**类成员函数**，需要加上**命名空间/类名前缀**
-
-     3. 不需要带返回值和参数。对于**重载函数**或**模板函数**，需要根据需要提供参数类型或模板参数以区分
+       1. 在cpp中使用的时候前面加上`命名空间前缀::`
+       2. 在作用域中使用`using namespace XXX`，限定同名变量为命名空间中的
+       3. 访问当前全局变量使用`::name`(也适用于在命名空间内部使用全局/区分全局和自己的同名变量)
+
+132. 关于**POSIX 标准**是一套**操作系统接口标准**，旨在提高不同 Unix 系统之间的兼容性、可移植性和互操作性。它定义了文件系统、进程管理、线程、信号等基本操作的接口，并为 Shell 和命令行工具提供了标准化的行为。POSIX 标准使得开发人员能够编写跨平台的程序，避免了操作系统特性差异带来的不便。
+
+       1. `dirent` 结构体:`dirent` 是 POSIX 标准提供的一个结构体，用于表示**目录项**。它通常与 `opendir()` 和 `readdir()` 函数一起使用来遍历目录
+
+          ```
+          #include <dirent.h>			// 需要导入头文件
+          
+          struct dirent {
+              ino_t          d_ino;       // 文件的 inode 编号
+              off_t          d_off;       // 目录项在目录流中的偏移
+              unsigned short d_reclen;    // 目录项的长度
+              unsigned char  d_type;      // 文件类型
+              char           d_name[256]; // 文件名
+          };
+          ```
+
+       2. `opendir()` 和 `readdir()`
+
+          ```
+          DIR *opendir(const char *name);		// 用于打开目录，返回一个 DIR* 类型的指针。
+          
+          struct dirent *readdir(DIR *dirp);	// 用于从已打开的目录流中读取下一个目录项。
+          ```
+
+       3. `readlink()`
+
+          ```
+          ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
+          // pathname：符号链接的路径。
+          // buf：用于存储符号链接目标路径的缓冲区。
+          // bufsiz：缓冲区大小。
+          // 成功时返回实际读取的字节数（不包括终止符 '\0'）。
+          ```
+
+       4. `kill()` 函数是一个系统调用，用于向进程发送信号。它属于 **POSIX** 标准
+
+          ```
+          #include <signal.h>
+          
+          int kill(pid_t pid, int sig);
+          // pid为正数时是进程号，-1为所有进程
+          // sig：指定发送的信号，可以是任何合法的信号，如 SIGKILL（杀死进程），SIGTERM（请求终止进程），SIGSTOP（暂停进程）等。
+          ```
+
+133. `sscanf()`和`sprintf()`
+
+       1. `sscanf()` 用于从字符串中提取数据，类似于 `scanf()`，但它从字符串读取而不是从标准输入。
+
+          ```
+          int sscanf(const char *str, const char *format, ...);
+          // str：待处理的字符串。
+          // format：格式字符串，指定输入的格式。
+          // 后续参数：根据格式化字符串，提供相应类型的变量以存储提取的值。
+          
+          示例：
+          int pid = 0;
+          sscanf(ptr->d_name, "%d", &pid);	// 将ptr->d_name作为int类型保存到pid
+          ```
+
+       2. `sprintf()` 用于格式化字符串并将其输出到字符数组中
+
+          ```
+          int sprintf(char *str, const char *format, ...);
+          // str：目标字符数组，用于存储格式化后的字符串。
+          // format：格式字符串，类似于 printf()。
+          // 后续参数：根据格式化字符串，提供需要格式化的值。
+          
+          示例：
+          char buffer[100];
+          int pid = 1234;
+          sprintf(buffer, "Process ID: %d", pid);	// 将pid存储到buffer
+          std::cout << buffer << std::endl;
+          ```
+
+134. 执行`map[key]`会发生的行为：
+       1. **查找**：`m_process_list[token]` 会尝试查找 `m_process_list` 中是否已经存在键为 `token` 的元素。
+       2. **如果元素不存在**：`std::map` 会自动创建一个新的元素，其中键为 `token`，值为该键对应的默认值。
+       3. **如果元素已存在**：`operator[]` 会返回对应的值（即 `std::set<pid_t>`），可以直接对其进行操作。
+
+135. 连接中控，向`safed`发送跟换`ip`信息，给`ctrl_center`传递一个回调函数，当连接后调用回调向UI界面发送状态
+
+136. `make clean` ：删除在编译过程中生成的所有中间文件（如目标文件 `.o`、可执行文件、自动生成的依赖文件等），目的是清理项目目录，为重新编译做准备。
+
+137. gdb关于设置断点相关命令
+
+       1. 设置断点
+
+          ```
+          break <函数名>    ->  b <函数名>
+          break <文件名>:<行号>    ->  b <文件名>:<行号>
+          
+          break <函数名> if <条件>   ->  b <函数名> if <条件>
+          break <文件名>:<行号> if <条件>  ->  b <文件名>:<行号> if <条件>
+          ```
+
+       2. 管理断点
+
+          ```
+          info breakpoints  ->  i b				// 列出所有断点
+          info break <断点编号>   ->  i b <断点编号>	// 查看断点状态
+          
+          disable <断点编号>   ->  d <断点编号>	  // 禁用某断点
+          enable <断点编号>    ->  e <断点编号>	  // 启用某断点
+          delete <断点编号>    ->  del <断点编号>	  // 删除某断点
+          ```
+
+       3. 执行断点
+
+          ```
+          continue   ->  c	// 继续执行后续程序
+          
+          step       ->  s	// 逐步骤，进入函数内单步执行
+          finish 	   ->  fin	// 在函数内执行剩余的代码直到函数返回，并且在返回时停止在调用该函数的地方
+          
+          next       ->  n	// 逐过程，跳过函数执行
+          ```
 
-        ```
-        break my_function@int      	   # 匹配 my_function(int) 的重载版本
-        break my_function@int,double   # 匹配 my_function(int,double) 的重载版本
-        
-        break my_template<int>    	   # 设置在模板函数 my_template<int> 的断点
-        ```
-
-140. 文件加密：`libsource/SqliteMgr/test/IsoAreaOper.cpp` ：59行
-
-     ```
-     char buff[1024] = {'\0'};
-         int len = 0;
-         while((len = read(fin, buff, sizeof(buff))) > 0)
-         {
-             DataEncrypt((BYTE*)buff, len, g_Enkey);
-             write(fout, buff, len);
-             memset(&buff,0,sizeof(buff));
-         }
-     ```
-
-141. openssl库
-
-142. 为什么git需要输入密码：原因是使用了不同的认证方式（SSH vs HTTPS），当在远端配置了公钥后，可以直接使用SSH拉取，并且后续操作不需要密码。而使用HTTPS则每次都需要输入密码。
-
-     > **SSH 认证**：如果你使用的是 SSH 方式（即 URL 以 `git@` 开头），Git 会使用你本地配置的 SSH 密钥来进行认证。如果你已经设置了 SSH 密钥并且将其添加到你的 Git 服务（如 GitHub）上，Git 就不需要每次都输入密码。
-     >
-     > **HTTPS 认证**：如果你使用的是 HTTPS 方式（即 URL 以 `https://` 开头），Git 会要求输入用户名和密码（或者 Git 服务使用的个人访问令牌 `token`）。如果没有缓存凭据或没有配置凭据助手，每次拉取时就会要求输入密码。
-     
-143. 关于分离进程和守护进程：
-
-     **分离进程**：分离进程是指一个进程从其父进程中“分离”出来，不再受父进程的控制。父进程和子进程各自独立运行，父进程不必等待子进程结束。
-
-     > 分离进程通常用于那些需要**在后台独立运行的程序**，例如在启动时与终端会话断开的任务。
-
-     ```c++
-     pid_t pid = fork();
-     if (pid < 0) {
-         // 错误处理
-         exit(1);
-     } else if (pid > 0) {
-         exit(0);  // 父进程退出
-     }
-     // 子进程中 即  pid == 0 为子进程
-     if (setsid() < 0) {				
-         // 错误处理
-         exit(1);
-     }
-     
-     ```
-
-     **守护进程**：守护进程是一种特殊的分离进程，它通常用于长期运行的**后台服务**。守护进程的生命周期**独立于任何控制终端**。
-
-     > 通常需要先调用分离进程`fork`，再将子进程作为守护进程
-
-     ```
-     bool becomeDaemon()
-         {
-             if (chdir("/") == -1) {
-                 return false;
-             }
-     
-             if (daemon(0, 0) != 0) {
-                 std::cerr << "Failed to daemonize." << std::endl;
-                 return false;
-             }
-     
-             std::cout << "Daemon started." << std::endl;
-             return true;
-         }
-     ```
-
-     **两者区别**：
-
-     1. 分离进程作为子进程，会受到父类的**资源管理和生命周期**方面的影响。**不会自动管理资源**，也 **没有恢复机制**，通常用于那些希望在后台执行、但不需要长期稳定服务的进程。
-     2. 守护进程 **脱离了父进程和终端的控制**，并且通过一系列的步骤（如 `setsid()`、`chdir()`、关闭文件描述符等）确保自己可以长期独立稳定地运行。它 **不受父进程结束的影响**，并且具有 **自我管理能力**，如资源回收、自动重启等。通常用于后台服务和长期运行的任务
-
-146. 关于代码编译有感
-
-     **预处理-->编译-->汇编-->链接**
-
-     1. 预处理：将**`include`**要插入的文件插入，并将**宏定义**展开，并处理**using**声明
-
-        > 所以说include包含的头文件，不要加入函数定义，否则会增加编译负担。
-
-     2. 编译阶段：就是将代码通过编译器(g++或者minGW)生成汇编程序
-
-     3. 汇编阶段：将通过汇编器汇编程序生成机器代码(二进制Obj文件)
-
-        > 一般编译器都是集成了编译器和汇编器，统称为编译器
-
-     4. 链接阶段：将目标Obj文件、系统的Obj文件、库文件链接起来**生成可执行程序或者库文件**
-
-        > 又分为动态链接和静态链接，设计到计算机操作系统的内存管理那块的知识。
-        >
-        > 动态链接在程序运行时再链接，一般适用于段式存储。
-
-147. 关于链接过程
-
-     链接之后的可执行二进制文件包含了程序的所有机器代码、数据、符号表、调试信息等。就拿windows为例：
-
-     ```
-     操作系统：Windows
-     文件扩展名：.exe（可执行文件）、.dll（动态链接库）
-     结构：
-     DOS Header：包含 DOS 兼容性信息，Windows 加载器使用这个来判断是否为 Windows 可执行文件。
-     PE Header：标识 Windows 可执行文件格式的部分。
-     Section Headers：包含各个段的信息（如 .text、.data、.rsrc 等）。
-     节（Sections）：
-     .text：代码段，包含程序执行的机器码。
-     .data：包含已初始化的全局变量。
-     .rdata：包含只读数据（如常量字符串、只读变量等）。
-     .bss：未初始化的全局变量。
-     .rsrc：包含资源信息，如图标、菜单等
-     
-     # PE文件具体举例
-     MS DOS Header:
-       e_magic:  4D 5A (标识符)
-       e_lfanew: 0x3C (PE Header 偏移量)
-     
-     PE Header:
-       Signature: 50 45 00 00 (PE 标识符)
-       Machine:   x86_64
-       Number of Sections: 5
-       TimeDateStamp: ...
-       PointerToSymbolTable: ...
-     
-     Section Headers:
-       .text      0x00000000
-       .data      0x00010000
-       .rsrc      0x00020000
-     ```
-
-     1. 链接阶段之后，该文件包含了不同数据段的虚拟地址(可以从上面看到地址从0开始)
-
-        ```
-        程序的代码段（Text Segment）：包含了编译后的机器码，即程序的指令。
-        数据段（Data Segment）：包含初始化过的全局变量和静态变量。
-        BSS段（BSS Segment）：包含未初始化的全局变量和静态变量。
-        堆（Heap）：用于动态分配内存（如 malloc、new 等）。
-        堆栈（Stack）：用于存储局部变量、函数调用信息（如返回地址、保存的寄存器等）。
-        ```
-
-     2. 操作系统加载该可执行程序之后，将不同段的数据(虚拟地址映射为真实地址)
-
-        - 操作系统为每个程序分配一个独立的**虚拟地址空间**。这个虚拟地址空间的分配通常是按照一定的规则来做的，并且是**逻辑连续**的
-        - 操作系统将可执行文件的各个段加载到分配的虚拟地址空间中。操作系统会将虚拟地址空间中的每个段映射到物理内存中的具体位置，这一过程由**虚拟内存管理**和**页表**来处理。
-        - 操作系统通过**页表**将虚拟地址映射到物理地址。页表是一个由操作系统维护的数据结构，它记录了虚拟地址和物理地址之间的映射关系。在程序执行时，CPU会使用页表来将虚拟地址转换为物理地址。
-
-        > 如果操作系统内存分配时连续分配，则逻辑和物理地址都是连续的。如果使用了非连续分配的方式(如页表)，那么逻辑顺序不变，但是物理地址是非连续的。
-        >
-        > 下面图为：**操作系统为每个程序分配的虚拟地址空间**
-
-        <img src="source/images/JobNotes/2103aa39c28a4b41be9a57145304ca8b.png" alt="2103aa39c28a4b41be9a57145304ca8b" style="zoom:50%;" />
-
-148. VSCode是微软出的一款轻量级编辑器，它本身**只是一款文本编辑器**而已，并**不是一个集成开发环境(IDE)**，几乎所有功能都是以插件扩展的形式所存在的。因此，我们想用它编程，不只是把vscode下载下来就行，还需要**安装对应编程语言的扩展**以及**相应的编译器**
-
-     1. C++编译器：
-
-        > - Linux用**gcc**
-        > - Windows 用**msvc**(visual studio使用)，**minGW**(Windows平台上的GNU工具集合)
-        > - ios/mac 用**clang**(也可以在window下使用)
-
-     2. 关于VScode下的`.vscode`文件夹
-
-        1. `c_cpp_properties.json`
-           - **作用**: 用于配置 C/C++ 项目的 IntelliSense（自动补全、语法高亮等）功能。
-           - **主要配置项**:
-             - `includePath`: 指定包含头文件的路径。
-             - `defines`: 定义预处理器宏。
-             - `compilerPath`: 配置编译器的路径，影响 IntelliSense 的工作方式。
-             - `intelliSenseMode`: 设置 IntelliSense 的模式，例如 `gcc`、`clang` 或 `msvc`。
-        2. `settings.json`
-           - **作用**: 存储工作区的特定设置，覆盖全局设置。用于调整 VS Code 编辑器的行为和外观，或者为当前项目定制工作环境。
-           - **主要配置项**:
-             - `files.associations`：用于将文件类型与特定语言进行关联。它允许你指定哪些文件扩展名对应于哪些语言。
-        3. `launch.json`
-           - **作用**: 配置调试环境。它定义了如何启动调试会话，指明要运行的程序、调试器的配置、环境变量等。
-           - **常见字段**:
-             - `program`: 要调试的程序的路径。
-             - `args`: 启动程序时传递的命令行参数。
-             - `stopAtEntry`: 设置是否在程序入口处暂停。
-             - `cwd`: 设置工作目录。
-        4. `tasks.json`
-           - **作用**: 用于配置构建和执行任务。你可以通过这个文件配置项目的构建、测试等自动化任务，并通过 VS Code 的任务系统来运行。
-           - **常见字段**:
-             - `label`: 任务的名称，通常在任务面板中显示。
-             - `type`: 任务的类型（例如，shell、process 等）。
-             - `command`: 执行的命令。
-             - `args`: 命令的参数。
-             - `group`: 将任务分类，便于管理。
-
-        > `launch.json`和`tasks.json`主要用来在vscode这个编辑器中配置调试（debug）和 构建（build）、执行（run）信息。**如果不需要在vscode中调试和执行，那么不需要撰写这两个文件**。比如使用ssh远程连接linux下的文件，只需要保证在linux下有关于C++的编译器和调试器gdb以及项目构建使用的cmake。
-
-149. vscode远程操作，这种模式完美实现了“本地编辑，远程编译调试”，尤其适合跨平台开发或依赖Linux环境的场景
-
-     1. 安装vscode
-
-     2. 安装`Remote - SSH`插件
-
-        ```
-        1. Remote-SSH: Connect to Host.. || 选择“Add New SSH Host...”	添加新的ssh远程主机		(格式为user@192.168.1.10)
-        2. 再次Remote-SSH: Connect to Host..	|| 选择刚刚添加的主机并输入密码等待连接成功
-        3. 会提示选择一个目录作为工作区
-        ```
-
-     3. 首次登录后，VS Code会自动弹出一个新的窗口用于远程工作，并且会自动在远程主机上安装VS Code server。
-     4. 在vscode安装其他插件，比如C/C++拓展...
-
-150. 关于公钥私钥
-
-     1. **作用**：公钥和私钥是一对加密密钥，主要用于加密和身份验证。公钥是公开的，任何人都可以获取；而私钥是保密的，只有你自己拥有。
-
-        > **公钥**：用于加密或验证签名。你将公钥放在服务器上（如 `authorized_keys` 中），然后当你尝试连接时，服务器会使用该公钥验证你的身份。
-        >
-        > **私钥**：用于解密或生成签名。你保存在本地，不应与他人共享
-
-     2. 原则上**只要两个支持SSH协议都可以使用公钥和私钥来实现免密连接**；公钥和私钥是基于 SSH 协议的，与git并没有之间关系。只是连接git仓库使用到了公钥私钥，将本地公钥放入git仓库只是方便仓库认证本地的。
-
-     3. **linux系统下的使用**：
-
-        ```
-        打开终端。
-        运行相同的命令：ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
-        这将生成 RSA 密钥对，保存到 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub。
-        将公钥 id_rsa.pub 内容复制到远程服务器的 ~/.ssh/authorized_keys 文件中。
-        ```
-
-     4. **windows系统下的使用**：
-
-        ```
-        打开 Git Bash 或者其他终端工具。
-        运行命令：ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
-        这将生成一个 4096 位的 RSA 密钥对。
-        默认情况下，密钥会保存在 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub 中。
-        将公钥 id_rsa.pub 内容复制到远程服务器的 ~/.ssh/authorized_keys 文件中。
-        ```
-
-     5. 生成密钥**命令解析**
-
-        ```
-        ssh-keygen
-        // 默认生成 ED25519 类型的密钥
-        // 默认密钥长度为 256位（ED25519的固定长度）
-        // 默认注释为 username@hostname（例如 jiayuandi@chenxin-jiayuandi）
-        ```
-
-        ```
-        ssh-keygen -t rsa -b 4096 -C "jiayuandi@v-secure.cn -f ~/.ssh/my_rsa_key
-        // -t	指定生成 RSA 类型的密钥。
-        // -b	指定密钥长度为 4096位。
-        // -C	指定注释为 jiayuandi@v-secure.cn。
-        // -f 	指定将密钥生成到目标路径。默认情况下，密钥会保存在用户主目录下的 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub 文件中。上面命令将生成 ~/.ssh/my_rsa_key（私钥）和 ~/.ssh/my_rsa_key.pub（公钥）
-        ```
-
-151. copilot： ai编程如何使用
+138. 关于gdb给目标函数打断点
+
+       1. 只b函数名，那么会匹配所有该函数名的函数(适用**全局函数**)
+
+       2. 对于带有**命名空间**或者**类成员函数**，需要加上**命名空间/类名前缀**
+
+       3. 不需要带返回值和参数。对于**重载函数**或**模板函数**，需要根据需要提供参数类型或模板参数以区分
+
+          ```
+          break my_function@int      	   # 匹配 my_function(int) 的重载版本
+          break my_function@int,double   # 匹配 my_function(int,double) 的重载版本
+          
+          break my_template<int>    	   # 设置在模板函数 my_template<int> 的断点
+          ```
+
+139. 文件加密：`libsource/SqliteMgr/test/IsoAreaOper.cpp` ：59行
+
+       ```
+       char buff[1024] = {'\0'};
+           int len = 0;
+           while((len = read(fin, buff, sizeof(buff))) > 0)
+           {
+               DataEncrypt((BYTE*)buff, len, g_Enkey);
+               write(fout, buff, len);
+               memset(&buff,0,sizeof(buff));
+           }
+       ```
+
+140. openssl库
+
+141. 为什么git需要输入密码：原因是使用了不同的认证方式（SSH vs HTTPS），当在远端配置了公钥后，可以直接使用SSH拉取，并且后续操作不需要密码。而使用HTTPS则每次都需要输入密码。
+
+       > **SSH 认证**：如果你使用的是 SSH 方式（即 URL 以 `git@` 开头），Git 会使用你本地配置的 SSH 密钥来进行认证。如果你已经设置了 SSH 密钥并且将其添加到你的 Git 服务（如 GitHub）上，Git 就不需要每次都输入密码。
+       >
+       > **HTTPS 认证**：如果你使用的是 HTTPS 方式（即 URL 以 `https://` 开头），Git 会要求输入用户名和密码（或者 Git 服务使用的个人访问令牌 `token`）。如果没有缓存凭据或没有配置凭据助手，每次拉取时就会要求输入密码。
+
+142. 关于分离进程和守护进程：
+
+       **分离进程**：分离进程是指一个进程从其父进程中“分离”出来，不再受父进程的控制。父进程和子进程各自独立运行，父进程不必等待子进程结束。
+
+       > 分离进程通常用于那些需要**在后台独立运行的程序**，例如在启动时与终端会话断开的任务。
+
+       ```c++
+       pid_t pid = fork();
+       if (pid < 0) {
+           // 错误处理
+           exit(1);
+       } else if (pid > 0) {
+           exit(0);  // 父进程退出
+       }
+       // 子进程中 即  pid == 0 为子进程
+       if (setsid() < 0) {				
+           // 错误处理
+           exit(1);
+       }
+       
+       ```
+
+       **守护进程**：守护进程是一种特殊的分离进程，它通常用于长期运行的**后台服务**。守护进程的生命周期**独立于任何控制终端**。
+
+       > 通常需要先调用分离进程`fork`，再将子进程作为守护进程
+
+       ```
+       bool becomeDaemon()
+           {
+               if (chdir("/") == -1) {
+                   return false;
+               }
+       
+               if (daemon(0, 0) != 0) {
+                   std::cerr << "Failed to daemonize." << std::endl;
+                   return false;
+               }
+       
+               std::cout << "Daemon started." << std::endl;
+               return true;
+           }
+       ```
+
+       **两者区别**：
+
+       1. 分离进程作为子进程，会受到父类的**资源管理和生命周期**方面的影响。**不会自动管理资源**，也 **没有恢复机制**，通常用于那些希望在后台执行、但不需要长期稳定服务的进程。
+       2. 守护进程 **脱离了父进程和终端的控制**，并且通过一系列的步骤（如 `setsid()`、`chdir()`、关闭文件描述符等）确保自己可以长期独立稳定地运行。它 **不受父进程结束的影响**，并且具有 **自我管理能力**，如资源回收、自动重启等。通常用于后台服务和长期运行的任务
+
+143. 关于代码编译有感
+
+       **预处理-->编译-->汇编-->链接**
+
+       1. 预处理：将**`include`**要插入的文件插入，并将**宏定义**展开，并处理**using**声明
+
+          > 所以说include包含的头文件，不要加入函数定义，否则会增加编译负担。
+
+       2. 编译阶段：就是将代码通过编译器(g++或者minGW)生成汇编程序
+
+       3. 汇编阶段：将通过汇编器汇编程序生成机器代码(二进制Obj文件)
+
+          > 一般编译器都是集成了编译器和汇编器，统称为编译器
+
+       4. 链接阶段：将目标Obj文件、系统的Obj文件、库文件链接起来**生成可执行程序或者库文件**
+
+          > 又分为动态链接和静态链接，设计到计算机操作系统的内存管理那块的知识。
+          >
+          > 动态链接在程序运行时再链接，一般适用于段式存储。
+
+144. 关于链接过程
+
+       链接之后的可执行二进制文件包含了程序的所有机器代码、数据、符号表、调试信息等。就拿windows为例：
+
+       ```
+       操作系统：Windows
+       文件扩展名：.exe（可执行文件）、.dll（动态链接库）
+       结构：
+       DOS Header：包含 DOS 兼容性信息，Windows 加载器使用这个来判断是否为 Windows 可执行文件。
+       PE Header：标识 Windows 可执行文件格式的部分。
+       Section Headers：包含各个段的信息（如 .text、.data、.rsrc 等）。
+       节（Sections）：
+       .text：代码段，包含程序执行的机器码。
+       .data：包含已初始化的全局变量。
+       .rdata：包含只读数据（如常量字符串、只读变量等）。
+       .bss：未初始化的全局变量。
+       .rsrc：包含资源信息，如图标、菜单等
+       
+       # PE文件具体举例
+       MS DOS Header:
+         e_magic:  4D 5A (标识符)
+         e_lfanew: 0x3C (PE Header 偏移量)
+       
+       PE Header:
+         Signature: 50 45 00 00 (PE 标识符)
+         Machine:   x86_64
+         Number of Sections: 5
+         TimeDateStamp: ...
+         PointerToSymbolTable: ...
+       
+       Section Headers:
+         .text      0x00000000
+         .data      0x00010000
+         .rsrc      0x00020000
+       ```
+
+       1. 链接阶段之后，该文件包含了不同数据段的虚拟地址(可以从上面看到地址从0开始)
+
+          ```
+          程序的代码段（Text Segment）：包含了编译后的机器码，即程序的指令。
+          数据段（Data Segment）：包含初始化过的全局变量和静态变量。
+          BSS段（BSS Segment）：包含未初始化的全局变量和静态变量。
+          堆（Heap）：用于动态分配内存（如 malloc、new 等）。
+          堆栈（Stack）：用于存储局部变量、函数调用信息（如返回地址、保存的寄存器等）。
+          ```
+
+       2. 操作系统加载该可执行程序之后，将不同段的数据(虚拟地址映射为真实地址)
+
+          - 操作系统为每个程序分配一个独立的**虚拟地址空间**。这个虚拟地址空间的分配通常是按照一定的规则来做的，并且是**逻辑连续**的
+          - 操作系统将可执行文件的各个段加载到分配的虚拟地址空间中。操作系统会将虚拟地址空间中的每个段映射到物理内存中的具体位置，这一过程由**虚拟内存管理**和**页表**来处理。
+          - 操作系统通过**页表**将虚拟地址映射到物理地址。页表是一个由操作系统维护的数据结构，它记录了虚拟地址和物理地址之间的映射关系。在程序执行时，CPU会使用页表来将虚拟地址转换为物理地址。
+
+          > 如果操作系统内存分配时连续分配，则逻辑和物理地址都是连续的。如果使用了非连续分配的方式(如页表)，那么逻辑顺序不变，但是物理地址是非连续的。
+          >
+          > 下面图为：**操作系统为每个程序分配的虚拟地址空间**
+
+          <img src="source/images/JobNotes/2103aa39c28a4b41be9a57145304ca8b.png" alt="2103aa39c28a4b41be9a57145304ca8b" style="zoom:50%;" />
+
+145. VSCode是微软出的一款轻量级编辑器，它本身**只是一款文本编辑器**而已，并**不是一个集成开发环境(IDE)**，几乎所有功能都是以插件扩展的形式所存在的。因此，我们想用它编程，不只是把vscode下载下来就行，还需要**安装对应编程语言的扩展**以及**相应的编译器**
+
+       1. C++编译器：
+
+          > - Linux用**gcc**
+          > - Windows 用**msvc**(visual studio使用)，**minGW**(Windows平台上的GNU工具集合)
+          > - ios/mac 用**clang**(也可以在window下使用)
+
+       2. 关于VScode下的`.vscode`文件夹
+
+          1. `c_cpp_properties.json`
+             - **作用**: 用于配置 C/C++ 项目的 IntelliSense（自动补全、语法高亮等）功能。
+             - **主要配置项**:
+               - `includePath`: 指定包含头文件的路径。
+               - `defines`: 定义预处理器宏。
+               - `compilerPath`: 配置编译器的路径，影响 IntelliSense 的工作方式。
+               - `intelliSenseMode`: 设置 IntelliSense 的模式，例如 `gcc`、`clang` 或 `msvc`。
+          2. `settings.json`
+             - **作用**: 存储工作区的特定设置，覆盖全局设置。用于调整 VS Code 编辑器的行为和外观，或者为当前项目定制工作环境。
+             - **主要配置项**:
+               - `files.associations`：用于将文件类型与特定语言进行关联。它允许你指定哪些文件扩展名对应于哪些语言。
+          3. `launch.json`
+             - **作用**: 配置调试环境。它定义了如何启动调试会话，指明要运行的程序、调试器的配置、环境变量等。
+             - **常见字段**:
+               - `program`: 要调试的程序的路径。
+               - `args`: 启动程序时传递的命令行参数。
+               - `stopAtEntry`: 设置是否在程序入口处暂停。
+               - `cwd`: 设置工作目录。
+          4. `tasks.json`
+             - **作用**: 用于配置构建和执行任务。你可以通过这个文件配置项目的构建、测试等自动化任务，并通过 VS Code 的任务系统来运行。
+             - **常见字段**:
+               - `label`: 任务的名称，通常在任务面板中显示。
+               - `type`: 任务的类型（例如，shell、process 等）。
+               - `command`: 执行的命令。
+               - `args`: 命令的参数。
+               - `group`: 将任务分类，便于管理。
+
+          > `launch.json`和`tasks.json`主要用来在vscode这个编辑器中配置调试（debug）和 构建（build）、执行（run）信息。**如果不需要在vscode中调试和执行，那么不需要撰写这两个文件**。比如使用ssh远程连接linux下的文件，只需要保证在linux下有关于C++的编译器和调试器gdb以及项目构建使用的cmake。
+
+146. vscode远程操作，这种模式完美实现了“本地编辑，远程编译调试”，尤其适合跨平台开发或依赖Linux环境的场景
+
+       1. 安装vscode
+
+       2. 安装`Remote - SSH`插件
+
+          ```
+          1. Remote-SSH: Connect to Host.. || 选择“Add New SSH Host...”	添加新的ssh远程主机		(格式为user@192.168.1.10)
+          2. 再次Remote-SSH: Connect to Host..	|| 选择刚刚添加的主机并输入密码等待连接成功
+          3. 会提示选择一个目录作为工作区
+          ```
+
+       3. 首次登录后，VS Code会自动弹出一个新的窗口用于远程工作，并且会自动在远程主机上安装VS Code server。
+       4. 在vscode安装其他插件，比如C/C++拓展...
+
+147. 关于公钥私钥
+
+       1. **作用**：公钥和私钥是一对加密密钥，主要用于加密和身份验证。公钥是公开的，任何人都可以获取；而私钥是保密的，只有你自己拥有。
+
+          > **公钥**：用于加密或验证签名。你将公钥放在服务器上（如 `authorized_keys` 中），然后当你尝试连接时，服务器会使用该公钥验证你的身份。
+          >
+          > **私钥**：用于解密或生成签名。你保存在本地，不应与他人共享
+
+       2. 原则上**只要两个支持SSH协议都可以使用公钥和私钥来实现免密连接**；公钥和私钥是基于 SSH 协议的，与git并没有之间关系。只是连接git仓库使用到了公钥私钥，将本地公钥放入git仓库只是方便仓库认证本地的。
+
+       3. **linux系统下的使用**：
+
+          ```
+          打开终端。
+          运行相同的命令：ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+          这将生成 RSA 密钥对，保存到 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub。
+          将公钥 id_rsa.pub 内容复制到远程服务器的 ~/.ssh/authorized_keys 文件中。
+          ```
+
+       4. **windows系统下的使用**：
+
+          ```
+          打开 Git Bash 或者其他终端工具。
+          运行命令：ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+          这将生成一个 4096 位的 RSA 密钥对。
+          默认情况下，密钥会保存在 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub 中。
+          将公钥 id_rsa.pub 内容复制到远程服务器的 ~/.ssh/authorized_keys 文件中。
+          ```
+
+       5. 生成密钥**命令解析**
+
+          ```
+          ssh-keygen
+          // 默认生成 ED25519 类型的密钥
+          // 默认密钥长度为 256位（ED25519的固定长度）
+          // 默认注释为 username@hostname（例如 jiayuandi@chenxin-jiayuandi）
+          ```
+
+          ```
+          ssh-keygen -t rsa -b 4096 -C "jiayuandi@v-secure.cn -f ~/.ssh/my_rsa_key
+          // -t	指定生成 RSA 类型的密钥。
+          // -b	指定密钥长度为 4096位。
+          // -C	指定注释为 jiayuandi@v-secure.cn。
+          // -f 	指定将密钥生成到目标路径。默认情况下，密钥会保存在用户主目录下的 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub 文件中。上面命令将生成 ~/.ssh/my_rsa_key（私钥）和 ~/.ssh/my_rsa_key.pub（公钥）
+          ```
+
+148. copilot： ai编程如何使用
 
 149. C++11 引入了**无名枚举类型**（也叫做**匿名枚举**），这种枚举类型不需要写名字，但它仍然是有效的，并且常常用于临时或局部的枚举定义。
 
-     ```
-     enum { RED, GREEN, BLUE };  // 无名枚举，默认值为0, 1, 2  只能用于局部或临时的定义
-     ```
+       ```
+       enum { RED, GREEN, BLUE };  // 无名枚举，默认值为0, 1, 2  只能用于局部或临时的定义
+       ```
 
 150. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
 
-     > 线程A调用 `wait` 并释放互斥量。
-     >
-     > 线程B调用 `notify_one` 来唤醒线程A，但线程B不释放互斥量，保持锁定。
-     >
-     > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
-     >
-     > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
+       > 线程A调用 `wait` 并释放互斥量。
+       >
+       > 线程B调用 `notify_one` 来唤醒线程A，但线程B不释放互斥量，保持锁定。
+       >
+       > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
+       >
+       > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
 
-     1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
+       1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
 
-        ```c++
-        std::mutex mtx;				//互斥变量
-        std::condition_variable cv;	//条件变量
-        bool ready = false;
-        
-        void print_id(int id) {
-            std::cout << "Thread " << id << " waiting...\n";
-            
-            // 使用 unique_lock 来锁住互斥量
-            std::unique_lock<std::mutex> lck(mtx);
-            
-            // 释放互斥量并等待条件满足
-            while (!ready) { 
-                cv.wait(lck);  // 释放锁，等待被唤醒
-            }
-        
-            std::cout << "Thread " << id << " is executing\n";
-        }
-        ```
+          ```c++
+          std::mutex mtx;				//互斥变量
+          std::condition_variable cv;	//条件变量
+          bool ready = false;
+          
+          void print_id(int id) {
+              std::cout << "Thread " << id << " waiting...\n";
+              
+              // 使用 unique_lock 来锁住互斥量
+              std::unique_lock<std::mutex> lck(mtx);
+              
+              // 释放互斥量并等待条件满足
+              while (!ready) { 
+                  cv.wait(lck);  // 释放锁，等待被唤醒
+              }
+          
+              std::cout << "Thread " << id << " is executing\n";
+          }
+          ```
 
-     2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
+       2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
 
-        ```c++
-        void go() {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        
-            // 修改共享条件变量
-            std::lock_guard<std::mutex> lck(mtx);
-            ready = true;
-            cv.notify_one();  // 唤醒一个等待线程
-        }
-        ```
+          ```c++
+          void go() {
+              std::this_thread::sleep_for(std::chrono::seconds(1));
+          
+              // 修改共享条件变量
+              std::lock_guard<std::mutex> lck(mtx);
+              ready = true;
+              cv.notify_one();  // 唤醒一个等待线程
+          }
+          ```
 
-     3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
-        1. **`std::unique_lock` 和 `wait`**：
-           - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
-           - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
-        2. **`std::lock_guard` 和 `notify_one`**：
-           - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
+       3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
+          1. **`std::unique_lock` 和 `wait`**：
+             - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
+             - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
+          2. **`std::lock_guard` 和 `notify_one`**：
+             - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
 
 151. asyncScanTask返回的一个操作指针，可以直接使用其中的调用函数操作引擎的继续、停止等
 
 152. clang-format代码的自动格式化工具
 
-     **项目文件操作**：
+       **项目文件操作**：
 
-     1. ubuntu安装clang-format
+       1. ubuntu安装clang-format
 
-        ```
-        sudo apt install clang-format
-        ```
+          ```
+          sudo apt install clang-format
+          ```
 
-     2. 在项目根目录下创建.clang-format配置文件，里面实现配置
+       2. 在项目根目录下创建.clang-format配置文件，里面实现配置
 
-     **VScode中操作**：
+       **VScode中操作**：
 
-     1. 下载Clang-Format扩展插件
+       1. 下载Clang-Format扩展插件
 
-     2. 在VScode的.vscode/settings.json中添加配置
+       2. 在VScode的.vscode/settings.json中添加配置
 
-        ```
-        "[cpp]": {
-            "editor.defaultFormatter": "xaver.clang-format",
-            "editor.formatOnSave": true
-        }
-        ```
+          ```
+          "[cpp]": {
+              "editor.defaultFormatter": "xaver.clang-format",
+              "editor.formatOnSave": true
+          }
+          ```
 
-     **实际使用**：
+       **实际使用**：
 
-     ​	配置完成后VSCode 在保存 C/C++ 文件时自动运行 `clang-format`
+       ​	配置完成后VSCode 在保存 C/C++ 文件时自动运行 `clang-format`
 
 153. QList转换为QStringList
 
-     ```
-     QList<QString> qlist = {"file1.txt", "file2.txt", "file3.txt"};
-     QStringList qstringList(qlist);  // 直接转换
-     ```
+       ```
+       QList<QString> qlist = {"file1.txt", "file2.txt", "file3.txt"};
+       QStringList qstringList(qlist);  // 直接转换
+       ```
 
 154. 局部`static` 变量的销毁发生在**程序结束时，而不是在函数执行完毕时**。
 
 155. protobuffer，bytes类型的二进制转为string类型(同样也是二进制)
 
-     ```c++
-     if (virusInfo.action() == ProcessAction::ACTION_TYPE1) {
-             // 将 bytes 转换为 string
-             std::string str_data = std::string(virusInfo.data().begin(), virusInfo.data().end());
-             std::cout << "Parsed string data: " << str_data << std::endl;
-     }
-     ```
+       ```c++
+       if (virusInfo.action() == ProcessAction::ACTION_TYPE1) {
+               // 将 bytes 转换为 string
+               std::string str_data = std::string(virusInfo.data().begin(), virusInfo.data().end());
+               std::cout << "Parsed string data: " << str_data << std::endl;
+       }
+       ```
 
 156. `const char*` 和 `std::string` 的互相转换
 
-     ```c++
-     const char* cstr = "Hello, world!";
-         
-     // 直接用 std::string 接收 const char* 类型
-     std::string str = cstr;
-     ```
+       ```c++
+       const char* cstr = "Hello, world!";
+           
+       // 直接用 std::string 接收 const char* 类型
+       std::string str = cstr;
+       ```
 
-     ```c++
-     std::string cmdstr = "du -sh /path/to/somewhere | awk '{print $1}'";
-         
-     // 将 std::string 转换为 const char* 并传给 getCmdRes
-     getCmdRes(cmdstr.c_str());
-     ```
-     
+       ```c++
+       std::string cmdstr = "du -sh /path/to/somewhere | awk '{print $1}'";
+           
+       // 将 std::string 转换为 const char* 并传给 getCmdRes
+       getCmdRes(cmdstr.c_str());
+       ```
+
 157. 项目中的三方库
 
-     1. common目录是拆出来三方库存放地，可以根据要求/协议来更改需要的代码
+       1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
 
-     2. 下一步就是将include/thirdparty和libsource下的三方库和自己做的库转移到common下
+158. lib文件夹下面包含的是当前架构下三方库的库文件存放的地方
 
-     3. lib目录当前是采用静态库和头文件分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
+       3. libsource文件夹下面包含的是自己做的库文件
 
-158. 关于项目中使用第三方库
+159. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
 
-     **什么是三方库**：**三方库**（Third-party library）是指由第三方开发和维护的、用于在应用程序中提供特定功能的代码库。三方库在 C++ 项目中用于增强功能，减少重复工作，帮助开发者解决常见的编程任务（如网络通信、数据解析、图形渲染等），而不需要从头开始编写每一行代码。
+       5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
 
-     **下载三方库**：
+160. 关于项目中使用第三方库
 
-     1. 通过包管理工具获取
+       **什么是三方库**：**三方库**（Third-party library）是指由第三方开发和维护的、用于在应用程序中提供特定功能的代码库。三方库在 C++ 项目中用于增强功能，减少重复工作，帮助开发者解决常见的编程任务（如网络通信、数据解析、图形渲染等），而不需要从头开始编写每一行代码。
 
-     2. 通过源码编译：大多数开源三方库提供源代码，可以通过克隆仓库并手动编译得到库文件。
+       **下载三方库**：
 
-        > 一种是使用cmake进行编译；另一种是通过.sh脚本进行编译。一般获取到的都会给一种编译方式
+       1. 通过包管理工具获取
 
-     **三方库的构成**：未编译前，一般带有源码(.cpp .h)和cmakelist/.sh方便自己编译；若下载的是编译后的，那么包含：
+       2. 通过源码编译：大多数开源三方库提供源代码，可以通过克隆仓库并手动编译得到库文件。
 
-     1. 头文件(include): 声明了库的接口，供程序引用，使用头文件，你可以在自己的代码中调用库的功能。
+          > 一种是使用cmake进行编译；另一种是通过.sh脚本进行编译。一般获取到的都会给一种编译方式
 
-        > 在大多数情况下，编译时使用的头文件和使用库时的头文件是**同一个**。它们的作用是相同的：声明库中的接口（函数、类、结构等），使得编译器可以知道如何与库进行交互。
-        >
-        > 头文件在**编译阶段**告诉编译器如何构建代码，在**链接阶段**则通过提供接口让链接器知道如何连接库的实现
+       **三方库的构成**：未编译前，一般带有源码(.cpp .h)和cmakelist/.sh方便自己编译；若下载的是编译后的，那么包含：
 
-     2. 库文件(lib): 进行编译之后的产物，分为静态库或者动态库
+       1. 头文件(include): 声明了库的接口，供程序引用，使用头文件，你可以在自己的代码中调用库的功能。
 
-        1. 静态库(.a)：静态库是编译后的文件，包含了库的代码，链接到程序时将代码嵌入到可执行文件中。
-        2. 动态库(.so)：动态库在运行时由操作系统加载，不会嵌入到程序的可执行文件中。
+          > 在大多数情况下，编译时使用的头文件和使用库时的头文件是**同一个**。它们的作用是相同的：声明库中的接口（函数、类、结构等），使得编译器可以知道如何与库进行交互。
+          >
+          > 头文件在**编译阶段**告诉编译器如何构建代码，在**链接阶段**则通过提供接口让链接器知道如何连接库的实现
 
-        | 特性           | 静态链接                           | 动态链接                         |
-        | -------------- | ---------------------------------- | -------------------------------- |
-        | **库文件形式** | `.a` / `.lib`                      | `.so` / `.dll`                   |
-        | **链接时间**   | 编译时链接                         | 运行时链接                       |
-        | **文件大小**   | 较大，包含所有库的代码             | 较小，只有程序和库的入口地址     |
-        | **共享性**     | 无法共享，不同程序有不同副本       | 可共享，多个程序可以共享同一个库 |
-        | **部署难度**   | 简单，只需部署可执行文件           | 需要确保动态库文件存在并正确路径 |
-        | **更新**       | 更新库时需要重新编译整个程序       | 更新库时不需要重新编译程序       |
-        | **内存使用**   | 可能较高，多个程序各自有一份库副本 | 内存共享，同一库文件只加载一次   |
-        | **启动速度**   | 较快，不需要加载外部库             | 较慢，程序需要加载动态库         |
+       2. 库文件(lib): 进行编译之后的产物，分为静态库或者动态库
 
-     **三方库的使用(使用Cmake)**：
+          1. 静态库(.a)：静态库是编译后的文件，包含了库的代码，链接到程序时将代码嵌入到可执行文件中。
+          2. 动态库(.so)：动态库在运行时由操作系统加载，不会嵌入到程序的可执行文件中。
 
-     1. 将编译好的三方库放入到项目的lib文件夹中(里面包含头文件和库文件)
+          | 特性           | 静态链接                           | 动态链接                         |
+          | -------------- | ---------------------------------- | -------------------------------- |
+          | **库文件形式** | `.a` / `.lib`                      | `.so` / `.dll`                   |
+          | **链接时间**   | 编译时链接                         | 运行时链接                       |
+          | **文件大小**   | 较大，包含所有库的代码             | 较小，只有程序和库的入口地址     |
+          | **共享性**     | 无法共享，不同程序有不同副本       | 可共享，多个程序可以共享同一个库 |
+          | **部署难度**   | 简单，只需部署可执行文件           | 需要确保动态库文件存在并正确路径 |
+          | **更新**       | 更新库时需要重新编译整个程序       | 更新库时不需要重新编译程序       |
+          | **内存使用**   | 可能较高，多个程序各自有一份库副本 | 内存共享，同一库文件只加载一次   |
+          | **启动速度**   | 较快，不需要加载外部库             | 较慢，程序需要加载动态库         |
 
-     2. 编写代码的时候就可以引用三方库的头文件
+       **三方库的使用(使用Cmake)**：
 
-        ```
-        #include <boost/algorithm/string.hpp>  // Boost 库头文件
-        ```
+       1. 将编译好的三方库放入到项目的lib文件夹中(里面包含头文件和库文件)
 
-     3. 编译项目的时候在cmakelist中1. 要将头文件和项目引用的头文件放一起 2. 同时要指明链接外部库路径
+       2. 编写代码的时候就可以引用三方库的头文件
 
-        > 静态库和动态库的链接都可以通过 `target_link_libraries()` 来实现，无论是静态库还是动态库
+          ```
+          #include <boost/algorithm/string.hpp>  // Boost 库头文件
+          ```
 
-        ```
-        target_include_directories(
-                ${BIN_NAME}
-                PRIVATE
-                ${CMAKE_CURRENT_SOURCE_DIR}
-                ${CMAKE_CURRENT_SOURCE_DIR}/component
-                #libs
-                ${CURL_INCLUDE_DIR}
-                ${CPR_INCLUDE_DIR}
-        )
-        
-        target_link_libraries(
-                ${BIN_NAME}
-                PRIVATE
-                ${LIB_UDEV}
-                ${LIB_CPR}
-                ${LIB_CURL}
-        )
-        ```
+       3. 编译项目的时候在cmakelist中1. 要将头文件和项目引用的头文件放一起 2. 同时要指明链接外部库路径
 
-     4. 编译整个项目。
+          > 静态库和动态库的链接都可以通过 `target_link_libraries()` 来实现，无论是静态库还是动态库
 
-     **三方库的使用(单独使用动态库)**：使用动态库（如 `.so` 或 `.dll`），在运行程序时，需要告诉操作系统动态库的位置。对于 Linux/macOS，通常使用环境变量 `LD_LIBRARY_PATH`。
+          ```
+          target_include_directories(
+                  ${BIN_NAME}
+                  PRIVATE
+                  ${CMAKE_CURRENT_SOURCE_DIR}
+                  ${CMAKE_CURRENT_SOURCE_DIR}/component
+                  #libs
+                  ${CURL_INCLUDE_DIR}
+                  ${CPR_INCLUDE_DIR}
+          )
+          
+          target_link_libraries(
+                  ${BIN_NAME}
+                  PRIVATE
+                  ${LIB_UDEV}
+                  ${LIB_CPR}
+                  ${LIB_CURL}
+          )
+          ```
 
-     > 将动态库放到可执行文件的同一目录下，或者将动态库添加到系统环境变量中
+       4. 编译整个项目。
 
-     ```
-     export LD_LIBRARY_PATH=/path/to/boost/lib:$LD_LIBRARY_PATH
-     ./my_program
-     ```
+       **三方库的使用(单独使用动态库)**：使用动态库（如 `.so` 或 `.dll`），在运行程序时，需要告诉操作系统动态库的位置。对于 Linux/macOS，通常使用环境变量 `LD_LIBRARY_PATH`。
 
-     **三方库的使用(使用编译器和链接器)**：
+       > 将动态库放到可执行文件的同一目录下，或者将动态库添加到系统环境变量中
 
-     1. 如果库的头文件不在标准位置，你需要告诉编译器去哪里查找这些头文件。这可以通过编译选项 `-I` 来实现
+       ```
+       export LD_LIBRARY_PATH=/path/to/boost/lib:$LD_LIBRARY_PATH
+       ./my_program
+       ```
 
-        ```
-        g++ -I/path/to/boost/include my_program.cpp -o my_program
-        ```
+       **三方库的使用(使用编译器和链接器)**：
 
-     2. 需要告诉链接器去哪里找库文件（静态库 `.a` 或动态库 `.so`）。这可以通过 `-L` 参数指定。
+       1. 如果库的头文件不在标准位置，你需要告诉编译器去哪里查找这些头文件。这可以通过编译选项 `-I` 来实现
 
-        ```
-        g++ my_program.cpp -L/path/to/boost/lib -lboost_system -o my_program
-        ```
+          ```
+          g++ -I/path/to/boost/include my_program.cpp -o my_program
+          ```
 
-        > `-l` 后面是库的名称，不需要写前缀 `lib` 和后缀 `.a` 或 `.so`。
+       2. 需要告诉链接器去哪里找库文件（静态库 `.a` 或动态库 `.so`）。这可以通过 `-L` 参数指定。
 
-     **注意事项**：一般由于不同机子环境不同(gnu所需版本不同)，所以一般下三方源码之后，需要在自己的机子上编译。再移动include头文件和lib静态库到项目路径下。(移动其他机器编译后生成的库可能会出错)
+          ```
+          g++ my_program.cpp -L/path/to/boost/lib -lboost_system -o my_program
+          ```
 
-159. 在 CMake 中，生成 **可执行文件**、**静态库** 或 **动态库** 的过程中，执行 `make` 可能涉及 **编译** 和 **链接** 两个不同的阶段。
+          > `-l` 后面是库的名称，不需要写前缀 `lib` 和后缀 `.a` 或 `.so`。
 
-     1. 如果你的 `CMakeLists.txt` 中生成的是一个 **可执行文件**（例如使用 `add_executable()` 来指定生成可执行文件），执行 `make` 会经历 **编译** 和 **链接** 两个步骤。
+       **注意事项**：一般由于不同机子环境不同(gnu所需版本不同)，所以一般下三方源码之后，需要在自己的机子上编译。再移动include头文件和lib静态库到项目路径下。(移动其他机器编译后生成的库可能会出错)
 
-        > 编译：每个源文件（`.cpp`）会编译为 `.o` 目标文件。
-        >
-        > 链接：**链接器**（`ld`）将这些目标文件和需要的库文件链接在一起，生成最终的 **可执行文件**
+161. 在 CMake 中，生成 **可执行文件**、**静态库** 或 **动态库** 的过程中，执行 `make` 可能涉及 **编译** 和 **链接** 两个不同的阶段。
 
-     2. 如果你要生成的是 **静态库**（使用 `add_library()` 且没有指定 `SHARED`）或 **动态库**（使用 `add_library()` 并指定 `SHARED`），则执行 `make` 过程中 **只会进行编译**，而不会进行链接到最终的可执行文件。
+       1. 如果你的 `CMakeLists.txt` 中生成的是一个 **可执行文件**（例如使用 `add_executable()` 来指定生成可执行文件），执行 `make` 会经历 **编译** 和 **链接** 两个步骤。
 
-        > 编译：
-        >
-        > 1. 每个源文件（`.cpp`）会编译为 `.o` 目标文件。
-        > 2. 如果是静态库，多个 `.o` 文件会被 **打包** 成一个 `.a` 文件。
-        >
-        > 2. 如果是动态库，多个 `.o` 文件会被 **链接** 成一个 `.so` 或 `.dll` 文件，但这个链接是与可执行文件的链接不同，它只是生成一个共享的库文件。
-        >
-        > 不进行最终可执行文件的链接：对于库文件来说，`make` 的目标是生成一个库，而不是一个最终的可执行文件。所以，**链接** 的部分是针对库内部的目标文件，而不是与其他可执行文件链接。
+          > 编译：每个源文件（`.cpp`）会编译为 `.o` 目标文件。
+          >
+          > 链接：**链接器**（`ld`）将这些目标文件和需要的库文件链接在一起，生成最终的 **可执行文件**
 
-160. 查看可执行文件(二进制文件)链接的动态库：使用 `ldd` 命令查看可执行文件依赖(链接)的动态库
+       2. 如果你要生成的是 **静态库**（使用 `add_library()` 且没有指定 `SHARED`）或 **动态库**（使用 `add_library()` 并指定 `SHARED`），则执行 `make` 过程中 **只会进行编译**，而不会进行链接到最终的可执行文件。
 
-     ```
-     ldd <executable_file>
-     ldd /path/to/your/executable
-     ```
+          > 编译：
+          >
+          > 1. 每个源文件（`.cpp`）会编译为 `.o` 目标文件。
+          > 2. 如果是静态库，多个 `.o` 文件会被 **打包** 成一个 `.a` 文件。
+          >
+          > 2. 如果是动态库，多个 `.o` 文件会被 **链接** 成一个 `.so` 或 `.dll` 文件，但这个链接是与可执行文件的链接不同，它只是生成一个共享的库文件。
+          >
+          > 不进行最终可执行文件的链接：对于库文件来说，`make` 的目标是生成一个库，而不是一个最终的可执行文件。所以，**链接** 的部分是针对库内部的目标文件，而不是与其他可执行文件链接。
 
-161. `tar`（Tape Archive）是一个用于将多个文件或目录打包成一个单独文件的工具，通常**用于存储和备份**。`tar` 生成的文件叫做 **tar包**，扩展名一般为 `.tar`。该工具本身不会对文件内容进行压缩，但可以与压缩工具（如 `gzip`、`bzip2` 等）一起使用，从而创建压缩的 `.tar.gz`、`.tar.bz2` 或 `.tar.xz` 等文件。
+162. 查看可执行文件(二进制文件)链接的动态库：使用 `ldd` 命令查看可执行文件依赖(链接)的动态库
 
-     使用tar包存放源码的原因：
+       ```
+       ldd <executable_file>
+       ldd /path/to/your/executable
+       ```
 
-     1. 代表项目已经封存了，不会再进行改动。便于版本控制。每次解压得到的文件和目录结构完全相同
-     2. 时间等文件信息不会随着操作而更改
-     3. 不会因为一些操作产生对应的缓存
+163. `tar`（Tape Archive）是一个用于将多个文件或目录打包成一个单独文件的工具，通常**用于存储和备份**。`tar` 生成的文件叫做 **tar包**，扩展名一般为 `.tar`。该工具本身不会对文件内容进行压缩，但可以与压缩工具（如 `gzip`、`bzip2` 等）一起使用，从而创建压缩的 `.tar.gz`、`.tar.bz2` 或 `.tar.xz` 等文件。
 
-162. GNU、GCC、G++
+       使用tar包存放源码的原因：
 
-     1. **GNU** 是一个自由软件项目，旨在提供一个类似 Unix 的自由操作系统，包含了许多工具和库
+       1. 代表项目已经封存了，不会再进行改动。便于版本控制。每次解压得到的文件和目录结构完全相同
+       2. 时间等文件信息不会随着操作而更改
+       3. 不会因为一些操作产生对应的缓存
 
-        **GNU 项目内容**：GNU 项目包括许多重要的组件，如：
+164. GNU、GCC、G++
 
-        - **GNU 操作系统的核心部分**（尽管 Linux 核心也非常流行，许多人将 GNU 与 Linux 操作系统一起使用，称为 GNU/Linux）。
-        - **GNU 工具链**（如编译器、调试器、构建工具等）。
-        - **GNU 编程语言库**，例如 C 库（glibc）等。
+       1. **GNU** 是一个自由软件项目，旨在提供一个类似 Unix 的自由操作系统，包含了许多工具和库
 
-     2. **GCC**（GNU Compiler Collection）：是 GNU 项目的一部分，是一个开源的编译器集合，用于将源代码（如 C、C++、Fortran、Ada 等）编译为机器码。
+          **GNU 项目内容**：GNU 项目包括许多重要的组件，如：
 
-     3. **G++**：是 **GCC** 中专门用于编译 **C++** 源代码的前端编译器。G++ 实际上是 GCC 的一部分，用于支持 C++ 语言的编译
-     
-163. XML、JSON、Protobuf都是用于数据交换和存储的格式。
+          - **GNU 操作系统的核心部分**（尽管 Linux 核心也非常流行，许多人将 GNU 与 Linux 操作系统一起使用，称为 GNU/Linux）。
+          - **GNU 工具链**（如编译器、调试器、构建工具等）。
+          - **GNU 编程语言库**，例如 C 库（glibc）等。
 
-     > 不管格式如何，他们最终传输时都会转为二进制格式(比如转为std::string)作为传递参数。
+       2. **GCC**（GNU Compiler Collection）：是 GNU 项目的一部分，是一个开源的编译器集合，用于将源代码（如 C、C++、Fortran、Ada 等）编译为机器码。
 
-     **定义**：
+       3. **G++**：是 **GCC** 中专门用于编译 **C++** 源代码的前端编译器。G++ 实际上是 GCC 的一部分，用于支持 C++ 语言的编译
 
-     1. XML：XML（可扩展标记语言)，基于**标签语言**，数据以**树形结构存储**，每个元素都有开始标签、结束标签，和可选的属性；HTML语言就是基于XML，只是XML只用来存储和传输数据
+165. XML、JSON、Protobuf都是用于数据交换和存储的格式。
 
-        ```c++
-        <person>
-            <name>Alice</name>
-            <age>30</age>
-            <isActive>true</isActive>
-        </person>
-        ```
+       > 不管格式如何，他们最终传输时都会转为二进制格式(比如转为std::string)作为传递参数。
 
-     2. JSON：基于**键值对**的数据表示。**key** 是字符串，**value** 可以是字符串、数字、布尔值、数组、对象或 `null`。
+       **定义**：
 
-        ```c++
-        {
-            "name": "Alice",
-            "age": 30,
-            "isActive": true
-        }
-        ```
+       1. XML：XML（可扩展标记语言)，基于**标签语言**，数据以**树形结构存储**，每个元素都有开始标签、结束标签，和可选的属性；HTML语言就是基于XML，只是XML只用来存储和传输数据
 
-     3. Protobuffer：**二进制序列化** 格式。数据定义是基于 `.proto` 文件的，结构化的类型定义（包括消息、字段、数据类型）。
+          ```c++
+          <person>
+              <name>Alice</name>
+              <age>30</age>
+              <isActive>true</isActive>
+          </person>
+          ```
 
-        ```c++
-        message Person {
-            string name = 1;
-            int32 age = 2;
-            bool isActive = 3;
-        }
-        ```
+       2. JSON：基于**键值对**的数据表示。**key** 是字符串，**value** 可以是字符串、数字、布尔值、数组、对象或 `null`。
 
-     **对比**：
+          ```c++
+          {
+              "name": "Alice",
+              "age": 30,
+              "isActive": true
+          }
+          ```
+
+       3. Protobuffer：**二进制序列化** 格式。数据定义是基于 `.proto` 文件的，结构化的类型定义（包括消息、字段、数据类型）。
+
+          ```c++
+          message Person {
+              string name = 1;
+              int32 age = 2;
+              bool isActive = 3;
+          }
+          ```
+
+       **对比**：
 
      | 特性               | **XML**                                          | **JSON**                                  | **Protocol Buffers (protobuf)**                            |
      | ------------------ | ------------------------------------------------ | ----------------------------------------- | ---------------------------------------------------------- |
@@ -5416,95 +5445,263 @@ m_pPool->submit([this, pBundle]() {
      | **文件扩展名**     | `.xml`                                           | `.json`                                   | `.proto`（定义数据结构），编译后生成特定语言的文件         |
      | **兼容性**         | 广泛支持，几乎所有平台和语言都支持               | 广泛支持，尤其是现代 Web 开发             | 需要使用 `protobuf` 库，支持多语言（C++, Java, Python 等） |
 
-164. C++中的JSON库(第三方库)（ [nlohmann/json](https://github.com/nlohmann/json)）提供了许多易用的接口来解析、构造和操作 JSON 数据。
+166. C++中的JSON库(第三方库)（ [nlohmann/json](https://github.com/nlohmann/json)）提供了许多易用的接口来解析、构造和操作 JSON 数据。
+
+       ```c++
+       std::string json_str = "({
+               "name": "Alice",
+               "age": 30,
+               "isActive": true,
+               "address": {"city": "New York", "zip": "10001"},
+               "tags": ["python", "json", "c++"]
+       })";
+       
+       ```
+
+       1. `parse` - 解析 JSON 字符串
+
+          ```
+          using json = nlohmann::json;  // 可以简化，给类型别名
+          json j = json::parse(json_str);	
+          //功能： parse将一个 JSON 字符串解析为 json 对象。
+          //参数： json_string 是要解析的 JSON 格式的字符串。
+          ```
+
+       2. `dump` - 转换为 JSON 字符串
+
+          ```
+          std::string json_str = j.dump();
+          //功能： dump将 json 对象转换为一个格式化的 JSON 字符串。
+          //参数： indent 可以用来格式化输出，例如 j.dump(4) 会使用四个空格缩进。
+          ```
+
+       3. 访问和遍历Json数据
+
+          ```c++
+          // 访问值，nlohmann/json会自动根据传递的value类型解析对于的类型
+          std::string name = j["name"];
+          int age = j["age"];
+          // 设置值
+          j["name"] = "Bob";
+          j["age"] = 25;
+          
+          // 访问嵌套的 JSON 对象
+          std::string city = j["address"]["city"];
+          // 构建嵌套的 JSON 对象
+          j["address"] = {{"city", "New York"}, {"zip", "10001"}};
+          
+          // 访问数组元素
+          std::string first_tag = j["tags"][0];
+          // 向数组中添加元素
+          j["tags"].push_back("cpp");
+          
+          // 迭代器遍历 JSON 对象 ，items() 返回一个由键值对组成的迭代器
+          for (auto& el : j.items()) {
+              std::cout << el.key() << ": " << el.value() << std::endl;
+          }
+          
+          // 遍历 JSON 数组
+          for (const auto& el : j["tags"]) {
+              std::cout << el << std::endl;
+          }
+          ```
+
+       4. get - 转换为指定类型（可以是 C++ 基本类型，也可以是对象(包括容器)）
+
+          ```c++
+          std::string name = j["name"].get<std::string>();
+          int age = j["age"].get<int>();
+          bool isActive = j["isActive"].get<bool>();
+          std::vector<std::string> tags = j["tags"].get<std::vector<std::string>>(); //将 JSON 数组转换为 C++ 容器类型
+          ```
+
+       5. JSON 转换为 C++ 对象（反序列化）与 C++ 对象转换为 JSON（序列化）
+
+          ```c++
+          struct Person {
+              std::string name;
+              int age;
+              NLOHMANN_DEFINE_TYPE_INTRUSIVE(Person, name, age) 
+              // NLOHMANN_DEFINE_TYPE_INTRUSIVE 宏用于定义如何将 C++ 对象与 JSON 进行转换。
+          };
+          // JSON 转换为 C++ 对象
+          Person p = j.get<Person>();
+          // C++ 对象转换为 JSON
+          json j = person;
+          
+          ```
+
+167. 关于目标架构机调试：目标机器安装的是release包，想要现场调试，需要编译(make)Dbug包，再将对应的执行文件拖到目标架构机的对应位置。
+
+       > 注意带上函数返回值，某些架构因为函数没有返回值会卡住死机，某些架构只是会提醒。
+
+168. linux下安装gdb
+
+       ```
+       apt-get update
+       apt-get install  gdb	// 如果杀毒软件运行中将会报错
+       ```
+
+169. 如果在`std::bind`中使用实参，而不是占位符，那么在调用绑定的函数时，`std::bind`会将这些实参作为固定参数传递给成员函
+
+       1. 传入实参
+
+       ```c++
+       // 绑定printSum函数，并提供第一个参数为3，第二个参数为4
+       auto boundFunc = std::bind(&MyClass::printSum, &obj, 3, 4);
+           
+       // 调用时无需传递参数，已经被绑定
+       boundFunc();  // Output: Sum: 7
+       ```
+
+       2. 使用占位符
+
+       ```c++
+       // 绑定printSum函数，使用占位符
+       auto boundFunc = std::bind(&MyClass::printSum, &obj, std::placeholders::_1, std::placeholders::_2);
+       
+       // 调用时提供参数
+       boundFunc(3, 4);  // Output: Sum: 7
+       ```
+
+170. 查杀引擎任务队列如何实现的
+
+171. 扫描引擎是vector容器依次遍历的，所有的引擎都会走一遍，最终才会调用回调函数
+
+       ```
+       ENGINE_ENUM,		// 枚举引擎
+       ENGINE_CACHE,		// cache引擎
+       ENGINE_CLOUD,		// 云查
+       ENGINE_ZAV,			// ZAV
+       ENGINE_REDUCE,
+       ENGINE_CACHE,		// 为什么两个cache
+       ```
+
+172. C++ 允许跨多个源文件共享命名空间的定义，实际上，命名空间在多个文件中使用时，内容会被合并在一起，最终形成一个整体。
+
+       1. **定义命名空间**：命名空间的定义可以分布在多个 `.cpp` 文件中，只要它们使用相同的命名空间名，编译器会将这些定义合并在一起。
+
+       2. **链接过程**：在编译过程中，每个 `.cpp` 文件都会被编译为一个独立的目标文件（`.o` 或 `.obj` 文件）。链接器会在链接阶段将所有目标文件合并成最终的可执行文件或库。如果多个 `.cpp` 文件中包含了相同的命名空间，链接器会将它们合并
+
+173. 文件的 **MD5** 值是通过对文件内容进行哈希计算得到的，MD5（Message Digest Algorithm 5）是一种广泛使用的哈希算法，它将任意长度的输入（如文件内容）转化为一个固定长度的哈希值（128位，通常表示为32个字符的十六进制字符串）。
+
+174. 关于github需要使用2FA来进行二次认证
+
+       1. Authenticator 是什么工具？
+
+            `Authenticator` 是一种多因素认证（2FA）工具，用于增强账户的安全性。它通过生成**一次性验证码**（TOTP, Time-based One-Time Password）来确保登录过程的安全。
+
+            > `Authenticator` 还有一个功能就是微软的密码和地址同步，只要登陆上微软账号就可以将该账号的密码同步到手机设置
+            >
+            > 如果使用不了2FA的情况下，使用github-recovery-codes.txt这里面的恢复码进行登录
+
+       2. QR 码是什么？
+
+          `QR 码`（Quick Response Code）是一种二维条形码，可以快速存储和读取信息。
+
+          当你启用双因素认证（2FA）时，服务提供商通常会提供一个 **QR 码**，该二维码包含了生成一次性密码所需的密钥。
+
+          使用 Authenticator 应用扫描这个二维码后，应用就能开始生成与该服务匹配的动态验证码。这个二维码通常**只会在初次设置 2FA 时显示一次**。
+
+       3. 2FA（双因素认证）是什么？
+
+          **2FA（Two-Factor Authentication，双因素认证）** 是一种安全机制，它要求用户提供两种不同类型的认证信息才能成功登录账户。即**知识因素**(pin码或者密码)、**持有因素**(用户持有的设备)。
+
+          国内常见的如：短信验证码、面容识别等；Authenticator通过基于时间生成的验证码。
+
+175. 关于koroFileHeader注释插件引发的
+
+     1. 在全局`setting.json`(.vscode下)中添加头注释和函数注释的配置
+
+     2. 快捷键：
+
+        ```
+        ctrl+win+i   // 头	
+        ctrl+atl+l   // 函数
+        win + y		 // 注释跳到下一行
+        ```
+
+        > 在函数声明那行按快捷键，如果函数声明占多行需要**全选**
+
+176. 关于vscode使用插件有感
+
+     1. 下载安装，通过**wiki**(通常是github链接)使用文档学习如何使用
+     2. 很多插件都具有默认配置，可以直接安装并使用；有些插件需要通过 **`settings.json`** 文件来修改插件的行为。
+     3. 默认的快捷键如果不生效，可能是操作系统使用了该快捷键，需要在vscode中修改快捷键
+
+177. `popen()` 和 `pclose()` 是 C 和 C++ 标准库中的函数，通常用于执行外部命令，并通过**管道**（pipe）与这些命令进行交互，获取命令的输出或向命令传递输入
+
+     > 通常用于在c++代码中获取linux命令执行后的控制台输出
+
+     1. `popen()` 函数用于打开一个进程（即执行一个外部命令），并通过管道与该进程进行通信。它会返回一个文件指针，允许你读取该命令的标准输出或将数据写入命令的标准输入
+
+        ```
+        FILE *popen(const char *command, const char *mode);
+        
+        command：要执行的外部命令（如一个 shell 命令），这是一个 C 风格的字符串。
+        mode：表示打开管道的模式。常用模式有：
+        "r"：以只读模式打开管道，允许读取命令的标准输出。
+        "w"：以写入模式打开管道，允许向命令的标准输入写入数据。
+        ```
+
+        > 成功时，`popen()` 返回一个文件指针（`FILE*`），你可以使用标准的文件操作（如 `fgets()` 或 `fread()`）来读取或写入管道数据
+
+     2. `pclose()` 用于关闭通过 `popen()` 打开的文件指针，并等待命令执行完成。它会返回执行命令的退出状态。
+
+        ```
+        int pclose(FILE *fp);
+        
+        fp：通过 popen() 返回的文件指针（FILE*），指向进程的标准输出或输入
+        ```
+
+178. `fgets()`和`std::getline()`
+
+     1. `fgets()` 是 C 标准库函数，用于从指定文件流中读取一行字符（包括空格和制表符），直到读取到换行符、文件结束符或达到指定的最大字符数为止。
+
+        ```
+        char *fgets(char *str, int num, FILE *stream);
+        
+        str：指向存储读取数据的字符数组。
+        num：最多读取的字符数（包括结尾的 \0）。
+        stream：文件流，通常是 stdin 或文件的指针（如通过 fopen() 打开的文件流
+        ```
+
+     2. `std::getline()` 是 C++ 标准库提供的函数，用于从输入流（如标准输入或文件流）中读取一整行数据，直到遇到换行符（`'\n'`）为止。它比 `fgets()` 更符合 C++ 的面向对象风格，并且可以避免缓冲区溢出的问题。
+
+        ```
+        std::istream& std::getline(std::istream& is, std::string& str);
+        
+        is：输入流，可以是 std::cin（标准输入）或 std::ifstream（文件输入流）。
+        str：用来存储读取结果的 std::string 对象。
+        ```
+
+179. 关于命名空间：声明可以放在命名空间内部，而定义可以放在外部，只要确保在定义时命名空间的一致性
 
      ```c++
-     std::string json_str = "({
-             "name": "Alice",
-             "age": 30,
-             "isActive": true,
-             "address": {"city": "New York", "zip": "10001"},
-             "tags": ["python", "json", "c++"]
-     })";
+     namespace Ui {
+         class SettingDialog;  // 只在命名空间中声明类
+     }
+     
+     class SettingDialog
+     {
+     public:
+     	
+     private:
+     };
      
      ```
 
-     1. `parse` - 解析 JSON 字符串
+180. `QRadioButton` 控件自动通过同一父控件或者同一个 `QButtonGroup` 来实现单选效果。多个 `QRadioButton` 默认只能选中一个，这是 `QRadioButton` 的基本行为
 
-        ```
-        using json = nlohmann::json;  // 可以简化，给类型别名
-        json j = json::parse(json_str);	
-        //功能： parse将一个 JSON 字符串解析为 json 对象。
-        //参数： json_string 是要解析的 JSON 格式的字符串。
-        ```
+     1. 多个`QRadioButton`放到同一个父控件/同一个布局下(默认是属于同一个父控件的)
+     2. 多个`QRadioButton`放到一个`QButtonGroup` 来手动分组按钮，管理一组单选按钮。
 
-     2. `dump` - 转换为 JSON 字符串
+181. Qt的按钮或者选择框，生成的点击槽函数：
 
-        ```
-        std::string json_str = j.dump();
-        //功能： dump将 json 对象转换为一个格式化的 JSON 字符串。
-        //参数： indent 可以用来格式化输出，例如 j.dump(4) 会使用四个空格缩进。
-        ```
+     1. 点击控件，自动会修改界面控件状态(被选中/取消选中(单选框radio没有))，然后执行槽函数
+     2. 在cpp代码中直接调用槽函数，只会执行函数代码，不会触发控件的状态效果。
 
-     3. 访问和遍历Json数据
 
-        ```c++
-        // 访问值，nlohmann/json会自动根据传递的value类型解析对于的类型
-        std::string name = j["name"];
-        int age = j["age"];
-        // 设置值
-        j["name"] = "Bob";
-        j["age"] = 25;
-        
-        // 访问嵌套的 JSON 对象
-        std::string city = j["address"]["city"];
-        // 构建嵌套的 JSON 对象
-        j["address"] = {{"city", "New York"}, {"zip", "10001"}};
-        
-        // 访问数组元素
-        std::string first_tag = j["tags"][0];
-        // 向数组中添加元素
-        j["tags"].push_back("cpp");
-        
-        // 迭代器遍历 JSON 对象 ，items() 返回一个由键值对组成的迭代器
-        for (auto& el : j.items()) {
-            std::cout << el.key() << ": " << el.value() << std::endl;
-        }
-        
-        // 遍历 JSON 数组
-        for (const auto& el : j["tags"]) {
-            std::cout << el << std::endl;
-        }
-        ```
-
-     4. get - 转换为指定类型（可以是 C++ 基本类型，也可以是对象(包括容器)）
-
-        ```c++
-        std::string name = j["name"].get<std::string>();
-        int age = j["age"].get<int>();
-        bool isActive = j["isActive"].get<bool>();
-        std::vector<std::string> tags = j["tags"].get<std::vector<std::string>>(); //将 JSON 数组转换为 C++ 容器类型
-        ```
-
-     5. JSON 转换为 C++ 对象（反序列化）与 C++ 对象转换为 JSON（序列化）
-
-        ```c++
-        struct Person {
-            std::string name;
-            int age;
-            NLOHMANN_DEFINE_TYPE_INTRUSIVE(Person, name, age) 
-            // NLOHMANN_DEFINE_TYPE_INTRUSIVE 宏用于定义如何将 C++ 对象与 JSON 进行转换。
-        };
-        // JSON 转换为 C++ 对象
-        Person p = j.get<Person>();
-        // C++ 对象转换为 JSON
-        json j = person;
-        
-        ```
-
-165. 关于目标架构机调试：目标机器安装的是release包，想要现场调试，需要编译(make)Dbug包，再将对应的执行文件拖到目标架构机的对应位置。
-
-     > 注意带上函数返回值，某些架构因为函数没有返回值会卡住死机，某些架构只是会提醒。
 
 ### 4. 末尾
 
