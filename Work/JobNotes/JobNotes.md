@@ -1468,6 +1468,7 @@ m_pPool->submit([this, pBundle]() {
     git rebase --continue  #发生冲突并解决冲突后继续执行rebase
     git rebase --abort	   #终止当前的 rebase 操作，并恢复到操作前的状态。
     git rebase --skip	   #跳过当前的补丁，即跳过正在导致冲突的提交，并继续应用后续的提交
+    ```
 ```
     
 **工作流程**:
@@ -1515,13 +1516,13 @@ m_pPool->submit([this, pBundle]() {
 
    **cpp逻辑剖析**：
 
-   ```
+```
    1. 槽函数updateXXX：ui界面点击保存后会触发该槽函数，将传来的结构体转为protobuffer，再将该protobuffer传递(send)给IPC进行转发给对应处理模块进行后续处理
    2. fromxxx：负责将ui传来的结构体转换未protobuffer
    3. toxxx：负责将服务端/后台新的配置信息从protobuffer转为对象结构体，并将结构体emit发出供settingDialog接受响应
    4. 信号函数sigXXX：将新的配置信息发送，供setting/trustAndIso/界面接收
    5. send和recive都是通过类似于插件的模型moudle进行对其他模块的数据发送和接受(通过key字段和TerminalConfigSeesion的protobuffer字段)。
-   #接收时会根据TerminalConfigSeesion的type字段区分，再根据info的key字段区分不同的模块的要emit信息，再调用不同的emit
+      #接收时会根据TerminalConfigSeesion的type字段区分，再根据info的key字段区分不同的模块的要emit信息，再调用不同的emit
    ```
 
    **思路**：将每次下发或者保存的配置保存下来，在界面打开`settingDialog`的时候统一`emit`一遍信号更改设置界面
@@ -1603,7 +1604,7 @@ m_pPool->submit([this, pBundle]() {
 
    1. 使用`FULL_SCAN`字段下发任务，具体实现在`FULL_SCAN`任务处理那块找
 
-      ```
+   ```
       string strong_sign = 5; // 强力查杀标识，兼容老版本客户端，老版本执行全盘查杀，新版本解析此标识，1为强力查杀，0为全盘查杀
       ```
 
@@ -3115,21 +3116,23 @@ m_pPool->submit([this, pBundle]() {
 
 3. **记笔记方式**
 
-4. qrc文件和rcc文件    gcc？
+4. cusorAI撰写代码
 
-5. titlebar？如何将titlebar单独的放到别的界面中
+5. qrc文件和rcc文件    gcc？
 
-6. 信号槽、控件、事件的底层实现原理？moc？mvc模型？
+6. titlebar？如何将titlebar单独的放到别的界面中
 
-7. RJJH中的event文件夹？cur_user干什么的？归纳下qy_ui（UI层）的具体构造
+7. 信号槽、控件、事件的底层实现原理？moc？mvc模型？
 
-8. 看下Frameless中的720行事件过滤器
+8. RJJH中的event文件夹？cur_user干什么的？归纳下qy_ui（UI层）的具体构造
 
-9. 看src/moudles/virus_scan_engine_plugin/src libEngineScan动态库(扫描引擎)的组成成分。
+9. 看下Frameless中的720行事件过滤器
 
-10. 线程池thread_pool如何实现的
+10. 看src/moudles/virus_scan_engine_plugin/src libEngineScan动态库(扫描引擎)的组成成分。
 
-11. 针对不同版本(开发环境)的右键库：
+11. 线程池thread_pool如何实现的
+
+12. 针对不同版本(开发环境)的右键库：
 
     ```
     #add_subdirectory(libsource/nautilus_scan)
@@ -3137,11 +3140,11 @@ m_pPool->submit([this, pBundle]() {
     #add_subdirectory(libsource/peony_scan)
     ```
 
-12. 如何修改ubuntu下的权限，省的每次都得用sudo
+13. 如何修改ubuntu下的权限，省的每次都得用sudo
 
-13. 查看`.clang-format`如何设置，规格化工具
+14. 查看`.clang-format`如何设置，规格化工具
 
-14. 使用VScode插件
+15. 使用VScode插件
 
    ```
    Clang-Format  代码格式化插件
@@ -3246,8 +3249,49 @@ m_pPool->submit([this, pBundle]() {
 
 3. - [x] 关键位置扫描，增加其他扫描项（当前支持扫描contab）（需调研）
 
-     > 问题：执行find获取高权限文件和最近修改的文件时，会有时间延迟。考虑是否将内存扫描、关键位置扫描做成两个线程,是否能够减少时间延迟？
+     1. 扫描开机启动项：伴随开机确定，一般生产服务器很少重启，但是为了防止被控机器失联部分木马会添加开机启动项作为复活手段
+
+     2. 环境变量配置文件：这些文件用于设置环境变量或启动程序，每次linux登录或切换用户都会触发这些文件
+
+        ```
+        •/etc/profile
+        •/etc/bashrc
+        •/etc/bash.bashrc
+        •~/.bashrc
+        •~/.profile
+        •~/.bash_profile
+        ```
+
+     3. 检测进程(即内存扫描)
+
+     4. 定时任务(已实现了用户设定的定时任务)
+
+        ```
+        /var/spool/cron/ 目录里的任务以用户命名
+        /etc/crontab 调度管理维护任务
+        /etc/cron.d/ 这个目录用来存放任何要执行的crontab文件或脚本。
+        
+        下面这些都是检查重点对象
+              /etc/cron.hourly/ 每小时执行一次
+              /etc/cron.daily/ 每天执行一次
+              /etc/cron.weekly/ 每周执行一次
+              /etc/cron.monthly/ 每月执行一次
+        ```
+
+     5. 可执行文件和脚本(已再RJJH中使用)
+     6. 日志文件
+     7. 用户目录和配置文件
+     8. 特殊系统文件：`/etc/passwd、/etc/sudoers`
+
+     > 总结：
      >
+     > 1. 内存/进程扫描、内核扫描
+     > 2. 开机启动项：系统服务和定时任务
+     > 3. 配置文件：环境变量配置文件、用户配置文件、特殊系统文件(账号密码)
+     > 4. 可执行文件和脚本
+     > 5. 临时文件和日志文件
+     > 6. 网络和web服务器相关目录文件
+
      > bug：扫描的过程中点击隔离区，下面子项的文件数会归0
 
 4. - [ ] 708目录改变，低版本升级适配，shell脚本
@@ -3260,11 +3304,11 @@ m_pPool->submit([this, pBundle]() {
 
      > 不同架构对于函数处理不同，比如ubuntuX64就不会出现这种问题，只是会给出警告
 
-   - [ ] 授权信息：连接中控，授权信息中过期时间 与实际中控授权过期时间不一致
+   - [x] 引擎设置恢复默认不生效问题
 
-   - [ ] 引擎设置恢复默认不生效问题
+   - [ ] [方德]桌面通知管理的界面优化
 
-   - [ ] 方德桌面通知管理的界面优化
+   - [ ] 红帽不可自启动，猜测是托盘不显示的问题
 
 
 #### 2.2 暂时搁置
@@ -5232,15 +5276,13 @@ m_pPool->submit([this, pBundle]() {
 
 157. 项目中的三方库
 
-       1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
+         1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
 
-158. lib文件夹下面包含的是当前架构下三方库的库文件存放的地方
+       2. lib文件夹下面包含的是当前架构下三方库的库文件存放的地方
+         3. libsource文件夹下面包含的是自己做的库文件
 
-       3. libsource文件夹下面包含的是自己做的库文件
-
-159. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
-
-       5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
+       4. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
+         5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
 
 160. 关于项目中使用第三方库
 
@@ -5701,7 +5743,89 @@ m_pPool->submit([this, pBundle]() {
      1. 点击控件，自动会修改界面控件状态(被选中/取消选中(单选框radio没有))，然后执行槽函数
      2. 在cpp代码中直接调用槽函数，只会执行函数代码，不会触发控件的状态效果。
 
+182. Qt中的信号函数，可以不加`emit`；`emit` 关键字只是为了表达意图，不是必须的，它本质上没有其他功能
 
+     1. 在类内部，可以省略 `emit`，直接调用信号的名字。
+     2. 使用 `emit` 是为了代码的可读性和明确性
+
+183. 查看linux系统架构
+
+     ```
+     uname -m 	// 会返回系统架构类型
+     uname -a 	// 返回内核版本、主机名和架构
+     
+     lscpu		// 显示系统的CPU架构、核心数量、架构类型（x86_64、ARM等）、CPU型号等详细信息	
+     ```
+
+184. ipc_manager.cpp如何实现的，用了什么第三方库？
+
+     RJJH和safed使用的是ipc；
+
+     safed和中控使用的是cpr(三方库)
+
+     他们都使用了一种订阅发布的模式，来发送和接收消息
+
+185. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
+
+     `store()` 是 `load()` 的对应存储函数，用于**原子地修改**（存储）`std::atomic` 变量的值。它们共同用于多线程环境中，保证数据访问的安全性。
+
+     ```c++
+     #include <atomic>
+     #include <iostream>
+     #include <thread>
+     
+     std::atomic<bool> _shouldStop(false);
+     
+     void threadFunction() {
+         while (!_shouldStop.load()) {
+             // 执行任务
+             std::cout << "Thread is working...\n";
+         }
+         std::cout << "Thread is stopping.\n";
+     }
+     
+     void stopThread() {
+         _shouldStop.store(true);  // 设置标志为 true，通知线程停止
+     }
+     
+     int main() {
+         std::thread t(threadFunction);  // 创建线程
+     
+         std::this_thread::sleep_for(std::chrono::seconds(2));  // 让线程运行一段时间
+         stopThread();  // 设置标志为 true，要求线程停止
+     
+         t.join();  // 等待线程结束
+         return 0;
+     }
+     
+     ```
+
+186. RJJH激活中控ip，safed就会重启“心跳”。`ctrl_center_agent.cpp`中该类就是一个继承于线程模板的类，重写了`run`函数。`run`函数会根据心跳阶段、通过读取文件(授权ip写在文件中)执行向中控请求，同时执行回调函数(`safed`的)
+
+187. 获取目录下的所有文件：
+
+     1. `opendir()` 用于打开指定的目录，返回一个指向 `DIR` 结构的指针。如果无法打开目录（如目录不存在），它会返回 `nullptr`。
+     2. `readdir()` 用于逐一读取目录中的文件项，每次返回一个 `dirent` 结构，包含文件名以及其他信息
+
+     ```
+     DIR *dir = opendir(path.c_str());
+         if (dir == nullptr) {
+             LOG(WARNING) << "Error opening directory: " << path << std::endl;
+             return;
+         }
+         struct dirent *entry;
+         while ((entry = readdir(dir)) != nullptr) {
+             // Skip the current (.) and parent (..) directories
+             if (entry->d_name[0] == '.') {
+                 continue;
+             }
+     
+             std::string file_path = path + "/" + entry->d_name;
+             path_list.push_back(file_path); // Add the full file path to the list
+     }
+     ```
+
+     
 
 ### 4. 末尾
 
