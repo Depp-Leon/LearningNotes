@@ -986,7 +986,16 @@ m_pPool->submit([this, pBundle]() {
 12. 在40上面编写的包在本地安装后。当使用gdb调试，打断点发现打的路径是40上面的路径。所以需要在本地打对应的包移动并替换，并且修改完JYNSAFED不仅需要把JYNSAFED转出，还需要把lib生成的动态库也转出。
 
 13. gdb调试打断点，停在目标函数时，上方有传来的参数内存信息，可以查看是否传来的是否为空
+
 14. gdb调试模式下程序崩溃，使用bt查看崩溃在那个函数。重新在该函数打断点，一步步复现，查看崩在那个位置。
+
+15. 列出所有函数的地址和名称
+
+    ```
+    info functions		// 检查符号表是否正确加载 和 查找函数地址以设置断点
+    ```
+
+    
 
 ### 2.9 打包
 
@@ -1290,6 +1299,7 @@ m_pPool->submit([this, pBundle]() {
     git stash clear				#清空所有 stash 条目
     
     git stash pop	#恢复并删除 stash，当于 apply + drop 的组合
+    // 如果恢复的时候有冲突，那么就手动处理冲突。而且stash记录不会被删除。实际上更改玩冲突就可以正常提交
     ```
 
 15. 查看某次提交修改的详细内容
@@ -3359,53 +3369,30 @@ m_pPool->submit([this, pBundle]() {
 
    1. 根据查杀配置中的自动清理，在查杀结束向UI发送信号，safed开始从EndWrap中获取最终的病毒文件列表，发送查杀并同步UI
 
+      **问题**：
+
+      1. 清除之后，页面显示的清除数量没有，隔离区正常添加了
+      2. 是否会影响到威胁清除相关的功能，需要看一下
+
    **关机重启**
 
    1. 关机或者重启功能实现放在safed中
    2. 对于普通查杀(即界面中选中“查杀后关机”选项)，RJJH向safed发送消息
    3. 对于强力查杀，查杀结束就执行关机操作(直接调用)
 
+2. 中控下发黑名单处理，一些已经无毒的文件、移动后的文件没有上报给中控，中控没有显示处理字段
+
+   **思路**：由于中控下发黑名单处理，还是会走一遍扫描，那么就在对每个文件上报进度的时候，判断下本次的扫描类型(上报类型)。将该文件路径缓存下来，等到统一上报的时候上报给中控。
+
+3. - [x] 闪电查杀|全盘查杀执行时候会卡住，
+
+   **原因**：regex模式匹配在centos7 的GCC 4.8 <regex> 不完善，导致模式匹配不生效，而外面的catch没有捕获该异常类型
+
 
 
 
 
 #### 2.2 暂时搁置
-
-1. 查看麒麟系统下的右键扫描是否可ls
-
-2. 根据不同的版本使用不同的右键库
-
-   2. 在bvin.cmake中解注释对应的库
-
-      ```
-      #add_subdirectory(libsource/nautilus_scan)
-      #add_subdirectory(libsource/caja_scan)
-      #add_subdirectory(libsource/peony_scan)
-      ```
-
-   3. JYINSTALL脚本中的，copy_scan_menu()函数中，负责将那三个右键库复制到对应系统目录下
-      
-      1. 对文件右键打开程序，实际上就是执行 ./JYNRJJH2 --/home (文件名)
-
-3. 打包脚本bug：
-
-   **问题**：
-
-   1. 产品图标和产品名称不统一
-   2. 脚本打包三个版本，有一个版本失败，找出原因
-   3. Python脚本和shell脚本。如何将shell脚本转Python脚本
-
-   **思路**：
-
-   1. 根据老脚本-贴牌配置脚本，使用python实现新脚本，注：单独放一个文件夹中
-
-4. 防卸载bug:
-
-   **问题**：
-
-   1. terminal_detail_component中接收中控密码并传递给界面model
-   2. terminal_info_model接收助手传来的密码信息，并通过信号槽传递给auth_model中保存密码
-   3. 在uninstall脚本中，卸载前判断是否存在密码文件，若有，则解密提取密码，让其输入
 
 
 
@@ -6280,9 +6267,64 @@ m_pPool->submit([this, pBundle]() {
         rpm -e chenxinsd
         ```
 
+215. 符号表是什么？
 
+     **定义**：符号表（Symbol Table）是编译器在编译过程中生成的一张表格，记录了程序中各种符号（如函数名、变量名）的名称、地址和类型等信息。它主要用于链接阶段和调试阶段。
 
+     **作用**：
 
+     - **链接**：帮助链接器（linker）将代码中的符号引用（如函数调用）解析到对应的内存地址。
+     - **调试**：为调试器（如 GDB）提供映射关系，让调试器能将内存地址关联到源代码中的函数名、变量名和行号。
+
+216. 为什么centos出包使用gdb时没有符号，即使切换为debug也没有。**即使没有符号，但是可以看出执行的是哪个函数**
+
+     1. 编译选项：
+
+        编译时，可能默认启用了 -g（生成调试信息；检查你的构建脚本（Makefile、CMake 等），确认 CFLAGS 或 CXXFLAGS 是否一致包含 -g。
+
+     2. 打包工具行为：
+
+        **deb 包（Ubuntu）**：Debian 的打包工具（如 dpkg-buildpackage）**默认可能不会剥离调试符号**，或者将调试信息分离到独立的 `-dbg` 包中。
+
+        **RPM 包（CentOS）**：RPM 构建工具（如 rpmbuild）**默认会剥离符号**，并将调试信息放入单独的 `debuginfo` 包中。如果你直接使用 RPM 包里的二进制文件，而没安装 `debuginfo`，就会缺少符号。
+
+217. centos上提示：`test不在次sudoers中，此事将被报告`，是因为test无权以超级用户权限执行命令
+
+     ```
+     vim /etc/sudoers
+     添加： test    ALL=(ALL) ALL
+     ```
+
+218. 关于try_catch:
+
+     1. 一些老的系统可能没有权限，那么需要使用access来判定是否有权限
+     2. 如果打不开文件直接打印错误信息然后return(推荐)，或者抛出异常（确保cath能捕获所有的异常）
+     3. 在可能出现异常的代码中用try-catch包裹住
+     4. `const std::exception &e`可以接住大部分继承于异常类的异常类型
+
+     ```c++
+     if (access(path.c_str(), R_OK) != 0) {
+             LOG(ERROR) << "No read permission for " << path;
+             return;
+     }
+     
+     std::ifstream file(path);
+     if (!file.is_open()) {
+         return;
+     }
+     
+     try {
+         std::string line;
+         while (std::getline(file, line)) {
+             extractPaths(line, path_list);
+         }
+         file.close();
+     } catch (const std::exception &e) {
+         LOG(ERROR) << "File operation failed: " << e.what() << std::endl;
+     }
+     ```
+
+     
 
 ### 4. 末尾
 
