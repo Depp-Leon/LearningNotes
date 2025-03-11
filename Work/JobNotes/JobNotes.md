@@ -597,14 +597,22 @@ m_pPool->submit([this, pBundle]() {
    isoInfo->set_md5(info.param.md5);
    ```
 
-9. mutable_ 
+9. 设置非重复嵌套字段
 
-   ```c++
-   // 获取指向嵌套 Address 消息的指针，并设置其字段。
-   Address* addr = person.mutable_address();  
-   addr->set_city("New York");
-   addr->set_zip("10001");
-   ```
+   1. 声明嵌套字段指针，挨个给其赋值
+
+      ```c++
+      // 获取指向嵌套 Address 消息的指针，并设置其字段。
+      Address* addr = person.mutable_address();  
+      addr->set_city("New York");
+      addr->set_zip("10001");
+      ```
+
+   2. 直接拷贝已有的嵌套字段，使用`CopyFrom()`函数
+
+      ```
+      scanEndInfo.mutable_taskstatus()->CopyFrom(m_scanTaskStatus);
+      ```
 
 10. add_和mutable\_的区别
 
@@ -3378,27 +3386,46 @@ m_pPool->submit([this, pBundle]() {
         > 未实现检测是否有RJJH界面，目前只有等待两秒
 
    - [x] **关机重启**
+     
       1. 关机或者重启功能实现放在safed中
-      2. 对于普通查杀(即界面中选中“查杀后关机”选项)，RJJH向safed发送消息
-
+2. 对于普通查杀(即界面中选中“查杀后关机”选项)，RJJH向safed发送消息
+   
       3. 对于强力查杀，查杀结束就执行关机操作(直接调用)
 
 
-2. - [ ] 中控下发黑名单处理，一些已经无毒的文件、移动后的文件没有上报给中控，中控没有显示处理字段
+2. - [x] 中控下发黑名单处理，若文件已从黑名单中移除，则中控处理状态不会更新为已处理
 
+     **思路**：由于中控下发黑名单处理，还是会走一遍扫描，那么就在对每个文件上报进度的时候，判断下本次的扫描类型(上报类型)。将该文件路径缓存下来，等到统一上报的时候上报给中控。
 
-      **思路**：由于中控下发黑名单处理，还是会走一遍扫描，那么就在对每个文件上报进度的时候，判断下本次的扫描类型(上报类型)。将该文件路径缓存下来，等到统一上报的时候上报给中控。
+     1. 在文件上报进度的时候，将无毒的、类型为威胁处理的文件缓存下来
+     2. 扫描结束之后，将这些无毒的文件进行上报(更新状态)，有毒的在加入隔离区的时候会自己上报
 
-3. - [x] 闪电查杀|全盘查杀执行时候会卡住，
+   - [ ] 黑名单/白名单添加相同MD5时，增加提示文案
 
-   **原因**：regex模式匹配在centos7 的GCC 4.8 <regex> 不完善，导致模式匹配不生效，而外面的catch没有捕获该异常类型
+     **思路**：
+
+     1. 取消直接在BlackListDialog中改变数据信息，在其中增加与AddBlackList界面的信号槽
+     2. 在safed中加入黑名单后给scanModel反馈，成功还是失败
+     3. 成功的话就刷新展示界面
+     4. 失败的话就发出信号，改变界面的文案
+
+     > 移除的话同理，有时间再改
+
+3. - [x] 闪电查杀|全盘查杀执行时候会卡住
+
+     **原因**：regex模式匹配在centos7 的GCC 4.8 <regex> 不完善，导致模式匹配不生效，而外面的catch没有捕获该异常类型
 
 4. - [x] 操作系统上报到服务端显示为空
 
 5. - [ ] 卸载时停留在stop all时间过长，并且卸载完成后界面进程还存在主界面也存在
 
-   
+     **现象**：麒麟UOS系统-卸载右键库 `peony`时卡顿
 
+     ```
+     if command_exists peony ; then
+     		peony -q
+     	fi
+     ```
 
 
 
@@ -3938,11 +3965,14 @@ m_pPool->submit([this, pBundle]() {
 
 71. RJJH中的model是如何收到消息的？哪里调用的receive函数
 
-72. String转Qstring ： `toString()`
+72. QString转String： `toStdString()`
 
-    QString转String : `QString::fromStdString()` 静态函数需要加QString前缀
+    String转Qstring : 
 
-73. 在 Qt 中，信号和槽函数在 **定义** 和 **建立信号槽连接(connect)** 时，可以只写 **数据类型** 而省略形参名称。
+    1. `QString::fromStdString()` 静态函数需要加QString前缀
+    2. `QString(Str.c_str())`将String转为C字符数组再调用QString的构造
+
+73. 在 Qt 中，信号在 **定义** 和信号和槽在**建立信号槽连接(connect)** 时，可以只写 **数据类型** 而省略形参名称。
 
     信号和槽的功能不受形参名称的影响，关键在于 **数据类型的匹配**，即信号和槽的参数类型需要一致
 
@@ -6398,6 +6428,70 @@ m_pPool->submit([this, pBundle]() {
      3. 运行在远程服务器上，负责远程管理和数据展示。
 
 225. 当直接打开微软系统助手下载界面，会打不开，此时手动将DNS设置为4.2.2.2即可打开
+
+226. Qt中，只要自己创建的窗口还存在(没有调用close)，本类绑定的信号槽就能与之建立连接
+
+     ```c++
+     void TrustAndIsoDialog::on_btnAddBlack_clicked()
+     {
+         CAddBlacklistDialog *dlg = new CAddBlacklistDialog(this);
+         connect(this, SIGNAL(sigBlackAddFinish(const bool &)), dlg, SLOT(slot_addBlackFinish(const bool &)));
+         dlg->exec();
+     }
+     ```
+
+227. Qt关于信号和槽的参数问题
+
+     1. 信号和槽函数能否省略形参名称
+
+        1. **信号**：信号没有实现，因此省略形参名称不会有任何问题。
+        2. **槽**：如果槽只是声明（头文件），可以省略名称；但在定义（实现）时需要名称，以便在函数体内使用参数。
+
+     2. 使用 `connect` 函数时省略形参名称：在使用 connect 函数时，信号和槽的签名通常通过函数指针或旧式的 SIGNAL 和 SLOT 宏指定。无论哪种方式，形参名称都可以省略
+
+        1. 新式语法(基于函数指针)，编译器直接根据函数签名匹配
+
+           ```
+           connect(&sender, &MyClass::mySignal, &receiver, &MyClass::mySlot);
+           ```
+
+        2. 旧式语法(基于宏)，可以只写类型，省略形参名称
+
+           ```
+           connect(&sender, SIGNAL(mySignal(int,double)), &receiver, SLOT(mySlot(int,double)));
+           ```
+
+     3. 关于参数基本要求以及使用引用(&)
+
+        1. **参数要求**：信号和槽的参数类型**需匹配**；数量上槽可以**少于**信号；参数类型必须精确匹配或**可隐式转换**(例如，信号的 `int` 可以连接到槽的 `double`，但反过来不行。)
+
+        2. 信号和槽的参数是通过**值传递**（copy）进行的，即使在信号或槽中使用了引用（`&` 或 `const &`），参函数中使用的还是信号参数的副本。
+
+           > 因为值传递，信号使用 & 没有意义，同理槽函数单使用 & 也没有意义
+           >
+           > 槽函数使用 const & ，可以避免从副本拷贝到作用域，可行，推荐复杂类型时使用。
+
+        3. 如果信号和槽在不同线程中运行（例如使用 `Qt::QueuedConnection`），参数会被序列化并拷贝到目标线程
+
+228. sqlite3复合主键
+
+     ```
+     primary key(name, type)
+     ```
+
+     这是一个**复合主键**（Composite Primary Key），意味着表中每一行的 (name, type) 组合必须是唯一的；
+
+     单独的 name 或 type 值可以重复，但它们的组合不能重复。
+
+229. C++的enum不能直接接收Protobuffer的enum类型，因为它们是不同的enum类型，proto中可能未定义值。
+
+     因为它们的底层相同(都是整数)，所以想要接收需要使用静态转换，但是需要确保两者的值定义一致，否则可能导致逻辑错误：
+
+     ```c++
+     MyCppEnum cppVal = static_cast<MyCppEnum>(MyProtoEnum_VALUE1); // 转换为对应的值
+     ```
+
+     
 
 ### 4. 末尾
 
