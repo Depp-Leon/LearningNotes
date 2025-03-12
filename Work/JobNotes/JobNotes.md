@@ -3388,8 +3388,7 @@ m_pPool->submit([this, pBundle]() {
    - [x] **关机重启**
      
       1. 关机或者重启功能实现放在safed中
-2. 对于普通查杀(即界面中选中“查杀后关机”选项)，RJJH向safed发送消息
-   
+      2. 对于普通查杀(即界面中选中“查杀后关机”选项)，RJJH向safed发送消息
       3. 对于强力查杀，查杀结束就执行关机操作(直接调用)
 
 
@@ -3400,7 +3399,7 @@ m_pPool->submit([this, pBundle]() {
      1. 在文件上报进度的时候，将无毒的、类型为威胁处理的文件缓存下来
      2. 扫描结束之后，将这些无毒的文件进行上报(更新状态)，有毒的在加入隔离区的时候会自己上报
 
-   - [ ] 黑名单/白名单添加相同MD5时，增加提示文案
+   - [x] 黑名单/白名单添加相同MD5时，增加提示文案
 
      **思路**：
 
@@ -3427,12 +3426,15 @@ m_pPool->submit([this, pBundle]() {
      	fi
      ```
 
+6. - [ ] 0604版本，当开启扫描时点过取消、继续，那么当内存扫描结束后，会卡到那个界面
 
+   
 
+#### 2.2 备忘录
 
-
-
-#### 2.2 暂时搁置
+1. 帮张龄予总结
+2. 总结装机过程
+3. 买面包、玉米
 
 
 
@@ -6491,7 +6493,74 @@ m_pPool->submit([this, pBundle]() {
      MyCppEnum cppVal = static_cast<MyCppEnum>(MyProtoEnum_VALUE1); // 转换为对应的值
      ```
 
-     
+230. 创建窗口，多次连接信号槽的原因和解决办法：
+
+     **背景**：想要通过信号槽，更改弹窗中的文字，使用了动态分配，但是没有释放内存(等待Qt父对象释放自动释放子对象)
+
+     ```c++
+     void TrustAndIsoDialog::on_btnAdd_clicked()
+     {
+         AddTrustTermDlg *add_dlg = new AddTrustTermDlg(this);
+         connect(this, SIGNAL(sigTrustAddFinish(bool)), add_dlg, SLOT(slot_trustAddFinish(bool)), Qt::UniqueConnection);
+         add_dlg->exec();
+     }
+     ```
+
+     **现象/原因**：每次打开添加界面(调用该`on_btnAdd_clicked()`)，当触发信号`sigTrustAddFinish`时，之前创建过几次`add_dlg`对象，就会调用几次`slot_trustAddFinish`槽函数。原因在于由于父窗口没有释放，之前创建的`dlg`都没有被释放，导致每次信号都会调用之前所有对象的槽函数
+
+     **解决**：
+
+     1. 每次用完手动释放(`delete`)对象
+
+     2. 将对话框(`AddTrustTermDlg`)作为成员变量，只创建一次。
+
+     3. 每次点击时，先断开之前的连接再建立新的连接
+
+        ```c++
+        disconnect(this, SIGNAL(sigTrustAddFinish(bool)), nullptr, nullptr); // 断开所有与该信号的连接
+        connect(this, SIGNAL(sigTrustAddFinish(bool)), add_dlg, SLOT(slot_trustAddFinish(bool)));
+        ```
+
+231. 关于`disconnect`：
+
+     1. 断开特定的信号和槽连接
+
+        ```c++
+        disconnect(sender, SIGNAL(signalName()), receiver, SLOT(slotName()));
+        ```
+
+     2. 断开某个信号的所有连接
+
+        ```c++
+        disconnect(sender, SIGNAL(signalName()), nullptr, nullptr);
+        ```
+
+     3. 断开某个对象的所有信号和槽连接
+
+        ```c++
+        disconnect(sender, nullptr, nullptr, nullptr);
+        ```
+
+     4. 断开接收者的所有连接
+
+        ```c++
+        disconnect(receiver);
+        ```
+
+     > 在 `disconnect` 中使用 `nullptr` 是一种“通配符”，表示“匹配任意值”。
+
+232. `Qt::UniqueConnection`有什么作用：
+
+     `Qt::UniqueConnection` 是一个连接标志，它确保**完全相同的信号和槽对（即相同的发送者、信号、接收者和槽）只连接一次**。如果已经存在相同的连接，后续的 `connect` 调用会被忽略。
+
+233. 为什么使用`Qt::UniqueConnection`解决不了上述办法？
+
+     - 因为每次创建的 `add_dlg` 是不同的对象(使用了`new` 动态分配了一个`dlg`对象)，**它的内存地址不同**。
+
+     - 因此，从 Qt 的角度来看，每次 `connect` 的接收者（`add_dlg`）是不同的对象，即使信号（`sigTrustAddFinish`）和槽（`slot_trustAddFinish`）相同，Qt 也不会认为这是“相同的连接”，`Qt::UniqueConnection` 就无法阻止新的连接被添加。
+     - **结果**：每次点击都会添加一个新的连接，导致信号发射时所有之前的 `add_dlg` 实例都会收到信号并调用槽函数
+
+
 
 ### 4. 末尾
 
