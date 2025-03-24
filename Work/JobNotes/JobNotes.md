@@ -1466,7 +1466,12 @@ m_pPool->submit([this, pBundle]() {
 
     ```
     git reset <commit-hash>	// 本地恢复到某一版本(历史提交记录遭到修改)
-    git push --force		//强制将本地版本记录更改推送到远程仓库
+    
+    // 执行修改
+    git add .
+    git commit 
+    
+    git push --force		//强制将本地版本记录推送到远程仓库
     ```
 
 26. `git pull --rebase`：同步远程分支更改并将本地未提交的更改重新应用在最新提交之上的命令。这样先`commit`再`pull`就不会多出来合并提交的记录了
@@ -1521,22 +1526,8 @@ m_pPool->submit([this, pBundle]() {
     git rebase --abort	   #终止当前的 rebase 操作，并恢复到操作前的状态。
     git rebase --skip	   #跳过当前的补丁，即跳过正在导致冲突的提交，并继续应用后续的提交
     ```
-```
-    
-**工作流程**:
-    
-    1. Git 会将分支的新提交保存为补丁
-    2. 当前分支被移动到新基点。
-3. 依次将保存的提交应用到新的基点上
-    
-**`rebase`和`merger`的区别**：
-    
-    | **操作**             | **`git merge`**                  | **`git rebase`**                       |
-    | -------------------- | -------------------------------- | -------------------------------------- |
-    | **历史记录**         | 可能产生分叉历史                 | 产生线性历史                           |
-    | **是否创建合并提交** | 创建一个 `merge commit`提交记录  | 不创建合并提交                         |
-    | **冲突处理**         | 解决合并冲突                     | 解决 `rebase` 冲突                     |
-    | **适用场景**         | 保留分支开发历史，适用于团队协作 | 清理历史，适用于个人开发或维护整洁历史 |
+
+
 
 
 
@@ -1559,7 +1550,7 @@ m_pPool->submit([this, pBundle]() {
 1. 隔离区、信任区页面bug
 
    `FramelessWindow`页面的主框架、主页面。里面包含了点击隔离信任区后的槽函数，展示对应`dialog`
-   
+
    `TableOfContents`页码单独分离出来实现调页
 
 2. 设置界面bug
@@ -1567,17 +1558,14 @@ m_pPool->submit([this, pBundle]() {
    **思路**：将ui传来的配置保存下来。如果点击取消，就不会保存这次的配置，那么下次打开就还是之前的
 
    **cpp逻辑剖析**：
+      1. 槽函数updateXXX：ui界面点击保存后会触发该槽函数，将传来的结构体转为protobuffer，再将该protobuffer传递(send)给IPC进行转发给对应处理模块进行后续处理
+      2. fromxxx：负责将ui传来的结构体转换未protobuffer
+      3. toxxx：负责将服务端/后台新的配置信息从protobuffer转为对象结构体，并将结构体emit发出供settingDialog接受响应
+      4. 信号函数sigXXX：将新的配置信息发送，供setting/trustAndIso/界面接收
+      5. send和recive都是通过类似于插件的模型moudle进行对其他模块的数据发送和接受(通过key字段和TerminalConfigSeesion的protobuffer字段)。
+         #接收时会根据TerminalConfigSeesion的type字段区分，再根据info的key字段区分不同的模块的要emit信息，再调用不同的emit
 
-```
-   1. 槽函数updateXXX：ui界面点击保存后会触发该槽函数，将传来的结构体转为protobuffer，再将该protobuffer传递(send)给IPC进行转发给对应处理模块进行后续处理
-   2. fromxxx：负责将ui传来的结构体转换未protobuffer
-   3. toxxx：负责将服务端/后台新的配置信息从protobuffer转为对象结构体，并将结构体emit发出供settingDialog接受响应
-   4. 信号函数sigXXX：将新的配置信息发送，供setting/trustAndIso/界面接收
-   5. send和recive都是通过类似于插件的模型moudle进行对其他模块的数据发送和接受(通过key字段和TerminalConfigSeesion的protobuffer字段)。
-      #接收时会根据TerminalConfigSeesion的type字段区分，再根据info的key字段区分不同的模块的要emit信息，再调用不同的emit
-   ```
-
-   **思路**：将每次下发或者保存的配置保存下来，在界面打开`settingDialog`的时候统一`emit`一遍信号更改设置界面
+      **思路**：将每次下发或者保存的配置保存下来，在界面打开`settingDialog`的时候统一`emit`一遍信号更改设置界面
 
 3. 关于扫描多任务下发bug
 
@@ -1611,7 +1599,7 @@ m_pPool->submit([this, pBundle]() {
    > 同11
 
    ```
-   0x00005555556eff27 in CDBTimedTasksOper::disposal (this=0x55555625cce0 <sdbTimedTasksOper>,
+      0x00005555556eff27 in CDBTimedTasksOper::disposal (this=0x55555625cce0 <sdbTimedTasksOper>,
    ```
 
 7. 暂停、继续界面文案bug：
@@ -1655,46 +1643,46 @@ m_pPool->submit([this, pBundle]() {
    **分析**：
 
    1. 使用`FULL_SCAN`字段下发任务，具体实现在`FULL_SCAN`任务处理那块找
-
-   ```
-      string strong_sign = 5; // 强力查杀标识，兼容老版本客户端，老版本执行全盘查杀，新版本解析此标识，1为强力查杀，0为全盘查杀
+   
       ```
-
-   2. `ScanFullTask`初始化时会`detach`一个线程：读取强力查杀留下的标记文件、如果含有强力查杀标记，那么就执行一次全盘扫描。
-
-      `task`函数：由于全盘和强力是同一个param，对其执行全盘扫描，并判断type是否是强力查杀，如果是那么将本次参数记录到`conf`文件中，供重启后执行扫描使用
-
-   3. 扫描最终执行的是给告警处置模块处理了？(通过gjcz的IPC)
-
+        string strong_sign = 5; // 强力查杀标识，兼容老版本客户端，老版本执行全盘查杀，新版本解析此标识，1为强力查杀，0为全盘查杀
+      ```
+   
+      2. `ScanFullTask`初始化时会`detach`一个线程：读取强力查杀留下的标记文件、如果含有强力查杀标记，那么就执行一次全盘扫描。
+   
+         `task`函数：由于全盘和强力是同一个param，对其执行全盘扫描，并判断type是否是强力查杀，如果是那么将本次参数记录到`conf`文件中，供重启后执行扫描使用
+   
+      3. 扫描最终执行的是给告警处置模块处理了？(通过gjcz的IPC)
+   
    **未完成部分**：
-
-   1. 没有进行病毒库升级                    -----需要创建升级任务放入队列 
-   2. 是否不允许终端暂停或停止、需要验证        ----------UI层实现
-   3. 扫描是否加入信任区文件          ---------应该是，因为全盘扫描从 /根目录下面同一扫
-   4. 发现病毒如何自动清除          ------auto_remove | auto_clear 字段 或者在HIpDip的界面处理逻辑上
-   5. 如何清除病毒后实现重启       ----------UI层实现
-
+   
+         1. 没有进行病毒库升级                    -----需要创建升级任务放入队列 
+         2. 是否不允许终端暂停或停止、需要验证        ----------UI层实现
+         3. 扫描是否加入信任区文件          ---------应该是，因为全盘扫描从 /根目录下面同一扫
+         4. 发现病毒如何自动清除          ------auto_remove | auto_clear 字段 或者在HIpDip的界面处理逻辑上
+         5. 如何清除病毒后实现重启       ----------UI层实现
+   
    **解决**：
-
-   1. 重写了病毒库升级，并使用`callbcak`，让病毒库升级可以用到其他组件的功能。
-   2. 在强力查杀前先检查病毒库升级，待升级结束后再进行查杀任务。
-   3. 修改了读重启文件，修复了RJJH那块的逻辑
-
-10. 关于病毒库升级：需要在查杀前进行病毒库升级，所以目的把病毒库单独拿出来
-
-    **思路**：
-
-    1. 病毒库升级只留内部的`terminalUpgradeVirusLibraryCenterMode`处理信息
-    2. 上报、通信UI在外层，在查杀那块调用
-    3. 内层需要获取版本号等其他组件功能，使用`callback`回调函数，在`general_operator_impl`中传递给它
-
-    **解决**：
-
-    1. 在scan插件下单独封装一个病毒库升级类。scan_flow_controller所有需要使用的升级函数都在这里面
-    2. taskExecutionBegins、notifyUIVirusLibraryUpgrade、detectingUpgradeClientConnectionStatus、terminalVersionInfoSync、taskExecutionCompleted、reportAction。这些是在插件直接拿出来用的。
-    3. callback：getAuthKeySNCode、virusLibraryVersion、checkDetectionAuthorization、sendMsgToUI、asyncReport这些是要作为callback参数传递的
-
-11. 定时任务和定时查杀导致safed崩溃bug
+   
+         1. 重写了病毒库升级，并使用`callbcak`，让病毒库升级可以用到其他组件的功能。
+         2. 在强力查杀前先检查病毒库升级，待升级结束后再进行查杀任务。
+         3. 修改了读重启文件，修复了RJJH那块的逻辑
+   
+      4. 关于病毒库升级：需要在查杀前进行病毒库升级，所以目的把病毒库单独拿出来
+   
+   **思路**：
+   
+   1. 病毒库升级只留内部的`terminalUpgradeVirusLibraryCenterMode`处理信息
+   2. 上报、通信UI在外层，在查杀那块调用
+   3. 内层需要获取版本号等其他组件功能，使用`callback`回调函数，在`general_operator_impl`中传递给它
+   
+   **解决**：
+   
+   1. 在scan插件下单独封装一个病毒库升级类。scan_flow_controller所有需要使用的升级函数都在这里面
+   2. taskExecutionBegins、notifyUIVirusLibraryUpgrade、detectingUpgradeClientConnectionStatus、terminalVersionInfoSync、taskExecutionCompleted、reportAction。这些是在插件直接拿出来用的。
+   3. callback：getAuthKeySNCode、virusLibraryVersion、checkDetectionAuthorization、sendMsgToUI、asyncReport这些是要作为callback参数传递的
+   
+10. 定时任务和定时查杀导致safed崩溃bug
 
     **思路**：dispose函数崩溃？加载不出来。读取SQlite数据库的问题
 
@@ -1702,7 +1690,7 @@ m_pPool->submit([this, pBundle]() {
 
     > 参考terminal_details_cache.cpp  129实现sqlite数据库读取方式
 
-12. 主防编译时问题：
+11. 主防编译时问题：
 
     **问题**：未找到目标静态库时使用系统自带库的bug导致主防异常
 
@@ -1712,8 +1700,8 @@ m_pPool->submit([this, pBundle]() {
     2. 把那两个库使用set的用法编译
 
     **解决**：第一种方式，加上`NO_DEFAULT_PATH`字段即可限制只在目标路径下寻找
-    
-13. 强力查杀之病毒库
+
+12. 强力查杀之病毒库
 
     **问题**：
 
@@ -1737,8 +1725,8 @@ m_pPool->submit([this, pBundle]() {
        在scanmodel中获取取消操作数据，在scanUIChange事件中设置isScanCancel。最后在事件处理器中判断是否为手动取消，如果取消那么就不执行关机或者重启。
 
     4. 在手动取消任务执行前，先将强力查杀标记文件删除，这样下次就不会执行全盘查杀操作。
-    
-14. 查杀查出病毒后的日志上报
+
+13. 查杀查出病毒后的日志上报
 
     **思路**：
 
@@ -1760,20 +1748,20 @@ m_pPool->submit([this, pBundle]() {
 
     1. 上报实际上上报了两次，stopScan上报一次，等到界面下发结束标志之后又上报一次。标记参数iosupdate为true，只是刷新上一次保存在sqlite中的记录。
     2. 问题在于处理威胁的过程中，传递的action是错误的。
-    
-15. UKey授权bug：
+
+14. UKey授权bug：
 
     **问题**：点击激活UKey，RJJH崩溃
 
     **解决**：发现点击激活也走的是刷新信号槽里面的信号槽。问题在于safed传递请求时判断错误，导致所有的回复都走的是默认第一个(枚举默认为0)。执行了两次eventLoop.quit()导致崩溃。
-    
-16. 注册界面文案修改
+
+15. 注册界面文案修改
 
     **问题**：点击激活，若直接收到safed返回的信息，则提示激活成功。但是如果中控开启填报信息，则需要等待提交完信息后，待safed回复了信息才会提示激活成功。
 
     **思路**：当填报信息界面开启时，发送信号，在authManage中将计时器停止
 
-17. 增加网络白名单：
+16. 增加网络白名单：
 
     1. 界面、RJJHmodel层
 
@@ -1795,7 +1783,7 @@ m_pPool->submit([this, pBundle]() {
     3. 在sqlite文件夹下面创建对应操作数据的对象。
 
     4. 定义protobuffer字段
-    
+
     
 
 ### 2.13 工作任务
@@ -1878,15 +1866,14 @@ m_pPool->submit([this, pBundle]() {
 
 7. - [x] 网络防护增加逻辑：
 
-           1. 检测时间改为1秒内5次
-            
-           2. 界面禁用网络防护时，把配置文件清除掉(把之前封禁的ip去除、把hosts.deny清除掉)
-            
-           3. 日志记录里面二级分类为`-`，不是未知。
-            
-           4. bug: 弹窗只第一次有效，后续再有弹窗就无效了，不弹窗了:   关闭的时候没有清空容器，导致下一次重启不会弹窗
-            
-           5. 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
+       1. 检测时间改为1秒内5次
+       2. 界面禁用网络防护时，把配置文件清除掉(把之前封禁的ip去除、把hosts.deny清除掉)
+
+       3. 日志记录里面二级分类为`-`，不是未知。
+
+       4. bug: 弹窗只第一次有效，后续再有弹窗就无效了，不弹窗了:   关闭的时候没有清空容器，导致下一次重启不会弹窗
+
+       5. 增加白名单：插件增加白名单功能，且界面增加白名单窗口。
 
         > 下一步先看隔离区的数据展示如何实现的，先解决5，为自己实现新窗口打铺垫
 
@@ -2183,27 +2170,25 @@ m_pPool->submit([this, pBundle]() {
      sudo dnf install epel-release	//安装 EPEL 仓库
         sudo dnf install gnome-tweaks	//gnome-tweaks 是一个图形化工具，用于管理 GNOME 扩展
      gnome-shell --version			//检查 GNOME 版本使用的是 GNOME 3.32
-        
-        ```
-   
-     sudo dnf install gnome-shell-extension-top-icons//安装 TopIcons 扩展
+        sudo dnf install gnome-shell-extension-top-icons//安装 TopIcons 扩展
         gnome-tweaks		//使用 gnome-tweaks TopIcons 扩展
-        ```
+      ```
      
      2. 长期：根据红帽版本不使用QSystemTrayIcon改用 AppIndicator实现相关托盘功能
      
         > 问题：该第三方库需要依赖的底层库太多
-  
-     **解决**：产品对接，后续讨论如何变更
-     ```
-   
-- [x] 隔离区恢复的文件权限发生变化
-   
-- [x] 【centos】受到网络攻击后，没有弹窗提示
-   
+        
+        **解决**：产品对接，后续讨论如何变更
+     
+   - [x] 隔离区恢复的文件权限发生变化
+
+   - [x] 【centos】受到网络攻击后，没有弹窗提示
+
      **解决**：`journald` 捕获日志，`rsyslog` 转发到文件。如果`rsyslog`服务异常则回导致防护日志不会有记录，所以在开启网络防护的时候加入重启该服务命令即可
-   
+
    - [x] 708添加威胁防护详情
+
+
 
 ## 三、技术问题
 
@@ -3498,15 +3483,15 @@ m_pPool->submit([this, pBundle]() {
 12. - [x] 卸载时卡住，当时只改了poney右键库，这个方德右键库卸载后刷新也有问题
 
 13. 重新测试查杀相关功能，检测是否有异常
-    - [ ] 试用授权超过三次，弹窗选择更改中控后叉掉页面不退出程序。
+    - [x] 试用授权超过三次，弹窗选择更改中控后叉掉页面不退出程序。
     
     - [ ] 在进行闪电查杀/全盘查杀的过程中，当进行到文件扫描时，点击隔离区，扫描界面的内存扫描、关键位置扫描的文件数会归**0**
     
       <img src="source/images/JobNotes/image-20250321103052764.png" alt="image-20250321103052764" style="zoom: 50%;" />
     
-    - [ ] 磁盘显示问题，点击过快的情况下。切换信任区时，界面也会显示磁盘占用
+    - [x] 磁盘显示问题，点击过快的情况下。切换信任区时，界面也会显示磁盘占用
     
-    - [ ] 后台开启jynzdfy.service时，点击界面检查更新，检查更新弹窗进度会卡住，并且取消后不可再进行查杀
+    - [x] 后台开启jynzdfy.service时，点击界面检查更新，检查更新弹窗进度会卡住，并且取消后不可再进行查杀
     
       <img src="source/images/JobNotes/image-20250321102354377.png" alt="image-20250321102354377" style="zoom: 50%;" />
 
@@ -6915,7 +6900,57 @@ m_pPool->submit([this, pBundle]() {
 
      2. **栈走软、硬结合的方式提高性能**。在CPU中，内置一部分集成电路，对外提供两条指令: push , pop，和两个寄存器，rbp, rsp，再进行一些“软”方面的约定，把“分配一个内存变量”，变成一个非常简单的操作。有了push/pop，和 rbp/rsp，CPU又不断在这个基础上进行优化。现在push/pop的执行只要一个周期（但涉及内存操作，完成时间仍需要看内存操作的完成速度，不过，相比普通的内存操作，CPU在这方面仍有优化），而且，程序的局部变量可以通过rbp寄存器进行，也简单了许多，并且方便CPU进行预取等优化。
 
-239. 
+239. Qt的弹窗类(Dialog)设置模态/非模态的函数
+
+     1. `exec()` 控制代码执行流，阻塞调用点：当调用 `QDialog::exec()` 时，它会启动一个**独立的事件循环**，并暂停调用 `exec()` 的线程的后续代码执行，直到对话框关闭（通过 `accept()` 或 `reject()`）。**这意味着在对话框关闭之前，`exec()` 之后的代码不会执行**
+     2. `setModal(true)` 控制窗口交互，阻塞 GUI：设置对话框为模态后，它会**阻塞与其父窗口（或整个应用程序，如果没有父窗口）相关的用户交互**，但不影响代码执行（除非结合 `exec()`）
+
+     ```
+     dia.setModal(true);		// 模态，false为非模态
+     
+     dia.show()	// 不阻塞后续代码
+     dia.exec()	// 阻塞后续代码
+     ```
+
+240. 关于Qt的界面对象，对象是new出来的，那么除非手动delete或者其父对象被释放，那么该对象会一直存在。
+
+     点击界面的关闭按钮，实际上是调用了`close()`槽函数，而`close()`的默认行为是**将窗口设置为不可见**（`setVisible(false)`）
+
+     关闭操作会触发`closeEvent(QCloseEvent *event)`虚函数，你可以通过重写它来改变默认行为
+
+241. 关于C++中，函数关键字，在声明和实现(定义)时是否都需要加
+
+     | 关键字   | 声明时使用 | 实现时使用   | 说明                                                    |
+     | -------- | ---------- | ------------ | ------------------------------------------------------- |
+     | static   | 是         | 否           | 指定函数为静态，声明时标记即可。                        |
+     | const    | 是         | 是           | (**放在函数名后面**)影响函数签名，声明和实现必须一致。  |
+     | final    | 是         | 否           | 阻止重写或继承，声明时指定即可。                        |
+     | override | 是         | 否           | 显式重写虚函数，声明时指定即可。                        |
+     | virtual  | 是         | 否           | 声明虚函数，声明时指定即可（派生类可选）。              |
+     | inline   | 是         | 是（视情况） | 建议内联(定义和实现在类中)，定义不在类内时需加 inline。 |
+
+     1. 类外定义时，必须显式加 `inline`，否则会被视为普通函数，导致链接问题（多重定义或未定义引用）。
+     2. `const` 是函数签名的一部分，影响函数的调用约定（是否能修改对象状态），声明和定义的签名必须一致，否则编译器无法匹配。
+     3. 总的来说，`inline`和`const`分别**不只是属性**，还改变了**链接规则**和**调用约定(是否能修改对象状态)**，所以必须和声明保持一致。而其他的只是**函数的属性修饰符**。
+
+242. C++中函数关键字的放置位置
+
+     | 关键字   | 放置位置                   | 示例                  | 说明                                   |
+     | -------- | -------------------------- | --------------------- | -------------------------------------- |
+     | static   | 函数返回类型之**前**       | static void func();   | 修饰整个函数，表示静态属性             |
+     | const    | 函数名之**后**（成员函数） | void func() const;    | 表示函数不修改对象状态，属于签名一部分 |
+     | final    | 函数名之**后**（虚函数）   | void func() final;    | 阻止虚函数重写                         |
+     | override | 函数名之**后**（虚函数）   | void func() override; | 显式重写基类虚函数                     |
+     | virtual  | 函数返回类型之**前**       | virtual void func();  | 声明虚函数                             |
+     | inline   | 函数返回类型之**前**       | inline void func();   | 建议内联，修饰整个函数                 |
+
+     1. `const`放在后面，修饰**调用该函数的对象**（即 `this` 指针），表示该成员函数不会修改对象的非 `mutable` 成员，如果 `const` 放在返回类型前（如 `const void func()`），那是**修饰返回值**的，不是成员函数的常量性
+     2. `static、inline、virtual` 是函数的“前缀”属性，**影响存储、链接或多态**，放在返回类型前符合逻辑顺序。
+     3. `final` 和 `override` 是函数的“后缀”属性，与继承和重写相关，放在函数名后表示它们是**对函数行为的附加约束**。
+
+
+
+
 
 ### 4. 末尾
 
