@@ -474,25 +474,6 @@
 
     3. SIGNAL和SLOT类使用`new`创建堆对象，不能创建栈对象。因为一般是两个类之间的通信，栈对象出了函数作用域会被销毁。
 
-35. Qt创建项目->Qt Console Application  创建的是终端应用(无界面)，
-
-    1. 此时pro文件配置为
-
-       ```
-       QT += core
-       QT -= gui	// 去掉gui
-       ```
-
-    2. main函数中使用`QCoreApplication`
-
-       ```
-       QCoreApplication a(argc, argv);
-       ```
-
-       > `QCoreApplication` 是 Qt 的基础应用程序类，主要用于纯计算型应用程序或后端服务，适用于非图形化的应用程序。不需要图形用户界面，但仍需要 Qt 的事件处理、定时器、文件操作等功能
-       >
-       > `QApplication` 是一个继承自 `QCoreApplication` 的子类，专为 GUI 应用程序设计。必须用于图形界面应用程序，包含对窗口、控件、布局等的支持。
-
 36. 几乎所有的 Qt 控件和部件都可以设置 `objectName`。`objectName` 是 Qt 中用于标识一个控件的唯一名称，它可以帮助你在程序中引用和查找这个控件。
 
     ```c++
@@ -988,4 +969,65 @@
     1. 设计如此，**异步事件处理**不需要关心返回值
     2. 信号槽机制，信号只管发射，可以有多个槽函数应答；同理，多个信号可以只有一个槽函数应答。
 
-67. 
+66. Qt创建项目->Qt Console Application  创建的是终端应用(无界面)，
+
+    1. 此时pro文件配置为
+
+       ```
+       QT += core
+       QT -= gui	// 去掉gui
+       ```
+
+    2. main函数中使用`QCoreApplication`
+
+       ```
+       QCoreApplication a(argc, argv);
+       ```
+
+       > `QCoreApplication` 是 Qt 的基础应用程序类，主要用于纯计算型应用程序或后端服务，适用于非图形化的应用程序。不需要图形用户界面，但仍需要 Qt 的事件处理、定时器、文件操作等功能
+       >
+       > `QApplication` 是一个继承自 `QCoreApplication` 的子类，专为 GUI 应用程序设计。必须用于图形界面应用程序，包含对窗口、控件、布局等的支持。
+
+67. Qt对项目执行build构建(即编译+链接)，产生一系列文件，并分析这些文件如何产生的：
+
+    **![image-20250326142519644](source/images/Qt/image-20250326142519644.png)**
+
+    1. 目标文件（.o 或 .obj）：每个 `.cpp` 文件（包括手写的源文件和生成的 `moc_*.cpp` 文件）都会被编译成一个目标文件。即编译、汇编之后的二进制文件
+
+    2. moc 文件（moc_\*.cpp）：对于包含 Q_OBJECT 或 Q_GADGET 宏的头文件，Qt 的元对象编译器（moc）会生成对应的 moc.cpp 文件
+
+    3. UI 文件（ui_\*.h）：如果项目使用了 Qt Designer 创建的 .ui 文件，uic（用户界面编译器）会生成对应的 ui\*.h 头文件
+
+    4. 资源文件（qrc_*.cpp）：如果项目使用了 .qrc 资源文件，rcc（资源编译器）会生成对应的 qrc.cpp 文件
+
+    5. 可执行文件：上述都是中间件文件，最终链接成一个可执行文件
+
+       > `LD_LIBRARY_PATH=$PWD ./ScreenStatusMonitor`，如果运行时需要链接动态库
+
+68. 关于moc文件：
+
+    **触发条件**：当一个类声明中包含 `Q_OBJECT` 或 `Q_GADGET` 宏时，moc 会被调用。这些宏告诉构建系统，该类需要额外的元对象代码来支持 Qt 的特性（如信号与槽）
+
+    **生成过程(使用qmake)**：
+
+    1. 在 .pro 文件中定义源文件和头文件后，qmake 会扫描头文件，检测 Q_OBJECT。
+
+    2. 运行 qmake 生成 Makefile，其中包含调用 moc 的规则：
+
+       ```
+       moc_myclass.cpp: myclass.h
+           moc $(DEFINES) $(INCPATH) $< -o $@
+       ```
+
+    3. 然后，make 会编译生成的 `moc_myclass.cpp` 为 `moc_myclass.o`。
+
+    **moc文件内容**：
+
+    1. 信号的具体实现：为每个信号生成一个函数（如 mySignal），通过 `QMetaObject::activate` 触发连接的槽
+    2. 元对象（QMetaObject）的定义：定义 `staticMetaObject`，存储类的元信息（信号、槽、属性等）
+    3. 动态调用支持：通过 `qt_static_metacall` 函数实现信号和槽的运行时调用
+    
+69. Qt Creator中构建项目后，找不到构建后的文件夹：
+
+    此时在Qt Creator中左侧栏选择项目选项、有个构建目录，选择即可
+

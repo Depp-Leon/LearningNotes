@@ -2149,9 +2149,8 @@ m_pPool->submit([this, pBundle]() {
    #6. 全量出包
    /opt/python-3.6.15/bin/python3.6 ./main.py -a STANDARD -n chenxinsd -v V708
    
-   
    ```
-
+   
 4. 本地通过`192.168.1.6`(共用的包环境),拉取最新的包进行安装测试
 
    ```
@@ -2913,22 +2912,6 @@ m_pPool->submit([this, pBundle]() {
 
 ## 三、技术问题
 
-39. 组件接口父类分析
-
-    ```c++
-    《component_interface》
-    template<typename T>
-    # 返回类型为IComponentInterface的共享指针
-    static std::shared_ptr<IComponentInterface> createComponent(
-        std::shared_ptr<CGeneralOperatorImpl> pGeneralOpImpl,
-        std::shared_ptr<IMessageCenter> pMessageCenter)
-    {	
-       	#断言，确保T属于IComponentInterface的子类
-        static_assert(std::is_base_of<IComponentInterface, T>::value, "T must derive from IComponentInterface");
-        #返回使用子类构造初始化的共享指针
-        return std::make_shared<T>(pGeneralOpImpl, pMessageCenter);
-    }
-    ```
 
 
 # 未完成笔记
@@ -3327,10 +3310,30 @@ m_pPool->submit([this, pBundle]() {
     1. **后端**：中控的核心逻辑（处理客户端数据、提供操作接口）。
     2. **前端**：中控的网页界面（展示数据给用户）。
     3. 运行在远程服务器上，负责远程管理和数据展示。
+    
+34. “GC” 通常是 **Garbage Collection（垃圾回收）** 的缩写： 垃圾回收是一种**自动内存管理机制**，由运行时环境（如虚拟机或解释器）负责，旨在识别和回收程序中不再使用的内存（即“垃圾”），从而避免内存泄漏并简化开发者的内存管理负担。
 
+    - **手动内存管理**：在像 C 或 C++ 这样的语言中，开发者需要显式地分配内存（malloc 或 new）和释放内存（free 或 delete）。如果忘记释放，就会导致内存泄漏。
+    - **垃圾回收**：在支持 GC 的语言（如 Java、Python、C#、JavaScript）中，开发者无需手动释放内存，垃圾回收器会自动检测并清理无用的对象。
 
+35. 组件接口父类分析
 
+    ```c++
+    《component_interface》
+    template<typename T>
+    # 返回类型为IComponentInterface的共享指针
+    static std::shared_ptr<IComponentInterface> createComponent(
+        std::shared_ptr<CGeneralOperatorImpl> pGeneralOpImpl,
+        std::shared_ptr<IMessageCenter> pMessageCenter)
+    {	
+       	#断言，确保T属于IComponentInterface的子类
+        static_assert(std::is_base_of<IComponentInterface, T>::value, "T must derive from IComponentInterface");
+        #返回使用子类构造初始化的共享指针
+        return std::make_shared<T>(pGeneralOpImpl, pMessageCenter);
+    }
+    ```
 
+    
 
 
 ### 4. 末尾
