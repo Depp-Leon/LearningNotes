@@ -1,3 +1,21 @@
+#### 1. 类型转换
+
+1. **`QString::fromUtf8(dataType)`**:使用 `fromUtf8` 将 `dataType` 从 `QByteArray` 转换为 `QString`。
+
+2. `QJsonDocument::fromJson(data.data())`：
+
+   > **`data.data()`**：
+   >
+   > - `data` 是一个 `QByteArray` 对象，包含要解析的 JSON 数据。通过调用 `data()`，你获取一个指向 `data` 内部字节数组的 `const char*` 指针，方便传递给 `fromJson()` 方法。
+   >
+   > **`QJsonDocument::fromJson()`**：
+   >
+   > - 这个静态方法用于创建 `QJsonDocument` 对象，并解析传入的 JSON 数据。如果 JSON 数据格式正确，它将返回一个有效的 `QJsonDocument` 对象；
+
+
+
+
+
 1. Qt图片路径：使用了 `:/` 前缀，表示这是一个 Qt 资源路径；资源文件必须在项目的资源文件（`.qrc` 文件）中声明。
 
    ```
@@ -474,7 +492,7 @@
 
     3. SIGNAL和SLOT类使用`new`创建堆对象，不能创建栈对象。因为一般是两个类之间的通信，栈对象出了函数作用域会被销毁。
 
-36. 几乎所有的 Qt 控件和部件都可以设置 `objectName`。`objectName` 是 Qt 中用于标识一个控件的唯一名称，它可以帮助你在程序中引用和查找这个控件。
+35. 几乎所有的 Qt 控件和部件都可以设置 `objectName`。`objectName` 是 Qt 中用于标识一个控件的唯一名称，它可以帮助你在程序中引用和查找这个控件。
 
     ```c++
     #define DEF_OBJECT_NAME_SCAN_RUN_PROCESS_ICON "objectNameScanMemoryIcon"
@@ -493,35 +511,35 @@
     QLabel *label = ui->findChild<QLabel *>();		// 返回默认第一个QLabel
     ```
 
-37. QList转换为QStringList
+36. QList转换为QStringList
 
       ```
       QList<QString> qlist = {"file1.txt", "file2.txt", "file3.txt"};
       QStringList qstringList(qlist);  // 直接转换
       ```
 
-38. 本地信号槽
+37. 本地信号槽
 
     ```
     connect(this,&AuthManger::function,[](){})
     ```
 
-39. `QRadioButton` 控件自动通过同一父控件或者同一个 `QButtonGroup` 来实现单选效果。多个 `QRadioButton` 默认只能选中一个，这是 `QRadioButton` 的基本行为
+38. `QRadioButton` 控件自动通过同一父控件或者同一个 `QButtonGroup` 来实现单选效果。多个 `QRadioButton` 默认只能选中一个，这是 `QRadioButton` 的基本行为
 
     1. 多个`QRadioButton`放到同一个父控件/同一个布局下(默认是属于同一个父控件的)
     2. 多个`QRadioButton`放到一个`QButtonGroup` 来手动分组按钮，管理一组单选按钮。
 
-40. Qt的按钮或者选择框，生成的点击槽函数：
+39. Qt的按钮或者选择框，生成的点击槽函数：
 
     1. 点击控件，自动会修改界面控件状态(被选中/取消选中(单选框radio没有))，然后执行槽函数
     2. 在cpp代码中直接调用槽函数，只会执行函数代码，不会触发控件的状态效果。
 
-41. Qt中的信号函数，可以不加`emit`；`emit` 关键字只是为了表达意图，不是必须的，它本质上没有其他功能
+40. Qt中的信号函数，可以不加`emit`；`emit` 关键字只是为了表达意图，不是必须的，它本质上没有其他功能
 
     1. 在类内部，可以省略 `emit`，直接调用信号的名字。
     2. 使用 `emit` 是为了代码的可读性和明确性
 
-42. FramlessWindow(主界面)和scanModel(模型)：
+41. FramlessWindow(主界面)和scanModel(模型)：
 
     1. 界面想通过模型与safed交流，直接调用模型的函数即可(效果和在该类使用信号槽一样)，不用使用信号槽
 
@@ -529,7 +547,7 @@
 
        > 所以**信号槽本质上是解耦发送者和接收者，解决不同界面/协助类之间交互问题**
 
-43. 更高级一点就是connect的第五个参数：
+42. 更高级一点就是connect的第五个参数：
 
     1. 如果是直连，那么就**类似于普通函数调用**，在发出信号的线程中执行，**执行是同步的**
     2. 如果是队列连接，那么信号被放入接收方的事件队列，等待事件循环处理。**执行是异步的**，发出信号的线程不会等待槽函数完成
@@ -537,7 +555,7 @@
 
     > 所以大部分情况，都使用信号槽的异步处理，同步处理直接调用函数即可
 
-44. 信号槽参数的匹配机制，如果不遵守该机制会导致槽函数无法被信号触发
+43. 信号槽参数的匹配机制，如果不遵守该机制会导致槽函数无法被信号触发
 
     Qt 的信号槽机制依赖于**类型安全**和**参数匹配**：
 
@@ -547,7 +565,7 @@
 
     > C++ 允许从 T& 到 const T& 的隐式转换，但**反过来不行**（const T& 不能隐式转换为 T&），因为这会违反 const 的语义。
 
-45. Qt中，只要自己创建的窗口还存在(没有调用close)，本类绑定的信号槽就能与之建立连接
+44. Qt中，只要自己创建的窗口还存在(没有调用close)，本类绑定的信号槽就能与之建立连接
 
     ```c++
     void TrustAndIsoDialog::on_btnAddBlack_clicked()
@@ -558,7 +576,7 @@
     }
     ```
 
-46. Qt关于信号和槽的参数问题
+45. Qt关于信号和槽的参数问题
 
     1. 信号和槽函数能否省略形参名称
 
@@ -591,7 +609,7 @@
 
        3. 如果信号和槽在不同线程中运行（例如使用 `Qt::QueuedConnection`），参数会被序列化并拷贝到目标线程
 
-47. 创建窗口，多次连接信号槽的原因和解决办法：
+46. 创建窗口，多次连接信号槽的原因和解决办法：
 
     **背景**：想要通过信号槽，更改弹窗中的文字，使用了动态分配，但是没有释放内存(等待Qt父对象释放自动释放子对象)
 
@@ -619,7 +637,7 @@
        connect(this, SIGNAL(sigTrustAddFinish(bool)), add_dlg, SLOT(slot_trustAddFinish(bool)));
        ```
 
-48. 关于`disconnect`：
+47. 关于`disconnect`：
 
     1. 断开特定的信号和槽连接
 
@@ -647,17 +665,17 @@
 
     > 在 `disconnect` 中使用 `nullptr` 是一种“通配符”，表示“匹配任意值”。
 
-49. `Qt::UniqueConnection`有什么作用：
+48. `Qt::UniqueConnection`有什么作用：
 
     `Qt::UniqueConnection` 是一个连接标志，它确保**完全相同的信号和槽对（即相同的发送者、信号、接收者和槽）只连接一次**。如果已经存在相同的连接，后续的 `connect` 调用会被忽略。
 
-50. 为什么使用`Qt::UniqueConnection`解决不了上述办法？
+49. 为什么使用`Qt::UniqueConnection`解决不了上述办法？
 
     - 因为每次创建的 `add_dlg` 是不同的对象(使用了`new` 动态分配了一个`dlg`对象)，**它的内存地址不同**。
     - 因此，从 Qt 的角度来看，每次 `connect` 的接收者（`add_dlg`）是不同的对象，即使信号（`sigTrustAddFinish`）和槽（`slot_trustAddFinish`）相同，Qt 也不会认为这是“相同的连接”，`Qt::UniqueConnection` 就无法阻止新的连接被添加。
     - **结果**：每次点击都会添加一个新的连接，导致信号发射时所有之前的 `add_dlg` 实例都会收到信号并调用槽函数
 
-51. Qt的弹窗类(Dialog)设置模态/非模态的函数
+50. Qt的弹窗类(Dialog)设置模态/非模态的函数
 
     1. `exec()` 控制代码执行流，阻塞调用点：当调用 `QDialog::exec()` 时，它会启动一个**独立的事件循环**，并暂停调用 `exec()` 的线程的后续代码执行，直到对话框关闭（通过 `accept()` 或 `reject()`）。**这意味着在对话框关闭之前，`exec()` 之后的代码不会执行**
     2. `setModal(true)` 控制窗口交互，阻塞 GUI：设置对话框为模态后，它会**阻塞与其父窗口（或整个应用程序，如果没有父窗口）相关的用户交互**，但不影响代码执行（除非结合 `exec()`）
@@ -669,37 +687,25 @@
     dia.exec()	// 阻塞后续代码
     ```
 
-52. 关于Qt的界面对象，对象是new出来的，那么除非手动delete或者其父对象被释放，那么该对象会一直存在。
+51. 关于Qt的界面对象，对象是new出来的，那么除非手动delete或者其父对象被释放，那么该对象会一直存在。
 
     点击界面的关闭按钮，实际上是调用了`close()`槽函数，而`close()`的默认行为是**将窗口设置为不可见**（`setVisible(false)`）
 
     关闭操作会触发`closeEvent(QCloseEvent *event)`虚函数，你可以通过重写它来改变默认行为
 
-53. **`QString::fromUtf8(dataType)`**:使用 `fromUtf8` 将 `dataType` 从 `QByteArray` 转换为 `QString`。
-
-54. `QJsonDocument::fromJson(data.data())`：
-
-    > **`data.data()`**：
-    >
-    > - `data` 是一个 `QByteArray` 对象，包含要解析的 JSON 数据。通过调用 `data()`，你获取一个指向 `data` 内部字节数组的 `const char*` 指针，方便传递给 `fromJson()` 方法。
-    >
-    > **`QJsonDocument::fromJson()`**：
-    >
-    > - 这个静态方法用于创建 `QJsonDocument` 对象，并解析传入的 JSON 数据。如果 JSON 数据格式正确，它将返回一个有效的 `QJsonDocument` 对象；
-
-55. 关于`QStackedWidget`和`QTabWidget`的区别
+52. 关于`QStackedWidget`和`QTabWidget`的区别
 
     1. `QStackedWidget`不提供直接的页面切换界面（没有标签栏）。`QTabWidget`提供带标签的界面，每个标签对应一个页面。
     2. `QStackedWidget`必须通过代码手动切换页面 (`setCurrentIndex()` 或 `setCurrentWidget()`)。`QTabWidget`用户可以通过点击标签页直接切换页面。
 
-56. `exec()`和`show()`的区别
+53. `exec()`和`show()`的区别
 
     1. **`exec()`**：以 **模态对话框** 的方式显示，阻塞主线程，用户必须关闭对话框后才能继续与主程序交互。
     2. **`show()`**：以 **非模态** 方式显示，不阻塞主线程，用户可以同时操作其他窗
 
-57. 关于Qt界面先`init()`后再`show()/exec()`的问题：，在创建 `QDialog` 对象并调用 `init()` 后，`init()` 函数中的代码会立即执行，因为这部分代码并不依赖事件循环。只有那些需要事件循环来触发的操作（如计时器、动画、信号槽的触发等）才不会运行
+54. 关于Qt界面先`init()`后再`show()/exec()`的问题：，在创建 `QDialog` 对象并调用 `init()` 后，`init()` 函数中的代码会立即执行，因为这部分代码并不依赖事件循环。只有那些需要事件循环来触发的操作（如计时器、动画、信号槽的触发等）才不会运行
 
-58. 关于槽函数slot的访问权限(public protected private)
+55. 关于槽函数slot的访问权限(public protected private)
 
     1. signal没有访问权限限制。
     2. **访问权限只对外部代码的直接调用有效**，对信号-槽机制无影响(只要是槽函数就可以进行信号-槽机制的连接)。
@@ -712,7 +718,7 @@
     | **子类访问**         | 不可以                       | 可以                         | 可以                       |
     | **外部代码直接调用** | 不可以                       | 不可以                       | 可以                       |
 
-59. Qt的Warnging弹窗，执行exec()模态框时，会阻塞当前界面，直到用户点击确定(返回`QDialog::Accepted`)或者关闭/取消(返回`QDialog::Rejected`)
+56. Qt的Warnging弹窗，执行exec()模态框时，会阻塞当前界面，直到用户点击确定(返回`QDialog::Accepted`)或者关闭/取消(返回`QDialog::Rejected`)
 
     ```
     if (wDlg.exec() == QDialog::Rejected){
@@ -722,7 +728,7 @@
     }
     ```
 
-60. **事件**是如何定义、触发、使用的
+57. **事件**是如何定义、触发、使用的
 
     1. 重载特定事件处理函数(`QWidget`定义好的虚函数)：每个控件都有一组专门的事件处理函数，你可以重载这些函数以实现自定义行为
 
@@ -898,15 +904,15 @@
        全局监听：使用事件过滤器,适合跨对象的事件监控和过滤
        ```
 
-61. `event->type() > QEvent::User` 的含义：`QEvent::User` 是一个事件类型常量，用于标识用户自定义事件的起始范围。它的值通常定义为一个整数（如 1000），大于这个值的事件类型都属于用户定义事件。
+58. `event->type() > QEvent::User` 的含义：`QEvent::User` 是一个事件类型常量，用于标识用户自定义事件的起始范围。它的值通常定义为一个整数（如 1000），大于这个值的事件类型都属于用户定义事件。
 
-62. `QApplication::instance()`获取当前正在运行的 `QApplication` 对象
+59. `QApplication::instance()`获取当前正在运行的 `QApplication` 对象
 
     ```
     QApplication::instance()->installEventFilter(this);
     ```
 
-63. `QEventLoop`:主要用于执行事件循环，以便处理不同类型的事件（如用户输入、定时器事件、信号和槽的调用等）
+60. `QEventLoop`:主要用于执行事件循环，以便处理不同类型的事件（如用户输入、定时器事件、信号和槽的调用等）
 
     1. **事件循环**是 Qt 应用程序中不可或缺的一部分，它是一个等待并处理事件的机制。Qt 中的事件循环通过 `QEventLoop` 类来实现，基本的事件循环由 `QCoreApplication` 或 `QApplication` 管理。每个 Qt 程序都需要一个事件循环来处理用户输入（如鼠标点击、键盘输入），系统事件（如定时器超时），以及其他组件之间的信号和槽的调用。
 
@@ -949,7 +955,7 @@
        3. 如果信号与槽的连接是 **队列连接**，槽函数会在事件循环的下一次迭代中执行，而不会阻塞当前的槽函数。
        4. 如果信号与槽的连接是 **直接连接**，槽函数会同步执行（通常是在信号发射的地方
 
-64. 如果在使用lambda的情况下使用信号槽，需要解绑时，需要保存lambda函数的实例。
+61. 如果在使用lambda的情况下使用信号槽，需要解绑时，需要保存lambda函数的实例。
 
     ```
     // 定义一个 lambda 函数
@@ -958,18 +964,18 @@
         };
     ```
 
-65. 可以发射成员对象里的信号
+62. 可以发射成员对象里的信号
 
     ```
     emit m_authManager->sigRegistInfoTable();
     ```
 
-66. 信号和槽函数都使用 `void` 类型的原因：
+63. 信号和槽函数都使用 `void` 类型的原因：
 
     1. 设计如此，**异步事件处理**不需要关心返回值
     2. 信号槽机制，信号只管发射，可以有多个槽函数应答；同理，多个信号可以只有一个槽函数应答。
 
-66. Qt创建项目->Qt Console Application  创建的是终端应用(无界面)，
+64. Qt创建项目->Qt Console Application  创建的是终端应用(无界面)，
 
     1. 此时pro文件配置为
 
@@ -988,7 +994,7 @@
        >
        > `QApplication` 是一个继承自 `QCoreApplication` 的子类，专为 GUI 应用程序设计。必须用于图形界面应用程序，包含对窗口、控件、布局等的支持。
 
-67. Qt对项目执行build构建(即编译+链接)，产生一系列文件，并分析这些文件如何产生的：
+65. Qt对项目执行build构建(即编译+链接)，产生一系列文件，并分析这些文件如何产生的：
 
     **![image-20250326142519644](source/images/Qt/image-20250326142519644.png)**
 
@@ -1000,11 +1006,11 @@
 
     4. 资源文件（qrc_*.cpp）：如果项目使用了 .qrc 资源文件，rcc（资源编译器）会生成对应的 qrc.cpp 文件
 
-    5. 可执行文件：上述都是中间件文件，最终链接成一个可执行文件
+    5. 可执行文件：上述都是中间件文件，最终链接成一个可执行文件（ELF 格式，Executable and Linkable Format）
 
-       > `LD_LIBRARY_PATH=$PWD ./ScreenStatusMonitor`，如果运行时需要链接动态库
+    6. > `LD_LIBRARY_PATH=$PWD ./ScreenStatusMonitor`，如果运行时需要链接动态库
 
-68. 关于moc文件：
+66. 关于moc文件：
 
     **触发条件**：当一个类声明中包含 `Q_OBJECT` 或 `Q_GADGET` 宏时，moc 会被调用。这些宏告诉构建系统，该类需要额外的元对象代码来支持 Qt 的特性（如信号与槽）
 
@@ -1026,8 +1032,8 @@
     1. 信号的具体实现：为每个信号生成一个函数（如 mySignal），通过 `QMetaObject::activate` 触发连接的槽
     2. 元对象（QMetaObject）的定义：定义 `staticMetaObject`，存储类的元信息（信号、槽、属性等）
     3. 动态调用支持：通过 `qt_static_metacall` 函数实现信号和槽的运行时调用
-    
-69. Qt Creator中构建项目后，找不到构建后的文件夹：
+
+67. Qt Creator中构建项目后，找不到构建后的文件夹：
 
     此时在Qt Creator中左侧栏选择项目选项、有个构建目录，选择即可
 

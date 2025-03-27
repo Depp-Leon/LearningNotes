@@ -2736,6 +2736,8 @@ m_pPool->submit([this, pBundle]() {
         ```
         LD_LIBRARY_PATH=$PWD ./ScreenStatusMonitor
         ```
+     
+     5. 
 
 4. bug：
 
@@ -3128,7 +3130,7 @@ m_pPool->submit([this, pBundle]() {
      1. 使用`-a STANDARD`参数，会将UI和UOS的包全部打出来。
      2. 如果只是打`UOS`包，则使用 `-p UOS`
 
-10. - [ ] 花一天时间看之前遗留的方德系统锁屏息屏问题，如果真解决不了不浪费时间，继续开始这一周的主要测试。
+10. - [x] 花一天时间看之前遗留的方德系统锁屏息屏问题，如果真解决不了不浪费时间，继续开始这一周的主要测试。
 
 11. - [x] safed中的关机操作，使用库函数，不直接使用命令。同时不创建进程，因为有开销
 
@@ -3333,7 +3335,62 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-    
+36. 方德系统执行Qt程序，缺少qt库的解决办法：在chenxinsd的qt库下，手动指定动态链接库，就可以使用该qt库
+
+    ```bash
+    # /opt/apps/chenxinsd/lib/extrnals/qt/lib/			启动程序放置路径
+    # qt/lib	qt/plugins				qt库文件夹分布结构
+    LD_LIBRARY_PATH=$PWD QT_PLUGIN_PATH=$PWD/../plugins		./ScreenStatus
+    ```
+
+    1. **LD_LIBRARY_PATH**：是一个 Linux 系统中的环境变量，用于指定动态链接器（ld.so）在加载程序所需的共享库（.so 文件）时搜索的路径。它本质上是告诉系统：“除了默认的库路径（如 /usr/lib 或 /lib），还请在这些额外路径中查找动态库。”
+
+       > LD指的是动态链接器(Dynamic Linker)（ld.so）,负责在程序运行时将动态库（.so 文件）加载到内存中，并解析程序对这些库的依赖。
+       >
+       > ldd是一个工具，它利用动态链接器（ld.so）的功能来显示可执行文件依赖的动态库
+
+       **原理**：
+
+       当你运行一个可执行文件时，如果它依赖外部动态库（例如 Qt 的 libQt5Core.so），动态链接器会按照以下顺序查找这些库：
+
+       1. 可执行文件中硬编码的 RPATH 或 RUNPATH（如果有）。
+       2. LD_LIBRARY_PATH 中指定的路径。
+       3. 系统默认路径（通常由 /etc/ld.so.conf 和 /etc/ld.so.cache 定义，例如 /usr/lib）。
+       4. 当前工作目录（某些情况下）。
+
+       通过设置 LD_LIBRARY_PATH，你可以覆盖或补充默认路径，让链接器优先加载你指定的库。
+
+    2.  **QT_PLUGIN_PATH**： 是 Qt 框架特有的环境变量，用于指定 Qt 查找插件的路径。Qt 的插件（如 xcb 平台插件 libqxcb.so）是模块化的功能扩展，存放在特定目录（通常是 plugins 目录）中。QT_PLUGIN_PATH 告诉 Qt 在哪里找到这些插件。
+
+       **原理**：
+
+       Qt 应用程序启动时，需要加载平台插件（例如 xcb 用于 X11 显示）来与系统交互。
+
+       Qt 默认会在以下位置查找插件：
+
+       1. 编译时指定的插件路径（通常是 Qt 安装目录下的 plugins）。
+       2. QT_PLUGIN_PATH 中指定的路径。
+       3. 可执行文件所在目录的相对路径（某些情况下）。
+
+37. ldd命令解析：ldd 是一个工具，它利用动态链接器（ld.so）的功能来显示可执行文件依赖的动态库。
+
+    **全称**：ldd 是 “List Dynamic Dependencies” 的缩写，即“列出动态依赖”。
+
+    **工作原理**：
+
+    1. ldd 调用动态链接器：
+       - ldd 本质上是**运行动态链接器 ld.so**，并让它模拟加载目标文件的依赖。
+       - 它通过设置环境变量 LD_TRACE_LOADED_OBJECTS=1 来告诉 ld.so 不要真正执行程序，而是输出依赖信息
+       
+    2. 解析 ELF 文件：
+       - 可执行文件（ELF 格式，Executable and Linkable Format）中包含一个 .dynamic 段，记录了它依赖的动态库名称（例如 libQt5Core.so.5）。
+       - **ld.so** 根据这些信息，按照**搜索路径规则**查找库的具体位置。
+       
+    3. 输出结果：
+
+       ldd 显示每个依赖库的名称和实际加载路径（如果找到）
+
+38. 
 
 
 ### 4. 末尾
