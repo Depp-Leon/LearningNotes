@@ -35,7 +35,7 @@
          
    // 直接用 std::string 接收 const char* 类型
    std::string str = cstr;
-     ```
+   ```
 
      ```c++
    std::string cmdstr = "du -sh /path/to/somewhere | awk '{print $1}'";
@@ -630,14 +630,22 @@
        2. **如果元素不存在**：`std::map` 会自动创建一个新的元素，其中键为 `token`，值为该键对应的默认值。
        3. **如果元素已存在**：`operator[]` 会返回对应的值（即 `std::set<pid_t>`），可以直接对其进行操作。
 
-4. `using` 定义函数签名和回调函数
+4. 使用`static_cast`的时机：避免编译器执行隐式转换时可能会因为损失精度等提示异常。提前使用该类型告知，这是可以进行的，是已知的情况的。**它不会进行类型检查，所以需要用户提前确保这是正确的。**
+
+   ```
+   auto it = m_task.find(static_cast<CmdType>(item.operate()));
+   
+   #例子：此处的map，key为自定义enum类型。而获取到的是protobuffer数据格式的枚举，没有规定两者之间进行隐式转换的定义，会报错，此时使用static_cast就可以正常使用了
+   ```
+
+5. `using` 定义函数签名和回调函数
 
    ```
    using MessageHandler = std::function<void(IBundle *pBundle)>;
    #MessageHandler 是一个可以接受指向 IBundle 类型的指针 pBundle 的函数的类型别名
    ```
 
-5. `unordered_multimap`的`equal_range`函数
+6. `unordered_multimap`的`equal_range`函数
 
    ```
    std::pair<iterator, iterator> equal_range(const Key& key);
@@ -647,13 +655,13 @@
    	#第二个元素是指向第一个不匹配元素的迭代器（即结束位置）。
    ```
 
-6. 容器(`multimap`)加锁
+7. 容器(`multimap`)加锁
 
    ```
    #map和multimap使用的都是<map>头文件
    ```
 
-7. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
+8. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
 
    ```c++
    // A.h
@@ -674,7 +682,7 @@
    
    ```
 
-8. 智能指针循环依赖问题
+9. 智能指针循环依赖问题
 
    ```c++
    class A;
@@ -699,11 +707,11 @@
    }
    ```
 
-9. 智能指针的`get()`函数：在 C++11 中，`std::unique_ptr` 和 `std::shared_ptr` 都提供了一个 `get()` 函数，用于访问底层原始指针。这个函数返回指向智能指针所管理的对象的裸指针。
+10. 智能指针的`get()`函数：在 C++11 中，`std::unique_ptr` 和 `std::shared_ptr` 都提供了一个 `get()` 函数，用于访问底层原始指针。这个函数返回指向智能指针所管理的对象的裸指针。
 
-10. 智能指针的`reset()`函数，减少当前管理对象的引用计数，并释放资源（如果是最后一个 `shared_ptr` 或者是`unique_ptr`管理该资源）。
+11. 智能指针的`reset()`函数，减少当前管理对象的引用计数，并释放资源（如果是最后一个 `shared_ptr` 或者是`unique_ptr`管理该资源）。
 
-11. 句柄传递`this`的智能指针问题
+12. 句柄传递`this`的智能指针问题
 
     1. 如果在母类中直接传递`this`裸指针，一旦母类析构，则在使用该`this`指针的类就会造成**指针失效**
 
@@ -719,12 +727,12 @@
        p->show();  // 在成员函数中使用 shared_from_this
        ```
 
-12. `shared_ptr`作为函数参数传递：
+13. `shared_ptr`作为函数参数传递：
 
     1. **`std::shared_ptr<T>`**：只能传递 `shared_ptr` 类型对象，除非使用 `std::make_shared` 生成 `shared_ptr`或者`shared_from_this()` 将类本身被创建时的`shared`指针传递，否则不能传递临时对象(指针)。
     2. **`std::shared_ptr<T>`**：传递 `shared_ptr` 意味着函数将共享该对象的所有权。每次传递 `shared_ptr` 参数，引用计数会增加，直到离开作用域或显式释放才会减少
 
-13. 如果一个函数的返回值是普通对象，而接收值是shared指针。和函数返回值是shared指针，接受值是普通对象。这两种情况会有什么后果
+14. 如果一个函数的返回值是普通对象，而接收值是shared指针。和函数返回值是shared指针，接受值是普通对象。这两种情况会有什么后果
 
     1. `std::shared_ptr`不能直接从普通对象（如MyObject）构造，因为`std::shared_ptr`需要管理一个动态分配的指针（通常通过`new`创建），而普通对象是栈上分配的临时对象。
 
@@ -732,7 +740,7 @@
 
     2. std::shared_ptr不能直接赋值给普通对象MyObject，因为shared_ptr是一个管理指针的类，而MyObject是一个普通类型的实例。
 
-14. 回调函数`bind`第二个参数是对象类型或者指针类型的区别
+15. 回调函数`bind`第二个参数是对象类型或者指针类型的区别
 
     ```
     auto boundFunc = std::bind(&CupdateVirusLibHelper::UsendMsgToUI, &m_updateVirusLib, std::placeholders::_1);
@@ -750,7 +758,7 @@
 
     3. `bind`的第二个参数使用了通用引用
 
-15. 普通函数与成员函数取地址的区别
+16. 普通函数与成员函数取地址的区别
 
     1. 对于普通函数，函数名本身就可以作为一个指向函数的指针
 
@@ -762,7 +770,7 @@
        >
        > **普通函数指针** 直接指向函数的实现，可以直接用函数名表示。
 
-16. 通用引用：**通用引用**（Universal Reference，有时也叫转发引用，Forwarding Reference）是一种特殊的引用类型，它可以根据传入参数的类型，动态地表现为**左值引用**（T&）或**右值引用**（T&&），主要与模板和完美转发（Perfect Forwarding）机制密切相关
+17. 通用引用：**通用引用**（Universal Reference，有时也叫转发引用，Forwarding Reference）是一种特殊的引用类型，它可以根据传入参数的类型，动态地表现为**左值引用**（T&）或**右值引用**（T&&），主要与模板和完美转发（Perfect Forwarding）机制密切相关
 
     ```
     template <typename T>
@@ -787,7 +795,7 @@
     - T&& & → T&（右值引用叠加左值引用，折叠为左值引用）
     - T&& && → T&&（右值引用叠加右值引用，保持右值引用）
 
-17. C++11的`std::function`：一个通用的函数包装器，它可以存储、复制和调用任何可调用对象（函数、lambda 表达式、函数对象、绑定表达式等）
+18. C++11的`std::function`：一个通用的函数包装器，它可以存储、复制和调用任何可调用对象（函数、lambda 表达式、函数对象、绑定表达式等）
 
     **语法**：
 
