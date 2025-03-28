@@ -425,4 +425,72 @@
     高级: 用 Actions 自动化，Security 保安全。
     ```
 
-32. 
+32. 关于公钥私钥
+
+      1. **作用**：公钥和私钥是一对加密密钥，主要用于加密和身份验证。公钥是公开的，任何人都可以获取；而私钥是保密的，只有你自己拥有。
+
+         > **公钥**：用于加密或验证签名。你将公钥放在服务器上（如 `authorized_keys` 中），然后当你尝试连接时，服务器会使用该公钥验证你的身份。
+         >
+         > **私钥**：用于解密或生成签名。你保存在本地，不应与他人共享
+
+      2. 原则上**只要两个支持SSH协议都可以使用公钥和私钥来实现免密连接**；公钥和私钥是基于 SSH 协议的，与git并没有之间关系。只是连接git仓库使用到了公钥私钥，将本地公钥放入git仓库只是方便仓库认证本地的。
+
+      3. **linux系统下的使用**：
+
+         ```
+         打开终端。
+         运行相同的命令：ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+         这将生成 RSA 密钥对，保存到 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub。
+         将公钥 id_rsa.pub 内容复制到远程服务器的 ~/.ssh/authorized_keys 文件中。
+         ```
+
+      4. **windows系统下的使用**：
+
+         ```
+         打开 Git Bash 或者其他终端工具。
+         运行命令：ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+         这将生成一个 4096 位的 RSA 密钥对。
+         默认情况下，密钥会保存在 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub 中。
+         将公钥 id_rsa.pub 内容复制到远程服务器的 ~/.ssh/authorized_keys 文件中。
+         ```
+
+      5. 生成密钥**命令解析**
+
+         ```
+         ssh-keygen
+         // 默认生成 ED25519 类型的密钥
+         // 默认密钥长度为 256位（ED25519的固定长度）
+         // 默认注释为 username@hostname（例如 jiayuandi@chenxin-jiayuandi）
+         ```
+
+         ```
+         ssh-keygen -t rsa -b 4096 -C "jiayuandi@v-secure.cn -f ~/.ssh/my_rsa_key
+         // -t	指定生成 RSA 类型的密钥。
+         // -b	指定密钥长度为 4096位。
+         // -C	指定注释为 jiayuandi@v-secure.cn。
+         // -f 	指定将密钥生成到目标路径。默认情况下，密钥会保存在用户主目录下的 ~/.ssh/id_rsa 和 ~/.ssh/id_rsa.pub 文件中。上面命令将生成 ~/.ssh/my_rsa_key（私钥）和 ~/.ssh/my_rsa_key.pub（公钥）
+         ```
+
+33. 关于github需要使用2FA来进行二次认证
+
+      1. Authenticator 是什么工具？
+
+         `Authenticator` 是一种多因素认证（2FA）工具，用于增强账户的安全性。它通过生成**一次性验证码**（TOTP, Time-based One-Time Password）来确保登录过程的安全。
+
+         > `Authenticator` 还有一个功能就是微软的密码和地址同步，只要登陆上微软账号就可以将该账号的密码同步到手机设置
+         >
+         > 如果使用不了2FA的情况下，使用github-recovery-codes.txt这里面的恢复码进行登录
+
+      2. QR 码是什么？
+
+         `QR 码`（Quick Response Code）是一种二维条形码，可以快速存储和读取信息。
+
+         当你启用双因素认证（2FA）时，服务提供商通常会提供一个 **QR 码**，该二维码包含了生成一次性密码所需的密钥。
+
+         使用 Authenticator 应用扫描这个二维码后，应用就能开始生成与该服务匹配的动态验证码。这个二维码通常**只会在初次设置 2FA 时显示一次**。
+
+      3. 2FA（双因素认证）是什么？
+
+         **2FA（Two-Factor Authentication，双因素认证）** 是一种安全机制，它要求用户提供两种不同类型的认证信息才能成功登录账户。即**知识因素**(pin码或者密码)、**持有因素**(用户持有的设备)。
+
+         国内常见的如：短信验证码、面容识别等；Authenticator通过基于时间生成的验证码。
