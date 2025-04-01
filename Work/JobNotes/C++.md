@@ -1026,6 +1026,32 @@
    # 	将时间戳转化为日历格式
    std::string strProtectTime = CDateTime::fromMSecsSinceEpoch(CDateTime::currentMSecsEpoch()).toString("yyyy-MM-dd HH:mm:ss");
    ```
+   
+5. 时间戳的单位：
+
+   用 **time_t** 表示**秒**，长度通常是 **10位**
+
+   用 **int64_t** 或 **long long** 表示**毫秒**，确保 **64** 位精度，长度通常是13位
+
+   **微秒（microseconds）** 或 **纳秒（nanoseconds）**：更精确的单位，位数会更多（16位或19位）
+
+6. **time_t** 被定义为一个整数类型（通常是 long int），以秒为单位
+
+   C/C++中，long int 和 long等价， **long** 是基本整数类型的一种，int 是它的默认类别，写成 long int 是为了明确表示这是一个整数类型，但 int 是可选的，省略后仍是同一个类型。
+
+   **long**通常是4字节(32位)，4B
+
+   **int64_t**是64位，和大部分系统的**long long**相同
+
+7. 为什么类型名后面加上**_t**?
+
+   1. _t 是 **"type"（类型）**的缩写，用作类型别名的命名约定，表示这是一个通过 typedef 或类似机制定义的类型
+
+   2. 在 C 中，这种约定起源于 POSIX 和标准库，用于区分基本类型（如 int、long）和派生类型（如 size_t、time_t）。
+
+      在 C++ 中，\<cstdint> 继承了这种习惯，为固定宽度的整数类型（如 int64_t）添加 _t，以表明它们是标准定义的别名
+
+   3. 带 _t 的类型（如 int64_t、uint32_t）保证固定宽度，确保跨平台一致性。
 
 
 
