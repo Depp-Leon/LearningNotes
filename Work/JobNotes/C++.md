@@ -1027,23 +1027,28 @@
    std::string strProtectTime = CDateTime::fromMSecsSinceEpoch(CDateTime::currentMSecsEpoch()).toString("yyyy-MM-dd HH:mm:ss");
    ```
    
-5. 时间戳的单位：
+5. 时间戳单位：用**time_t** 、**int64_t** 或 **long long** 来表示；
 
-   用 **time_t** 表示**秒**，长度通常是 **10位**
+   **秒**，长度通常是 **10位** 表示
 
-   用 **int64_t** 或 **long long** 表示**毫秒**，确保 **64** 位精度，长度通常是13位
+   **毫秒**，确保 **64** 位精度，长度通常是**13**位
 
    **微秒（microseconds）** 或 **纳秒（nanoseconds）**：更精确的单位，位数会更多（16位或19位）
 
-6. **time_t** 被定义为一个整数类型（通常是 long int），以秒为单位
+6. 时间戳作用：
 
-   C/C++中，long int 和 long等价， **long** 是基本整数类型的一种，int 是它的默认类别，写成 long int 是为了明确表示这是一个整数类型，但 int 是可选的，省略后仍是同一个类型。
+   - 其只是一个无符号数。具体使用对应的转文本函数调用时传对应的参数(秒或者毫秒);
+   - 作为数据库日志唯一**key**
 
-   **long**通常是4字节(32位)，4B
+7. **time_t** 被定义为一个整数类型（通常是 **long int**类型）
+
+   **long**通常是8字节(64位)，8B; **具体看系统怎么定义的，有的32位，有的64位**
 
    **int64_t**是64位，和大部分系统的**long long**相同
 
-7. 为什么类型名后面加上**_t**?
+   > C/C++中，**long int** 和 **long**等价， **long** 是基本整数类型的一种，int 是它的默认类别，写成 long int 是为了明确表示这是一个整数类型，但 int 是可选的，省略后仍是同一个类型。
+
+8. 为什么类型名后面加上**_t**?
 
    1. _t 是 **"type"（类型）**的缩写，用作类型别名的命名约定，表示这是一个通过 typedef 或类似机制定义的类型
 
@@ -1052,7 +1057,6 @@
       在 C++ 中，\<cstdint> 继承了这种习惯，为固定宽度的整数类型（如 int64_t）添加 _t，以表明它们是标准定义的别名
 
    3. 带 _t 的类型（如 int64_t、uint32_t）保证固定宽度，确保跨平台一致性。
-
 
 
 ### 6. POSIX
@@ -2031,3 +2035,80 @@
       > `-l` 后面是库的名称，不需要写前缀 `lib` 和后缀 `.a` 或 `.so`。
 
    **注意事项**：一般由于不同机子环境不同(gnu所需版本不同)，所以一般下三方源码之后，需要在自己的机子上编译。再移动include头文件和lib静态库到项目路径下。(移动其他机器编译后生成的库可能会出错)
+
+
+
+
+
+### 15. clipp参数
+
+1. 关于**clipp**：clipp 是一个轻量级的 C++ 命令行解析库，用于定义和解析命令行参数。它通过声明式的语法来描述选项和参数，并将它们绑定到变量上。
+
+   **使用步骤**：
+
+   1. **定义选项和参数**： 使用 `clipp::option`、`clipp::value` 等函数定义命令行接口的结构。
+   2. **绑定变量**： 通过 `.set()` 或 `clipp::value` 将选项绑定到变量，解析时会自动填充这些变量。
+   3. **创建解析器**： 将定义的选项组传递给 `clipp::parse` 函数，解析实际的命令行输入。
+   4. **处理结果**： 检查变量值，执行相应的逻辑。
+
+   **具体使用**：
+
+   ```c++
+   auto opt = ((clipp::option("--migrate-version").doc("specify the version number, select: 7.0.0.5|7.0.0.7") & clipp::value("", args.version)),
+                   clipp::option("--sync-protect-log").doc("sync protection log path").set(args.syncProtectLog),
+                   clipp::option("-h", "--help").set(args.help).doc("show help"));
+   
+   if (!clipp::parse(argc, argv, opt)) {
+           auto fmt = clipp::doc_formatting {}.doc_column(31);
+           std::cout << clipp::make_man_page(opt, argv[0], fmt) << '\n';
+           return 1;
+       }
+       if (args.help) {
+           std::cout << "HELP:" << clipp::make_man_page(opt, argv[0]) << std::endl;
+           return 1;
+       }
+       if (args.version.empty()) {
+           std::cerr << "Error: --migrate-version is required." << std::endl;
+           return 1;
+       }
+   ```
+
+   1. `clipp::option`：定义一个命令行选项（option）。选项通常以 - (短选项)或 -- (长选项) 开头。
+
+      - `--migrate-version` 是一个长选项。
+      - `-h` 是一个短选项，`--help` 是它的长形式
+
+   2. `.doc()` 方法为选项添加描述文本，用于生成帮助信息
+
+   3. `clipp::value` 表示该选项**需要一个值（参数），并将用户输入的值绑定到指定的变量上**
+
+      - 第一个参数 "" 是值的**占位符**名称（这里为空，通常可以写成 "VERSION" 之类更具描述性的名字，用于帮助文档）。
+      - 第二个参数 args.version 是**目标变量**，用户输入的值会存储到 变量args.version 中。
+
+   4. `.set()` 方法将选项的出现与某个布尔变量绑定，**不需要额外值**。如果命令行中出现了该选项，**绑定的变量会被设置为 true**。
+
+   5. `((... & ...), ..., ...)` 的语法是 clipp 的组合方式：
+
+      - `&` 表示“后面必须跟一个值”，用于连接选项和它的参数。
+      - `,` 表示并列关系，定义多个独立的选项。
+
+   6. `clipp::parse` 是 clipp 库中用于解析命令行参数的核心函数
+
+      ```c++
+      bool clipp::parse(int argc, char* argv[], const clipp::group& cli);
+      //argc：命令行参数的数量，通常直接从 main 函数传入。
+      //argv：命令行参数的字符串数组，argv[0] 是程序名，后续元素是用户输入的选项和参数。
+      //cli：类型为 clipp::group，是你用 clipp::option、clipp::value 等定义的命令行选项和参数的集合
+      ```
+
+   7. `clipp::make_man_page` 是 clipp 库中用于生成命令行帮助文档（manual page）的函数。它会根据你定义的命令行选项和参数，自动生成格式化的使用说明，通常用于在用户请求帮助时（例如通过 -h 或 --help 选项）显示给用户。
+
+      ```c++
+      std::string clipp::make_man_page(const clipp::group& cli, const std::string& prog_name, const clipp::doc_formatting& fmt = clipp::doc_formatting{});
+      //cli：类型为 clipp::group，是你定义的命令行选项和参数的集合（例如通过 clipp::option 和 clipp::value 构建的选项组）。
+      //prog_name：程序的名称，通常传入 argv[0]，用于在帮助文档中显示程序的使用方式。
+      //fmt（可选）：类型为 clipp::doc_formatting，用于自定义帮助文档的格式，例如选项的缩进、对齐方式等。如果不提供，则使用默认格式。
+      
+      ```
+
+2. main 函数的两个参数，第一个是参数的个数，第二个是字符串数组
