@@ -258,3 +258,13 @@
       > 注意带上函数返回值，某些架构因为函数没有返回值会卡住死机，某些架构只是会提醒。
     
 21. cmakelist在导入头文件时：使用`target_include_directories`，定义头文件夹，只会在该文件夹下找`.h`或者`.hpp`文件，不会递归找其子目录的头文件
+
+22. cmakelist在导入头文件时在导入头文件时一定要看好代码中引入的头文件路径，导入头文件路径一定要匹配。
+
+    比如protobuffer的结构为`proto/proto_impl/ipc_proto`
+
+    在代码中导入了`#include "ipc_proto/hmitohelper.pb.h"`
+
+    在cmakelist中声明头文件就得标记到`ipc_impl`路径即可，连接器会找到`ipc_impl->ipc_proto->`，如果标记到`ipc_proto`，那么会报错找不到对应头文件
+
+23. cmakelist导入头文件而不导入cpp文件的情况下，确保导入的动态库/静态库有其中的编译后的源码。否则需要将其cpp文件同样导入cmakelist中，不然就会报编译错误。

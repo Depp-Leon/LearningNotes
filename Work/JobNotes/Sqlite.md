@@ -157,3 +157,14 @@
    这是一个**复合主键**（Composite Primary Key），意味着表中每一行的 (name, type) 组合必须是唯一的；
 
    单独的 name 或 type 值可以重复，但它们的组合不能重复。
+   
+9. sqlite3在调用open打开数据库的时候，如果不存在该数据库将会创建一个新的
+
+   ```
+   std::string path;
+   sqlite3* sourceDb;
+   (sqlite3_open(path.c_str(), &sourceDb)
+   ```
+
+   
+

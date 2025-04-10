@@ -396,7 +396,7 @@
 
 ### 3. 文件操作
 
-1. `ifstream` 和 `ofstream` 对象在它们的作用域结束时，都会自动释放资源，包括关闭文件流。
+1. `ifstream` （对于系统来说是输入、读取文件）和 `ofstream` (对于系统来说是输出输出、写入文件)对象在它们的作用域结束时，都会自动释放资源，包括关闭文件流。
 
    > 这是因为 C++ 中的文件流类（如 `ifstream` 和 `ofstream`）遵循 RAII（Resource Acquisition Is Initialization）的原则。RAII 确保当对象超出其作用域时，自动调用其析构函数来释放资源，包括关闭文件流。
 
@@ -512,52 +512,56 @@
 
 11. 通过逗号分割提取字符串
 
-    ```c++
-    std::istringstream stream(ipList);
-    std::string ip;
-    while (std::getline(stream, ip, ',')) {
-           // 去掉可能存在的空格
-           ip.erase(std::remove(ip.begin(), ip.end(), ' '), ip.end());
-           if (!ip.empty()) {
-               ips.push_back(ip);  // 将非空 IP 添加到结果中
-           }
-    }
-    ```
+      ```c++
+      std::istringstream stream(ipList);
+      std::string ip;
+      while (std::getline(stream, ip, ',')) {
+             // 去掉可能存在的空格
+             ip.erase(std::remove(ip.begin(), ip.end(), ' '), ip.end());
+             if (!ip.empty()) {
+                 ips.push_back(ip);  // 将非空 IP 添加到结果中
+             }
+      }
+      ```
 
-    1. `std::istringstream` 是 C++ 中的一个输入流类，它允许你将一个字符串作为流进行处理。通过它，你可以像读取其他输入流（如 `std::cin`）一样读取字符串内容。
+      1. `std::istringstream` 是 C++ 中的一个输入流类，它允许你将一个字符串作为流进行处理。通过它，你可以像读取其他输入流（如 `std::cin`）一样读取字符串内容。
 
-    2. `std::getline()`的几种用法：
+         ```
+         stream >> month >> day >> hour		// 当作输入流 输入到字符串中
+         ```
 
-       1. 从输入流读取一行数据
+      2. `std::getline()`的几种用法：
 
-          ```
-          std::getline(std::cin, line); // 默认以换行符分隔
-          ```
+         1. 从输入流读取一行数据
 
-       2. 从输入流读取一行数据并指定分隔符，默认为换行符（`\n`）。此处使用`istringstream`模拟流数据
+            ```
+            std::getline(std::cin, line); // 默认以换行符分隔
+            ```
 
-          ```c++
-          std::string input = "apple,banana,orange,grape";
-          std::istringstream stream(input);
-          std::string token;
-          
-          // 使用逗号作为分隔符
-          while (std::getline(stream, token, ',')) {
-              std::cout << token << std::endl;
-          }
-          ```
+         2. 从输入流读取一行数据并指定分隔符，默认为换行符（`\n`）。此处使用`istringstream`模拟流数据
 
-       3. 从文件中逐行读取
+            ```c++
+            std::string input = "apple,banana,orange,grape";
+            std::istringstream stream(input);
+            std::string token;
+            
+            // 使用逗号作为分隔符
+            while (std::getline(stream, token, ',')) {
+                std::cout << token << std::endl;
+            }
+            ```
 
-          ```c++
-          std::ifstream file("example.txt");
-          std::string line;
-          
-          // 逐行读取文件内容
-          while (std::getline(file, line)) {
-              std::cout << line << std::endl;
-          }
-          ```
+         3. 从文件中逐行读取
+
+            ```c++
+            std::ifstream file("example.txt");
+            std::string line;
+            
+            // 逐行读取文件内容
+            while (std::getline(file, line)) {
+                std::cout << line << std::endl;
+            }
+            ```
 
 12. `sscanf()`和`sprintf()`
 
@@ -647,6 +651,12 @@
 
 6. `unordered_multimap`的`equal_range`函数
 
+   > multimap：可重复map
+   >
+   > unordered_map: 无序map
+   >
+   > unordered_multimap： 无序可重复map
+
    ```
    std::pair<iterator, iterator> equal_range(const Key& key);
    #key：要查找的键。
@@ -655,13 +665,17 @@
    	#第二个元素是指向第一个不匹配元素的迭代器（即结束位置）。
    ```
 
-7. 容器(`multimap`)加锁
+7. **map**：map 的底层是用 **红黑树（Red-Black Tree）** 实现的。红黑树是一种自平衡的二叉搜索树，能够保证查找、插入和删除等操作的时间复杂度为 O(log⁡n)O(\log n)O(logn)。因此，map 中的键是有序的，按照键的顺序存储。
+
+   **unordered_map**：unordered_map 的底层是用 **哈希表（Hash Table）** 实现的。它通过哈希函数将键映射到对应的桶（bucket）中，桶内可能使用链表或类似结构来处理哈希冲突（collision）。由于哈希表的特性，unordered_map 的键是无序的，平均情况下查找、插入和删除的时间复杂度为 O(1)，但在最坏情况下（比如大量冲突）可能退化为 O(n）
+
+8. 容器(`multimap`)加锁
 
    ```
    #map和multimap使用的都是<map>头文件
    ```
 
-8. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
+9. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
 
    ```c++
    // A.h
@@ -682,7 +696,7 @@
    
    ```
 
-9. 智能指针循环依赖问题
+10. 智能指针循环依赖问题
 
    ```c++
    class A;
@@ -707,11 +721,11 @@
    }
    ```
 
-10. 智能指针的`get()`函数：在 C++11 中，`std::unique_ptr` 和 `std::shared_ptr` 都提供了一个 `get()` 函数，用于访问底层原始指针。这个函数返回指向智能指针所管理的对象的裸指针。
+11. 智能指针的`get()`函数：在 C++11 中，`std::unique_ptr` 和 `std::shared_ptr` 都提供了一个 `get()` 函数，用于访问底层原始指针。这个函数返回指向智能指针所管理的对象的裸指针。
 
-11. 智能指针的`reset()`函数，减少当前管理对象的引用计数，并释放资源（如果是最后一个 `shared_ptr` 或者是`unique_ptr`管理该资源）。
+12. 智能指针的`reset()`函数，减少当前管理对象的引用计数，并释放资源（如果是最后一个 `shared_ptr` 或者是`unique_ptr`管理该资源）。
 
-12. 句柄传递`this`的智能指针问题
+13. 句柄传递`this`的智能指针问题
 
     1. 如果在母类中直接传递`this`裸指针，一旦母类析构，则在使用该`this`指针的类就会造成**指针失效**
 
@@ -727,12 +741,12 @@
        p->show();  // 在成员函数中使用 shared_from_this
        ```
 
-13. `shared_ptr`作为函数参数传递：
+14. `shared_ptr`作为函数参数传递：
 
     1. **`std::shared_ptr<T>`**：只能传递 `shared_ptr` 类型对象，除非使用 `std::make_shared` 生成 `shared_ptr`或者`shared_from_this()` 将类本身被创建时的`shared`指针传递，否则不能传递临时对象(指针)。
     2. **`std::shared_ptr<T>`**：传递 `shared_ptr` 意味着函数将共享该对象的所有权。每次传递 `shared_ptr` 参数，引用计数会增加，直到离开作用域或显式释放才会减少
 
-14. 如果一个函数的返回值是普通对象，而接收值是shared指针。和函数返回值是shared指针，接受值是普通对象。这两种情况会有什么后果
+15. 如果一个函数的返回值是普通对象，而接收值是shared指针。和函数返回值是shared指针，接受值是普通对象。这两种情况会有什么后果
 
     1. `std::shared_ptr`不能直接从普通对象（如MyObject）构造，因为`std::shared_ptr`需要管理一个动态分配的指针（通常通过`new`创建），而普通对象是栈上分配的临时对象。
 
@@ -740,7 +754,7 @@
 
     2. std::shared_ptr不能直接赋值给普通对象MyObject，因为shared_ptr是一个管理指针的类，而MyObject是一个普通类型的实例。
 
-15. 回调函数`bind`第二个参数是对象类型或者指针类型的区别
+16. 回调函数`bind`第二个参数是对象类型或者指针类型的区别
 
     ```
     auto boundFunc = std::bind(&CupdateVirusLibHelper::UsendMsgToUI, &m_updateVirusLib, std::placeholders::_1);
@@ -758,7 +772,7 @@
 
     3. `bind`的第二个参数使用了通用引用
 
-16. 普通函数与成员函数取地址的区别
+17. 普通函数与成员函数取地址的区别
 
     1. 对于普通函数，函数名本身就可以作为一个指向函数的指针
 
@@ -770,7 +784,7 @@
        >
        > **普通函数指针** 直接指向函数的实现，可以直接用函数名表示。
 
-17. 通用引用：**通用引用**（Universal Reference，有时也叫转发引用，Forwarding Reference）是一种特殊的引用类型，它可以根据传入参数的类型，动态地表现为**左值引用**（T&）或**右值引用**（T&&），主要与模板和完美转发（Perfect Forwarding）机制密切相关
+18. 通用引用：**通用引用**（Universal Reference，有时也叫转发引用，Forwarding Reference）是一种特殊的引用类型，它可以根据传入参数的类型，动态地表现为**左值引用**（T&）或**右值引用**（T&&），主要与模板和完美转发（Perfect Forwarding）机制密切相关
 
     ```
     template <typename T>
@@ -795,7 +809,7 @@
     - T&& & → T&（右值引用叠加左值引用，折叠为左值引用）
     - T&& && → T&&（右值引用叠加右值引用，保持右值引用）
 
-18. C++11的`std::function`：一个通用的函数包装器，它可以存储、复制和调用任何可调用对象（函数、lambda 表达式、函数对象、绑定表达式等）
+19. C++11的`std::function`：一个通用的函数包装器，它可以存储、复制和调用任何可调用对象（函数、lambda 表达式、函数对象、绑定表达式等）
 
     **语法**：
 
@@ -1747,7 +1761,14 @@
    int64_t timestamp = static_cast<int64_t>(time(nullptr));
    ```
 
-5. `std::string::npos` 是 C++ 标准库中 `std::string` 类的一个特殊常量，用于表示 "未找到" 的情况,它的值通常是一个非常大的整数（例如 `-1` 的无符号表示
+5. `std::string::npos` 是 C++ 标准库中 `std::string` 类的一个特殊常量，它的类型是 `std::string::size_type`（通常是 `size_t` **无符号整数**的别名），用于表示 "未找到" 的情况,它的值通常是一个非常大的整数（例如 `-1` 的无符号表示）
+
+   **具体用途**：
+
+   1. 作为查找函数的返回值：比如 `std::string::find()`，如果没有找到指定的子串或字符，它会返回 `std::string::npos`。
+   2. 作为 `substr` 的长度参数：在 `std::string::substr(pos, len)` 中，如果 `len` 是 `npos`，表示从 `pos` 开始提取到字符串的末尾。
+
+   **为什么用npos**：使用 `npos` 而不是其他值（如 -1）是因为 `size_t` 是无符号整数类型(`long unsigned int` )，无法表示负数。npos 作为最大值，天然适合表示“无效”或“超出范围”的情况
 
 6. 关于`std::nothrow` 
 
@@ -2035,8 +2056,15 @@
       > `-l` 后面是库的名称，不需要写前缀 `lib` 和后缀 `.a` 或 `.so`。
 
    **注意事项**：一般由于不同机子环境不同(gnu所需版本不同)，所以一般下三方源码之后，需要在自己的机子上编译。再移动include头文件和lib静态库到项目路径下。(移动其他机器编译后生成的库可能会出错)
+   
+9. 项目中的三方库
 
+   1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
 
+   2. lib文件夹下面包含的是当前架构下三方库的库文件(.a)存放的地方
+   3. libsource文件夹下面包含的是自己做的库文件
+   4. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
+   5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
 
 
 

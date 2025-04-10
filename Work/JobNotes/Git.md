@@ -120,13 +120,30 @@
 9. 关于`git log`展示版本信息
 
    ```
-   (origin/master, origin/HEAD) 说明：
-   	远程仓库的 HEAD 当前指向 master 分支。
-   	origin/master 是远程仓库 origin 上的 master 分支的最新提交。
-   (HEAD -> master) 表示：
-   	当前 HEAD 指向本地的 master 分支，意味着你正在 master 分支上工作。
-   	当你提交新的更改时，master 分支的指针会随之移动到新的提交，而 HEAD 也会继续跟随指向 master 分支。
+   commit e62ae9e1171a13a6a87c0149e00c448a5b73b4ce (HEAD -> feature_707_refactoring, origin/feature_707_refactoring, feature_707_refactoring_jyd)
    ```
+
+   1. `origin/feature_707_refactoring`
+
+      - 这是一个**远程跟踪分支**（remote-tracking branch）与本地的同名分支建立了跟踪关系。
+
+        > 即直接使用 `git push` 不用指定远程分支 会自动推送到该跟踪分支
+        >
+        > 如果其他分支使用 `git push -u` 指定了要跟踪的其他远端分支，则origin就会变更为那个分支
+
+      - **origin** 是远程仓库的名称（默认是 origin，可以通过 `git remote -v` 查看）。
+
+      - **含义**：这是你本地仓库中记录的远程分支 `origin/feature_707_refactoring` 的状态，通常通过 `git fetch` 更新。它表示远程仓库中这个分支的最新提交。
+
+   2. `HEAD -> feature_707_refactoring_jyd`
+
+      - **HEAD** 是 Git 中的特殊指针，表示你**当前所在的工作位置**（当前检出的提交）。
+      - **-> feature_707_refactoring_jyd** 表示 HEAD 当前指向本地分支 feature_707_refactoring_jyd。
+      - **含义**：你当前检出的分支是 feature_707_refactoring_jyd，工作目录和索引（staging area）基于这个分支的最新提交。
+
+   3. `feature_707_refactoring`
+
+      - 这是**本地分支**的名称
 
 10. `git push`时如果检测到某次`commit`有`error`(比如有文件大于100M)，那么就需要本地版本回溯然后再解决问题，不然历史提交记录永远会保存这次的提交信息，导致后续永远`push`错误
 
@@ -494,3 +511,123 @@
          **2FA（Two-Factor Authentication，双因素认证）** 是一种安全机制，它要求用户提供两种不同类型的认证信息才能成功登录账户。即**知识因素**(pin码或者密码)、**持有因素**(用户持有的设备)。
 
          国内常见的如：短信验证码、面容识别等；Authenticator通过基于时间生成的验证码。
+    
+34. 分支相关操作：
+
+    1. 查看分支
+
+       ```
+       git branch			// 列出所有本地分支
+       git branch -a		// 列出所有分支（包括远程分支）
+       ```
+
+    2. 创建分支
+
+       ```
+       git branch <branch-name>	// 创建新分支
+       git checkout -b <branch-name>	// 创建并切换到新分支
+       ```
+
+    3. 切换分支
+
+       ```
+       git checkout <branch-name>	// 切换到已有分支
+       git switch <branch-name>	// （Git 2.23+）以上版本可用
+       ```
+
+    4. 删除分支
+
+       ```
+       git branch -d <branch-name>		// -d 表示安全删除本地分支，只有在分支已合并到其他分支时才会成功
+       git branch -D <branch-name>		// 如果要强制删除（即使未合并）
+       ```
+
+    5. 合并分支
+
+       ```
+       git merge <branch-name>	   // 将其他分支合并到当前分支
+       
+       // 如果有冲突，需要手动解决冲突，然后：
+       git add <file>
+       git commit
+       
+       git merge --abort		// 未解决冲突情况下，中止合并
+       ```
+
+    6. 重命名分支
+
+       ```
+       git branch -m <new-branch-name>		// 重命名当前分支
+       ```
+
+    7. 查看分支历史
+
+       ```
+       git log --graph --oneline --all
+       ```
+
+       1. `--graph` 显示分支合并关系。
+       2. `--oneline` 简化每行输出。
+       3. `--all` 显示所有分支。
+
+    8. 推送和拉取分支
+
+       1. 推送本地分支
+
+       ```
+       git push origin <branch-name>	// 推送本地分支到远程仓库，origin为远端仓库名，<>分支名
+       
+       // 若首次推送时，则使用下面设置上游分支。
+       git push --set-upstream origin <branch-name>
+       git push -u origin <branch-name>				// 上句的简写
+       // 设置上游分支之后，再次推送该分支的内容就可以只使用git push了
+       ```
+
+       2. 拉取远程分支
+
+       ```
+       git fetch origin			 // 同步远程分支信息
+       git checkout <branch-name>	 // 如果本地没有该分支，Git 会自动创建并跟踪远程分支
+       ```
+
+    9. 暂存未提交更改（与分支切换相关）
+
+       ```
+       git stash
+       git stash pop		// 恢复暂存
+       ```
+
+    10. 变基
+
+       ```
+       git rebase <branch-name>	// 将当前分支的提交“移动”到目标分支的最新提交之上，保持线性历史
+       
+       git rebase --continue		// 如果有冲突，解决后执行
+       git rebase --abort			// 中止变基
+       ```
+
+    11. merge 和 rebase 的区别：
+
+        - merge 保留分支历史，生成合并提交。
+        - rebase 重写历史，提交记录更线性，但会改变历史（谨慎用于已推送的分支）。
+
+    12. 常用步骤
+
+        > 以A为master主分支、B为自己独立分支为例
+
+        1. 本地创建自己的分支/使用远程其他分支
+        2. 切换自己分支B(如果是远程分支则git自动创建并跟踪远程分支)
+        3. 如果主分支A有其他人新提交的内容，需要切换到A 执行pull之后、再切换到B 执行合并A
+        4. 开发并提交自己分支内容(如果要同步远端分支，则需要推送到远程) 
+        5. 切换到主分支A，合并分支B(merge/rebase)
+
+35. `git push` 的 `-u` 参数：
+
+    ```
+    git push -u origin feature		// 本地分支 feature，想推送到远程仓库 origin
+    ```
+
+    1. `-u` 是 `--set-upstream` 的缩写，用于在**推送分支时设置上游跟踪关系**。
+    2. 它简化了后续的 `git push` 和 `git pull` 操作，使 Git 知道默认的远程目标。
+    3. 常见用法是**首次推送新分支**时，例如 `git push -u origin <branch>`。
+
