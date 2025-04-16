@@ -203,4 +203,23 @@ python脚本语法：
     # 测试代码
     obj = UI_uos(key="value")
     ```
+    
+16. python的`replace()` 是一个**字符串方法**，用于将字符串中的指定子字符串替换为另一个子字符串。
+
+    **它不会对原字符串造成影响，需要有另外一个字符串进行接收**
+
+    ```
+    appidDesktop = appidDesktop.replace("chenxinsd", self.softName)
+    ```
+
+17. 判断一个字符串是否包含子字符串的**标准方法**是使用 in 运算符
+
+    ```
+    if "chenxinsd" in self.softName:
+    
+    // 用以替换下面
+    if self.softName.find("chenxinsd") != -1
+    ```
+
+    
 

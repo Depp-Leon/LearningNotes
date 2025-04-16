@@ -599,12 +599,12 @@
 
     10. 变基
 
-       ```
-       git rebase <branch-name>	// 将当前分支的提交“移动”到目标分支的最新提交之上，保持线性历史
-       
-       git rebase --continue		// 如果有冲突，解决后执行
-       git rebase --abort			// 中止变基
-       ```
+        ```
+        git rebase <branch-name>	// 将当前分支的提交“移动”到目标分支的最新提交之上，保持线性历史
+        
+        git rebase --continue		// 如果有冲突，解决后执行
+        git rebase --abort			// 中止变基
+        ```
 
     11. merge 和 rebase 的区别：
 
@@ -630,4 +630,27 @@
     1. `-u` 是 `--set-upstream` 的缩写，用于在**推送分支时设置上游跟踪关系**。
     2. 它简化了后续的 `git push` 和 `git pull` 操作，使 Git 知道默认的远程目标。
     3. 常见用法是**首次推送新分支**时，例如 `git push -u origin <branch>`。
+    
+36. git tatus 时出现下面的情况，而且怎么也restore不掉
 
+    ```
+      修改：     common/zav/zav_lib (新提交)
+    ```
+
+    **原因**：common/zav/zav_lib是一个子模块(子git)、子模块内有改动、新提交、变更了分支
+
+    ```
+    git submodule status		// 查看子模块状态
+    ```
+
+    **解决办法**：
+
+    1. 进入子模块内，使其git status展示到最新
+
+    2. 再退出到主模块，使用git status查看情况，如果还有这种现象，执行下面代码
+
+       ```
+       git submodule update --init
+       ```
+
+        
