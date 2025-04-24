@@ -14,23 +14,33 @@
    uint myint3 = str.toUInt();
    ```
 
-3. `QString`转`String` : `toStdString()`
+3. 将`int`转为`QString`：`QString::number()`
+
+4. 将`int` 转为 `String`：`std::to_string`
+
+   ```
+   int value = 123;
+   std::string result = std::to_string(value);
+   // result = "123"
+   ```
+
+5. `QString`转`String` : `toStdString()`
 
    ```
    Qstring str = "xx";
    std::string str1 = str.toStdString();
    ```
 
-4. `String`转`QString`：`fromStdString()`
+6. `String`转`QString`：`fromStdString()`
 
    ```
    QString qstr = QString::fromStdString(str)	// 静态函数需要加QString前缀
    QString qstr = QString(Str.c_str())			// 将String转为C字符数组再调用QString的构造
    ```
 
-5. `const char*`` 和 `std::string` 的互相转换
+7. `const char*`` 和 `std::string` 的互相转换
 
-     ```c++
+   ```c++
    const char* cstr = "Hello, world!";
          
    // 直接用 std::string 接收 const char* 类型
@@ -44,14 +54,14 @@
    getCmdRes(cmdstr.c_str());
      ```
 
-6. 两个不同的枚举类型之间不可以自动转换，此时使用静态类型转换
+8. 两个不同的枚举类型之间不可以自动转换，此时使用静态类型转换
 
    ```
    item.type = static_cast<NET_WHITE_LIST_TYPE>(netMsg.info_type());
    item.reason = static_cast<NET_WHITE_LIST_REASON>(netMsg.source_type());
    ```
 
-7. `qint64`和`QString`的互相转换
+9. `qint64`和`QString`的互相转换
 
    ```c++
    // qint64 --- QString
@@ -69,7 +79,7 @@
    }
    ```
 
-8. `std::strtol()`和`std::atoll`都是用于将字符串转化为`long`类型有什么区别？
+10. `std::strtol()`和`std::atoll`都是用于将字符串转化为`long`类型有什么区别？
 
    1. `std::strtol()` 是一个功能更灵活的字符串转换函数，支持不同进制的转换，并可以报告错误。
 
@@ -92,15 +102,15 @@
 
       > 有`atol()`和`atoll()`;
 
-9. C++的enum不能直接接收Protobuffer的enum类型，因为它们是不同的enum类型，proto中可能未定义值。
+11. C++的enum不能直接接收Protobuffer的enum类型，因为它们是不同的enum类型，proto中可能未定义值。
 
-   因为它们的底层相同(都是整数)，所以想要接收需要使用静态转换，但是需要确保两者的值定义一致，否则可能导致逻辑错误：
+    因为它们的底层相同(都是整数)，所以想要接收需要使用静态转换，但是需要确保两者的值定义一致，否则可能导致逻辑错误：
 
-   ```c++
-   MyCppEnum cppVal = static_cast<MyCppEnum>(MyProtoEnum_VALUE1); // 转换为对应的值
-   ```
+    ```c++
+    MyCppEnum cppVal = static_cast<MyCppEnum>(MyProtoEnum_VALUE1); // 转换为对应的值
+    ```
 
-   
+    
 
 ### 2. 线程进程
 
@@ -878,7 +888,25 @@
        process([](int x) { return x * x; });  // 输出 Result: 100
        ```
 
-       
+20. std::find_if 是 C++ 标准库中的算法函数，定义在 \<algorithm> 头文件中，适用于在容器（如 `std::vector, std::array, std::list` 等）或数组中查找第一个满足自定义条件的元素。
+
+    **如何使用**：
+
+    ```c++
+    auto it = std::find_if(vec.begin(), vec.end(), [](int x) {
+            return x > 5;
+    });
+    
+    // 三个参数
+    // 1. 起始迭代器
+    // 2. 终止迭代器
+    // 3. 比较函数
+    ```
+
+    **与 std::find 的区别？**
+
+    1. std::find 查找特定值（使用 == 比较）。
+    2. std::find_if 查找满足自定义条件的元素，更加灵活。
 
 
 
@@ -2060,13 +2088,10 @@
 9. 项目中的三方库
 
    1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
-
-   2. lib文件夹下面包含的是当前架构下三方库的库文件(.a)存放的地方
+2. lib文件夹下面包含的是当前架构下三方库的库文件(.a)存放的地方
    3. libsource文件夹下面包含的是自己做的库文件
    4. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
    5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
-
-
 
 ### 15. clipp参数
 

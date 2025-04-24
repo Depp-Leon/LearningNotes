@@ -3164,6 +3164,12 @@ m_pPool->submit([this, pBundle]() {
     5. git时，只需要`push`改动的图片和生成的`rcc`文件即可，其他的不需`push`
     
        > RJJH新增的东西删除掉(自己改动的图片除外)、只保留在Output中生成的所需要的rcc文件
+    
+16. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
+
+    1. 由于gitlib中已绑定自己的ssh公钥，所以直接使用git clone git@拉取即可
+    2. thirdparty为项目中使用的三方库，需要在40环境下，进入该仓库的目标架构的build文件夹下，执行make编译。编译后的库文件将会输出到mod仓库的lib下。
+    3. 在本地的normal_develop仓库下，需要将刚编译的lib移动到该仓库下。就可以正常使用了
 
 ### 2. 工作部分
 
@@ -3214,49 +3220,90 @@ m_pPool->submit([this, pBundle]() {
 2. bug修改
 
    - [ ] 统信uos的勒索诱捕的备注不能是中文
-   
+
    - [x] 设置中心界面滚动条异常(样式表未生效
-   
+
    - [x] 链接服务端2.333导致safed崩溃
-   
+
    - [x] 开始菜单栏中程序入口点击打不开主界面
-   
+
    - [x] 开始菜单栏中缺少程序入口
-   
+
    - [x] 链接服务端失败后，输入ip地址输入栏输不进去
-   
+
      > 由于中控设置授权管理为管理员授权，一开始连接为未分配授权还没收到AuthInfo自然刷新就为空
-   
+
    - [x] 信创版桌面图标/开始菜单 的名称改为<辰信领创防病毒系统v7.0>
-   
+
      > 打包脚本中针对不同贴牌改动desktop
      
    - [x] uos桌面没快捷方式(JYNInstall中290行)
-   
-   - [ ] 708升级到708没有自动拉取病毒库更新
-   
+
+   - [x] 708升级到708没有自动拉取病毒库更新
+
+     > 原因：升级成功的界面影响了病毒库更新进度，需要再开启一个界面
+
+     升级问题：
+
+     > 已将JYNRJJH1调用RJJH2的方式修改
+
    - [x] 705升级708设置界面没有的设置也需要同步、且有些配置未同步成功
-   
+
      > 重新创建一个所有配置的map，带默认值；然后将705的也放入一个map
      >
      > 最后将705中有的替换掉第一个map；
      >
      > 最后再根据类型、创建对应的字符串 插入数据库中
-   
+
    - [x] 信任区添加白名单之后，查杀时添加的白名单仍然报毒，且详细日志中白名单无内容
-   
+
      > 如果白名单字符串匹配扫描文件的目录则展示该白名单。
      >
      > ps：没有加上反过来的情况，如果后续需要这种情况再添加
-   
+
    - [x] 病毒查杀发现两个风险、处理两个风险，日志列表中显示已处理0个
-   
+
      > 暂时理解为日志显示处理为0个是之前的那样
-   
+
    - [x] 软授权浏览置灰
-   
+
      > 情况是在已连接网络授权之后，再点击选择软授权。由于连接网络授权将其m_bConnec状态改变导致软授权浏览按钮和错误刷新都失效
-   
+     
+   - [x] 2002机器上开始菜单右键卸载不掉
+
+     > 系统问题
+     
+   - [x] ukey授权问题：
+
+     1. 在longarch上识别不出来ukey
+     2. 显示问题，ukey只做了一个点，识别出来是剩余点数为-1
+
+   - [x] 软授权浏览置灰
+
+     > 无复现
+
+   - [x] 联网中控未分配服务时，这个ip显示有问题、而且X掉之后打不开
+
+     > **解决**：点击激活、开始了一个定时器、并且开始(exec)了一个事件循环(相当于界面exec之后又exec了，嵌套的事件循环)。当中控是手动分配时，到达的这个函数并不会停止事件循环和计时器。导致关闭窗口、再打开窗口时打不开，报日志：`QDialog::exec: Recursive call detected`，表示在已经运行的 QDialog::exec() 事件循环中(其嵌套的循环未结束)再次调用另一个 QDialog::exec()，导致**递归调用警告 (QDialog::exec: Recursive call detected)**
+
+   - [x] 重新卸载安装之后，设置界面显示有中控，但是界面上面的url未显示，实际url.ini未有数据
+
+     > 暂无复现
+
+   - [x] 查杀后关机问题：RJJH改为处理完成后启动倒计时
+
+   - [x] 开启matrix引擎，扫描疑似威胁，将疑似威胁也进行查杀掉了。看safed中之前将自动处理放到safed那块
+
+     > 显示问题，实际上都被清除了，隔离区中有数据，但是界面和日志详情错误
+     
+   - [ ] 705/707升级708之后，之前的右键库还在；卸载708的包之后图标消失，但是图标的字还在
+
+   - [ ] 升级配置，倒计时需要添加上，去terminal_config_.h中找不同功能的timer字段
+
+   - [ ] 日志时间排序问题
+
+     > 要么日志修改为结束时间，要么看那个地方可以将顺序修改
+
 3. - [ ] 708vrv(北信源)贴牌、出全量包
 
    要求：
@@ -3298,28 +3345,42 @@ m_pPool->submit([this, pBundle]() {
 
    1. 打包脚本全部使用packet
 
-   2. - [ ] 使用 -a STANDARD，打service版本会出错
+   2. - [x] 使用 -a STANDARD，打service版本会出错
 
-      
+   
    ![image-20250411150320036](source/images/JobNotes/image-20250411150320036.png)
-      
-      > 由于UI的python中，有这块代码
-      
-   3. - [ ] 2.2上Ubuntu_20_X64 查杀崩溃
-
-      > 705升级708导致防护日志数据库不对，查杀后崩溃
-
-   4. - [ ] 2.2上ubuntu_16x64手动点击病毒口升级，解析病毒库失败，且提示为自动而不是手动
-
-      <img src="source/images/JobNotes/image-20250416135543289.png" alt="image-20250416135543289" style="zoom:80%;" />
-
-      > 现象，只有在第一次查杀时候，中控下发升级病毒库的时候会卡住？
-
-   5. 2002机器上开始菜单右键卸载不掉
-
-      > 查看对应desktop文件的APPID是否正确，需要将APPID改为对应进程名，uos为com.vsecure.chenxinsd
-
-5. 暂时不处理任务
+   
+      > 由于UI的python中，有这块代码，去掉之后正常
+   
+3. - [x] 2.2上Ubuntu_20_X64 查杀崩溃
+   
+   > 705升级708导致防护日志数据库不对，查杀后崩溃
+   >
+   > 未能找到复现步骤，故搁置
+   
+4. - [x] 2.2上ubuntu_16x64手动点击病毒口升级，解析病毒库失败，且提示为自动而不是手动
+   
+   <img src="source/images/JobNotes/image-20250416135543289.png" alt="image-20250416135543289" style="zoom:80%;" />
+   
+   > ![image-20250419150317741](source/images/JobNotes/image-20250419150317741.png)
+   >
+   > 自动指的是病毒库更新时拉取的方式为自动：即先去中控拉，再去外网拉
+   >
+   > 执行查杀时卡顿可能是因为zdfy相关的问题，关闭zdfy就会继续进度
+   
+5. - [x] rpm包卸载的时候检查是否删除了文件比如tools、lib等，这些库不能删除
+   
+   ![image-20250418110559952](source/images/JobNotes/image-20250418110559952.png)
+   
+   > 背景：rpm的安装卸载脚本存放在RPM_SPEC文件中，其中%file字段保存的项目中所有的文件，当执行完卸载之后，rpm管理器会尝试将包管理的所有文件进行移除。deb包则是默认打包目录下所有文件为管理文件。
+   >
+   > 原因：但是由于在卸载脚本和prerm中为了将残留文件删除(比如bin下生成的key、cache下的数据库)，提前备份完手动删除了所有文件，就会导致rpm最终找不到要管理的文件从而移除不了(deb则不会提示警告)。
+   >
+   > 命令查看已安装的包声称包含的文件： `rpm -ql package-name`
+   >
+   > deb: dpkg -L <package>
+   
+8. 暂时不处理任务
 
    1. 查杀上报进度问题，由于查杀引擎两个线程进行查杀，若两个都查杀一个大文件，会导致他们很长间隔才调用进度上报，界面时间跨度比较大
 
@@ -3597,7 +3658,7 @@ m_pPool->submit([this, pBundle]() {
 
        > **注意**：文件仍然存在，可以访问包的内容，**适合执行卸载脚本(停止进程、删除遗留文件等)**
 
-    5. 包文件被移除
+    5. 包文件被移除，此时deb和rpm管理器会将管理的文件进行删除操作
 
     6. postrm（后移除脚本）：：在**包的文件被移除之后**执行，用于清理或完成移除
 
@@ -3627,11 +3688,81 @@ m_pPool->submit([this, pBundle]() {
     service ssh start
     ```
 
-48. bash脚本括号之间的区别()  (()) [ ] [[ ]]
+48. 项目中safed和rjjh使用**ipc**进行通信，在core/component/local_service/ipc下
 
-49. std::find_if()函数的使用
+    1. 定义引用队列，外面给其传来的队列。里面用引用传输，可以通过里面修改外面
+
+       > 本质上就类似于传输一个指针
+
+       ```
+        m_pBusService(new BusinessHelperService(m_readQueue))  // 外面定义新对象
+       
+       SafeQueue<IBundle *> &m_pReadQueue;	 //里面用引用接收
+       ```
+
+49. deb包和rpm包打包区别：
+
+    1. 相同点：都会用到pre post的四个脚本，只是deb显示指定、rpm会通过创建`/SPECS/jingyun.spec`文件里面指定
+    2. rpm需要在spec文件中的`%file`字段显式的指定包管理文件、deb则自动根据打包目标路径下所有文件进行管理
+    
+50. cpr库如何使用、总结rjjh和safed之间如何使用ipc；safed和中控如何使用cpr
+
+51. bash脚本中启动程序的两种方式：
+
+    1. 使用`exec`启动(将要启动的程序放在当前进程环境中，之前的进程自动删除)：exec 是一个 Bash 内置命令，用于**替换当前 shell 进程**，执行指定的命令或程序。执行 exec 后，当前脚本的进程会被新命令完全替换，脚本后续的代码不会执行。
+
+       > 当你运行 exec command，当前 shell 的进程 ID（PID）保持不变，但进程的内容（代码、环境等）被替换为 command。
+
+       ```bash
+       exec $BASH_PATH/bin/JYNRJJH2 "$RJJH_PARA" -platform xcb "$typewriting" > /tmp/jy_rjjh.log 2>&1
+       ```
+
+    2. 使用 `&` 转为后台启动(即启动一个新进程)：& 是一个 Bash 语法，用于将命令放入**后台运行**，允许当前脚本继续执行后续代码。它不会替换当前进程，而是创建一个新的子进程。
+
+       > 当你运行 command &，Bash 会创建一个子进程来执行 command，子进程的 PID 不同于当前脚本的 PID。
+
+       ```bash
+       "$BASH_PATH/bin/IYNRJJH2" "$RJJH_PARA" -platform xcb "$typewriting" > /tmp/jy_rjjh.log 2>&1 &
+       
+       exit 1 	# 退出当前进程
+       ```
+
+52. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
+
+    1. 在插件中定义一个宏(`PLUGIN_EXPORT`)，应用于`createPlugin` 函数的声明。
+    
+       ```c++
+       # 插件代码cpp中：
+       PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()
+       {
+           return std::unique_ptr<CJYVirusLibraryManagementPluginImpl>(new CJYVirusLibraryManagementPluginImpl());
+       }
+       ```
+    
+    2. 在CMakelist中定义该宏
+    
+       ```c++
+       # 该插件的CMakelist
+       target_compile_definitions(${BIN_NAME} PRIVATE "PLUGIN_EXPORT=extern \"C\" __attribute__((visibility(\"default\")))")
+       ```
+    
+       1. `extern "C"`：告诉编译器使用 C 链接约定，而不是 C++ 的名称修饰（name mangling）。因为在 C++ 中，函数名会被修饰（例如，包含参数类型等信息），导致编译后的符号名变得复杂（例如 _Z9createPluginv）。**使用 extern "C" 后，createPlugin 的符号名保持为 createPlugin，便于外部程序查找和调用。**
+       2. `**__**attribute((visibility("default")))`:在共享库中，符号默认可能是隐藏的（`hidden`），以减少符号表大小并提高加载性能，`visibility("default")` 明确指定该函数的符号是**公开的**，可以在共享库外部访问。这对于插件系统至关重要，因为主程序需要通过动态加载（例如 **dlopen** 和 **dlsym**）找到 `createPlugin` 函数。
+    
+    3. 综上所述，函数声明等价于：
+    
+       ```c++
+       extern "C" __attribute__((visibility("default"))) std::unique_ptr<IPlugin> createPlugin()
+       {
+           return std::unique_ptr<CJYVirusLibraryManagementPluginImpl>(new CJYVirusLibraryManagementPluginImpl());
+       }
+       ```
+    
+53. 函数参数为`const char*`，传入`char *`即可，以为这个`const`是修饰这个函数内的形参的。**代表这个函数内不可以修改这个字符串**。
 
 ### 4. 末尾
+
+
 
 
 
