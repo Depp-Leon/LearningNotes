@@ -1891,11 +1891,11 @@ m_pPool->submit([this, pBundle]() {
    ```
    cd Output/bin2.0/JingyunSd_linux_2/bin/X86_64/
    
-   sudo cp cur_user JYNGJCZ2 JYNRJJH2 JYNRJJH2-UTRAY1 JYNSAFED JYNZDFY2 JYUpdateUI /opt/apps/chenxinsd/bin/
+   sudo cp cur_user JYNRJJH2 JYNRJJH2-UTRAY1 JYNSAFED JYNZDFY2 JYUpdateUI /opt/apps/chenxinsd/bin/
    
    sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libSysMonManage.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so  /opt/apps/chenxinsd/lib/modules/
    
-   sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/chenxinsd/lib/plugins/system/
+   sudo cp libJYFileShred.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/chenxinsd/lib/plugins/system/
    ```
 
 3. 什么时候需要重新执行cmake和make
@@ -3175,7 +3175,9 @@ m_pPool->submit([this, pBundle]() {
 
 #### 2.1 正在进行
 
-|      任务       | 优先级 | 截至 | 完成 |
+##### 2.1.1 4月任务
+
+|     4月任务     | 优先级 | 截至 | 完成 |
 | :-------------: | :----: | :--: | :--: |
 |   修改708bug    |   高   | 4.30 |      |
 |   708vrv贴牌    |   高   | 4.30 |      |
@@ -3218,8 +3220,6 @@ m_pPool->submit([this, pBundle]() {
      2. 其在safed启动时就会自动拉取
 
 2. bug修改
-
-   - [ ] 统信uos的勒索诱捕的备注不能是中文
 
    - [x] 设置中心界面滚动条异常(样式表未生效
 
@@ -3320,13 +3320,6 @@ m_pPool->submit([this, pBundle]() {
 
    - [x] uos设置界面的滚动轴显示异常问题
 
-   - [ ] 软件升级0425问题：redhat linux8(21)、centos7.2(88)、ubuntu_16_x64(98)  
-
-     问题1： 升级界面出不来
-     
-     问题2：升级失败之后，其他升级界面相关的操作都不行
-     
-     
      
 
 3. - [ ] 708vrv(北信源)贴牌、出全量包
@@ -3411,9 +3404,28 @@ m_pPool->submit([this, pBundle]() {
 
       > 解决方式：reportScanProgress弃用，改为启动一个线程，保存上报进度等值，每1秒上报RJJH、每5秒上报中控
 
+
+
+##### 2.1.2 五月任务
+
+1. - [x] 软件升级0425问题：redhat linux8(21)、centos7.2(88)、ubuntu_16_x64(98)  
+
+
+   问题1： 升级界面出不来
+
+   问题2：升级失败之后，其他升级界面相关的操作都不行
+
+2. - [x] 统信uos的勒索诱捕的备注不能是中文
+
+3. - [x] 隔离区恢复/删除时，关闭、暂停和停止不能正常使用
+
+     > 解决：将隔离区恢复和删除单独开启一个线程。这样才可以控制暂停和停止
+
+
+
 #### 2.2 备忘录
 
-
+驱动开发
 
 ### 3. 代码部分
 
@@ -3938,7 +3950,119 @@ m_pPool->submit([this, pBundle]() {
     1. 主要用于提供一个框架或容器，通常用于组织和装饰其他控件。它是许多其他部件（如 QLabel、QPushButton 等）的基类，提供了绘制边框和背景的功能。
     2. QFrame 可以作为一个容器，承载其他控件。比如创建一个带有背景色的区域，里面放置按钮、标签等控件
 
-    
+66. std::ref有什么用？使用bind和lambda来绑定对象函数，实现开启多线程
+
+    1. 使用lambda，常用
+
+       ```c++
+       std::thread t([&m_pScan](const std::string& data) {
+           m_pScan.virusScanProcessIsolateRecover(data);
+       }, info.data());
+       t.join(); // 推荐使用 join 而不是 detach
+       ```
+
+    2. 使用bind，要确保参数类型一致
+
+       ```c++
+       auto data = info.data(); // 显式复制，确保是一个 std::string 值
+       auto bundFunc = std::bind(&ScanFlowController::virusScanProcessIsolateRecover, &m_pScan, std::placeholders::_1);
+       std::thread t(bundFunc, data);
+       t.join();
+       ```
+
+    3. 如果需要传入的参数是引用类型，使用 `std::ref` 包装引用
+
+       ```c++
+       auto bundFunc = std::bind(&ScanFlowController::virusScanProcessIsolateRecover, &m_pScan, std::placeholders::_1);
+       std::thread t(bundFunc, std::ref(info.data()));
+       t.join();
+       ```
+
+       > std::ref(info.data()) 告诉 std::thread 将 info.data() 作为引用传递，而不是复制或转换为右值。
+
+67. 经典bug、问题总结
+
+    1. 隔离区恢复、删除过程的暂停和停止操作。由于在同一个线程只能依次操作函数，等到恢复/删除结束后才会调用暂停和停止函数。
+
+       解决：将隔离区恢复和删除的过程单独启动一个线程，由另外主线程进行对其暂停和停止的操作(修改条件值)
+
+       > 同理：网络防护功能、同样是插件开启**线程**操作、然后主线程就可以调用插件停止、暂停、继续等操作
+
+68. 关于lambda函数出现的问题
+
+    ```c++
+    class CJYVirusScanPluginImpl {
+    public:
+        ScanFlowController* m_pScan;
+        void someStaticFunc() {
+            std::thread t([&m_pScan](const std::string &data) { //错误：不能直接捕获类成员变量
+                m_pScan->virusScanProcessIsolateRecover(data);
+            }, info.data());
+        }
+    };
+    ```
+
+    1. Lambda 表达式的捕获列表（如 [&m_pScan]）只能捕获**非静态成员变量**或局部变量。如果 m_pScan 是以下类型之一，捕获会失败：
+       - **静态成员变量**（static 修饰）。
+       - **类型别名**（typedef 或 using）。
+       - **枚举值**或常量。
+       - **函数成员**或非变量实体。
+    2. 使用 [&m_pScan] 试图直接捕获成员变量是不合法的，因为 Lambda 不能直接捕获类的成员变量（m_pScan 属于 this 的成员）。正确的捕获方式是捕获 this 或 *this
+    3. 如果 m_pScan 是一个正常的成员变量（例如 ScanFlowController* m_pScan;），但代码在**非成员函数或静态成员函数中**定义 Lambda，this 指针不可用，m_pScan 无法通过 [&m_pScan] 捕获。
+
+69. `std::remove`、`std::remove_if`、`std::erase`这几个函数的区别
+
+    1. `std::remove`
+
+       ```c++
+       	std::vector<int> vec = {1, 2, 2, 3, 2, 4};
+           auto new_end = std::remove(vec.begin(), vec.end(), 2); // 移除所有 2
+       
+           // 此时 vec = {1, 3, 4, ?, ?, ?}，size 仍为 6
+           for (auto it = vec.begin(); it != new_end; ++it) {
+               std::cout << *it << ' '; // 输出 1 3 4
+           }
+           std::cout << '\n';
+       ```
+
+       **std::remove** 从范围 [first, last) 中“逻辑移除”所有等于 value 的元素。
+
+       它并不真正删除容器中的元素，而是将所有不等于 value 的元素移到范围的前部，并**返回一个迭代器，指向新的逻辑末尾**（即移除后有效范围的末尾）。
+
+    2. `std::remove_if`
+
+       ```c++
+       	std::vector<int> vec = {1, 2, 3, 4, 5};
+           auto new_end = std::remove_if(vec.begin(), vec.end(), [](int x) {
+               return x % 2 == 0; // 移除偶数
+           });
+       
+           // 此时 vec = {1, 3, 5, ?, ?}，size 仍为 5
+           for (auto it = vec.begin(); it != new_end; ++it) {
+               std::cout << *it << ' '; // 输出 1 3 5
+           }
+           std::cout << '\n';
+       ```
+
+       **std::remove_if** 从范围 [first, last) 中“逻辑移除”所有满足谓词 pred 的元素。
+
+       与 std::remove 类似，它将不满足 pred 的元素移到范围前部，返回新的逻辑末尾迭代器。
+
+       pred 是一个**一元谓词（函数、函数对象或 Lambda）**，接受一个元素并返回 bool（true 表示移除）。
+
+    3. `std::erase`
+
+       在 C++20 之前，std::erase 不是标准算法，而是容器（如 std::vector、std::list）的成员函数。C++20 引入了全局 std::erase 和 std::erase_if。
+
+       ```c++
+       	std::vector<int> vec = {1, 2, 2, 3, 2, 4};
+           // 移除所有 2（erase-remove 惯用法）
+           vec.erase(std::remove(vec.begin(), vec.end(), 2), vec.end());
+       ```
+
+       **std::erase**从容器中“物理移除“指定位置（position）或范围 [first, last) 的元素。
+
+70. 逻辑处理器：CPU 逻辑处理器（Logical Processor）是指**操作系统能够识别和调度的基本计算单元**，它是 CPU 核心（Core）与超线程技术（Hyper-Threading，简称 HT）结合后的产物。逻辑处理器数量通常决定了一个 CPU 在操作系统中表现为多少个“处理器”，直接影响多任务处理和并行计算能力。
 
 ### 4. 末尾
 

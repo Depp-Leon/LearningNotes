@@ -164,11 +164,17 @@
      boundFunc(3, 4);  // Output: Sum: 7
      ```
 
-7. 关于分离进程和守护进程：
+7. 上述使用lambda实现
 
-     **分离进程**：分离进程是指一个进程从其父进程中“分离”出来，不再受父进程的控制。父进程和子进程各自独立运行，父进程不必等待子进程结束。
+     ```
 
-     > 分离进程通常用于那些需要**在后台独立运行的程序**，例如在启动时与终端会话断开的任务。
+     ```
+
+8. 关于分离进程和守护进程：
+
+   **分离进程**：分离进程是指一个进程从其父进程中“分离”出来，不再受父进程的控制。父进程和子进程各自独立运行，父进程不必等待子进程结束。
+
+   > 分离进程通常用于那些需要**在后台独立运行的程序**，例如在启动时与终端会话断开的任务。
 
    1. 父子进程从 `fork()` 之后的代码开始**并行运行**
 
@@ -232,7 +238,7 @@
        1. 分离进程作为子进程，会受到父类的**资源管理和生命周期**方面的影响。**不会自动管理资源**，也 **没有恢复机制**，通常用于那些希望在后台执行、但不需要长期稳定服务的进程。
        2. 守护进程 **脱离了父进程和终端的控制**，并且通过一系列的步骤（如 `setsid()`、`chdir()`、关闭文件描述符等）确保自己可以长期独立稳定地运行。它 **不受父进程结束的影响**，并且具有 **自我管理能力**，如资源回收、自动重启等。通常用于后台服务和长期运行的任务
 
-8. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
+9. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
 
      > 线程A调用 `wait` 并释放互斥量。
      >
@@ -285,7 +291,7 @@
         2. **`std::lock_guard` 和 `notify_one`**：
            - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
 
-9. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
+10. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
 
    `store()` 是 `load()` 的对应存储函数，用于**原子地修改**（存储）`std::atomic` 变量的值。它们共同用于多线程环境中，保证数据访问的安全性。
 
@@ -320,89 +326,89 @@
    
    ```
 
-10. 对于原子类型，线程安全的方式读取该值使用`load()`函数;
+11. 对于原子类型，线程安全的方式读取该值使用`load()`函数;
 
-    `load()` 函数的作用是读取原子变量的当前值并返回。在多线程环境中，使用 `load()` 可以确保读取的值是线程安全的，即便其他线程可能同时在修改该变量。
+      `load()` 函数的作用是读取原子变量的当前值并返回。在多线程环境中，使用 `load()` 可以确保读取的值是线程安全的，即便其他线程可能同时在修改该变量。
 
-11. C++标准库的**承诺-未来机制**`std::promise`和 `std::future`，用于在线程之间传递值或状态，尤其是在异步编程中协助传递结果。实现在两个线程间同步任务完成状态
+12. C++标准库的**承诺-未来机制**`std::promise`和 `std::future`，用于在线程之间传递值或状态，尤其是在异步编程中协助传递结果。实现在两个线程间同步任务完成状态
 
-    > 有点像Qt中的eventLoop，事件循环机制
+      > 有点像Qt中的eventLoop，事件循环机制
 
-    ```
-    #使用方式，没有返回值的
-    std::promise<void> _terminationPromise;
-    std::future<void> _terminationFuture;
-    ```
+      ```
+      #使用方式，没有返回值的
+      std::promise<void> _terminationPromise;
+      std::future<void> _terminationFuture;
+      ```
 
-    ```c++
-    //案例：
-    #include <iostream>
-    #include <thread>
-    #include <future>
-    
-    void task(std::promise<void> taskPromise) {
-        std::cout << "Task is running..." << std::endl;
-        // 模拟一些工作
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        // 设置任务完成状态
-        taskPromise.set_value();
-        std::cout << "Task has completed." << std::endl;
-    }
-    
-    int main() {
-        // 创建一个 promise
-        std::promise<void> taskPromise;
-        // 从 promise 获得对应的 future
-        std::future<void> taskFuture = taskPromise.get_future();
-    
-        // 启动一个线程执行任务，并将 promise 传递进去
-        std::thread t(task, std::move(taskPromise));
-    
-        // 等待任务完成
-        taskFuture.get();  // 阻塞直到 taskPromise 设置了值
-        std::cout << "Main thread detected task completion." << std::endl;
-    
-        t.join();
-        return 0;
-    }
-    
-    ```
+      ```c++
+      //案例：
+      #include <iostream>
+      #include <thread>
+      #include <future>
+      
+      void task(std::promise<void> taskPromise) {
+          std::cout << "Task is running..." << std::endl;
+          // 模拟一些工作
+          std::this_thread::sleep_for(std::chrono::seconds(2));
+          // 设置任务完成状态
+          taskPromise.set_value();
+          std::cout << "Task has completed." << std::endl;
+      }
+      
+      int main() {
+          // 创建一个 promise
+          std::promise<void> taskPromise;
+          // 从 promise 获得对应的 future
+          std::future<void> taskFuture = taskPromise.get_future();
+      
+          // 启动一个线程执行任务，并将 promise 传递进去
+          std::thread t(task, std::move(taskPromise));
+      
+          // 等待任务完成
+          taskFuture.get();  // 阻塞直到 taskPromise 设置了值
+          std::cout << "Main thread detected task completion." << std::endl;
+      
+          t.join();
+          return 0;
+      }
+      
+      ```
 
-    ```
-    #输出结果
-    Task is running...
-    Task has completed.
-    Main thread detected task completion.
-    ```
+      ```
+      #输出结果
+      Task is running...
+      Task has completed.
+      Main thread detected task completion.
+      ```
 
-12. IPC 是进程间通信的核心机制，帮助进程协调工作、交换数据。常见的 IPC 方式包括管道、消息队列、共享内存、信号、套接字等
+13. IPC 是进程间通信的核心机制，帮助进程协调工作、交换数据。常见的 IPC 方式包括管道、消息队列、共享内存、信号、套接字等
 
-13. `Popen()` 和 `pclose()` 是 C 和 C++ 标准库中的函数，通常用于执行外部命令，并通过**管道**（pipe）与这些命令进行交互，获取命令的输出或向命令传递输入
+14. `Popen()` 和 `pclose()` 是 C 和 C++ 标准库中的函数，通常用于执行外部命令，并通过**管道**（pipe）与这些命令进行交互，获取命令的输出或向命令传递输入
 
-    > 通常用于在c++代码中获取linux命令执行后的控制台输出
+      > 通常用于在c++代码中获取linux命令执行后的控制台输出
 
-    1. `popen()` 函数用于打开一个进程（即执行一个外部命令），并通过管道与该进程进行通信。它会返回一个文件指针，允许你读取该命令的标准输出或将数据写入命令的标准输入
+      1. `popen()` 函数用于打开一个进程（即执行一个外部命令），并通过管道与该进程进行通信。它会返回一个文件指针，允许你读取该命令的标准输出或将数据写入命令的标准输入
 
-       ```
-       FILE *popen(const char *command, const char *mode);
-       
-       command：要执行的外部命令（如一个 shell 命令），这是一个 C 风格的字符串。
-       mode：表示打开管道的模式。常用模式有：
-       "r"：以只读模式打开管道，允许读取命令的标准输出。
-       "w"：以写入模式打开管道，允许向命令的标准输入写入数据。
-       ```
+         ```
+         FILE *popen(const char *command, const char *mode);
+         
+         command：要执行的外部命令（如一个 shell 命令），这是一个 C 风格的字符串。
+         mode：表示打开管道的模式。常用模式有：
+         "r"：以只读模式打开管道，允许读取命令的标准输出。
+         "w"：以写入模式打开管道，允许向命令的标准输入写入数据。
+         ```
 
-       > 成功时，`popen()` 返回一个文件指针（`FILE*`），你可以使用标准的文件操作（如 `fgets()` 或 `fread()`）来读取或写入管道数据
+         > 成功时，`popen()` 返回一个文件指针（`FILE*`），你可以使用标准的文件操作（如 `fgets()` 或 `fread()`）来读取或写入管道数据
 
-    2. `pclose()` 用于关闭通过 `popen()` 打开的文件指针，并等待命令执行完成。它会返回执行命令的退出状态。
+      2. `pclose()` 用于关闭通过 `popen()` 打开的文件指针，并等待命令执行完成。它会返回执行命令的退出状态。
 
-       ```
-       int pclose(FILE *fp);
-       
-       fp：通过 popen() 返回的文件指针（FILE*），指向进程的标准输出或输入
-       ```
+         ```
+         int pclose(FILE *fp);
+         
+         fp：通过 popen() 返回的文件指针（FILE*），指向进程的标准输出或输入
+         ```
 
-14. 
+15. 
 
 ### 3. 文件操作
 
