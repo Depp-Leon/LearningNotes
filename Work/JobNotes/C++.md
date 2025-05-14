@@ -238,7 +238,32 @@
        1. 分离进程作为子进程，会受到父类的**资源管理和生命周期**方面的影响。**不会自动管理资源**，也 **没有恢复机制**，通常用于那些希望在后台执行、但不需要长期稳定服务的进程。
        2. 守护进程 **脱离了父进程和终端的控制**，并且通过一系列的步骤（如 `setsid()`、`chdir()`、关闭文件描述符等）确保自己可以长期独立稳定地运行。它 **不受父进程结束的影响**，并且具有 **自我管理能力**，如资源回收、自动重启等。通常用于后台服务和长期运行的任务
 
-9. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
+9. 分离进程的返回值问题
+
+     ```c++
+     bool UpgradeProcess::installPackage() {
+         pid_t pid = fork();
+         if (pid < 0) {
+             Logger::error() << "Fork failed";
+             return false;
+         }
+    if (pid == 0) {
+             // 子进程
+        UpgradeControl control;
+             bool success = control.executeInstallCommand();
+             exit(success ? EXIT_SUCCESS : EXIT_FAILURE); // 子进程用 exit
+         }
+         // 父进程
+         int status;
+         waitpid(pid, &status, 0);
+         if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+             return true; // 父进程用 return
+         }
+         return false;
+     }
+     ```
+     
+10. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
 
      > 线程A调用 `wait` 并释放互斥量。
      >
@@ -291,7 +316,7 @@
         2. **`std::lock_guard` 和 `notify_one`**：
            - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
 
-10. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
+11. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
 
    `store()` 是 `load()` 的对应存储函数，用于**原子地修改**（存储）`std::atomic` 变量的值。它们共同用于多线程环境中，保证数据访问的安全性。
 
