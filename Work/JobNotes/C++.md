@@ -634,11 +634,146 @@
          std::cout << buffer << std::endl;
          ```
 
-13. 
+13. QString截取字符串
+
+      1. 方式1：根据要截取的下标使用`QString::mid()`函数
+
+         ```c++
+         if (install_path.contains("/files")) { // uos系统保存的安装路径是files
+                     install_path = install_path.mid(0, install_path.indexOf("/files"));
+         }
+         ```
+
+      2. 方式2：直接使用`QString::remove()`函数去除不想要的子字符串
+
+         ```c++
+         if (inspath.contains("com.vsecure.")) // uos特殊处理
+                     inspath = inspath.remove("files/");
+         ```
+
+14. 对于C++字符串来说，str1 删除掉其中包含的str2的两种方法
+
+      ```c++
+      url = url.substr(url.find(frontUrl) + frontUrl.size());		// 截取字符串
+      url.erase(url.find(frontUrl), frontUrl.size());				// 直接从原字符串中删除，erase是原地修改的，不需要接收
+      ```
+
+      如果对于QString来说
+
+      ```c++
+      QString url = url.replace(frontUrl, "");					// 将子字符串替换为空
+      url.remove(url.find(frontUrl), frontUrl.size())				// 同上面第二个
+      ```
+
+      
 
 ### 4. 新特性
 
-1. 使用map容器进行迭代器遍历时，`first`和`second`是成员变量而不是函数，不需要加括号(因为map使用`pair`对组作为成员，只有map使用`first`和`second`)
+1. `std::remove`、`std::remove_if`、`std::erase`这几个函数的区别
+
+   1. `std::remove`
+
+      ```c++
+      	std::vector<int> vec = {1, 2, 2, 3, 2, 4};
+          auto new_end = std::remove(vec.begin(), vec.end(), 2); // 移除所有 2
+      
+          // 此时 vec = {1, 3, 4, ?, ?, ?}，size 仍为 6
+          for (auto it = vec.begin(); it != new_end; ++it) {
+              std::cout << *it << ' '; // 输出 1 3 4
+          }
+          std::cout << '\n';
+      ```
+
+      **std::remove** 从范围 [first, last) 中“逻辑移除”所有等于 value 的元素。
+
+      它并不真正删除容器中的元素，而是将所有不等于 value 的元素移到范围的前部，并**返回一个迭代器，指向新的逻辑末尾**（即移除后有效范围的末尾）。
+
+   2. `std::remove_if`
+
+      ```c++
+      	std::vector<int> vec = {1, 2, 3, 4, 5};
+          auto new_end = std::remove_if(vec.begin(), vec.end(), [](int x) {
+              return x % 2 == 0; // 移除偶数
+          });
+      
+          // 此时 vec = {1, 3, 5, ?, ?}，size 仍为 5
+          for (auto it = vec.begin(); it != new_end; ++it) {
+              std::cout << *it << ' '; // 输出 1 3 5
+          }
+          std::cout << '\n';
+      ```
+
+      **std::remove_if** 从范围 [first, last) 中“逻辑移除”所有满足谓词 pred 的元素。
+
+      与 std::remove 类似，它将不满足 pred 的元素移到范围前部，返回新的逻辑末尾迭代器。
+
+      pred 是一个**一元谓词（函数、函数对象或 Lambda）**，接受一个元素并返回 bool（true 表示移除）。
+
+   3. `std::erase`
+
+      在 C++20 之前，std::erase 不是标准算法，而是容器（如 std::vector、std::list）的成员函数。C++20 引入了全局 std::erase 和 std::erase_if。
+
+      ```c++
+      	std::vector<int> vec = {1, 2, 2, 3, 2, 4};
+          // 移除所有 2（erase-remove 惯用法）
+          vec.erase(std::remove(vec.begin(), vec.end(), 2), vec.end());
+      ```
+
+      **std::erase**从容器中“物理移除“指定位置（position）或范围 [first, last) 的元素。
+
+2. std::ref有什么用？使用bind和lambda来绑定对象函数，实现开启多线程
+
+   1. 使用lambda，常用
+
+      ```c++
+      std::thread t([&m_pScan](const std::string& data) {
+          m_pScan.virusScanProcessIsolateRecover(data);
+      }, info.data());
+      t.join(); // 推荐使用 join 而不是 detach
+      ```
+
+   2. 使用bind，要确保参数类型一致
+
+      ```c++
+      auto data = info.data(); // 显式复制，确保是一个 std::string 值
+      auto bundFunc = std::bind(&ScanFlowController::virusScanProcessIsolateRecover, &m_pScan, std::placeholders::_1);
+      std::thread t(bundFunc, data);
+      t.join();
+      ```
+
+   3. 如果需要传入的参数是引用类型，使用 `std::ref` 包装引用
+
+      ```c++
+      auto bundFunc = std::bind(&ScanFlowController::virusScanProcessIsolateRecover, &m_pScan, std::placeholders::_1);
+      std::thread t(bundFunc, std::ref(info.data()));
+      t.join();
+      ```
+
+      > std::ref(info.data()) 告诉 std::thread 将 info.data() 作为引用传递，而不是复制或转换为右值。
+
+3. 关于lambda函数出现的问题
+
+   ```c++
+   class CJYVirusScanPluginImpl {
+   public:
+       ScanFlowController* m_pScan;
+       void someStaticFunc() {
+           std::thread t([&m_pScan](const std::string &data) { //错误：不能直接捕获类成员变量
+               m_pScan->virusScanProcessIsolateRecover(data);
+           }, info.data());
+       }
+   };
+   ```
+
+   1. Lambda 表达式的捕获列表（如 [&m_pScan]）只能捕获**非静态成员变量**或局部变量。如果 m_pScan 是以下类型之一，捕获会失败：
+      - **静态成员变量**（static 修饰）。
+      - **类型别名**（typedef 或 using）。
+      - **枚举值**或常量。
+      - **函数成员**或非变量实体。
+   2. 使用 [&m_pScan] 试图直接捕获成员变量是不合法的，因为 Lambda 不能直接捕获类的成员变量（m_pScan 属于 this 的成员）。正确的捕获方式是捕获 this 或 *this
+   3. 如果 m_pScan 是一个正常的成员变量（例如 ScanFlowController* m_pScan;），但代码在**非成员函数或静态成员函数中**定义 Lambda，this 指针不可用，m_pScan 无法通过 [&m_pScan] 捕获。
+
+4. 使用map容器进行迭代器遍历时，`first`和`second`是成员变量而不是函数，不需要加括号(因为map使用`pair`对组作为成员，只有map使用`first`和`second`)
 
    ```c++
    for(auto it = time_map.begin();it != time_map.end(); ){
@@ -651,7 +786,7 @@
    	}
    ```
 
-2. 进度回调和右值引用
+5. 进度回调和右值引用
 
    1. 右值引用：将指针转为右值，当进行了拷贝构造后就丢弃(销毁)之前的指针
    2. 将`scan_flow`的进度处理函数传给扫描引擎使用，在该插件内部调用该函数(看111)。
@@ -669,13 +804,13 @@
    };
    ```
 
-3. 执行`map[key]`会发生的行为：
+6. 执行`map[key]`会发生的行为：
 
        1. **查找**：`m_process_list[token]` 会尝试查找 `m_process_list` 中是否已经存在键为 `token` 的元素。
        2. **如果元素不存在**：`std::map` 会自动创建一个新的元素，其中键为 `token`，值为该键对应的默认值。
        3. **如果元素已存在**：`operator[]` 会返回对应的值（即 `std::set<pid_t>`），可以直接对其进行操作。
 
-4. 使用`static_cast`的时机：避免编译器执行隐式转换时可能会因为损失精度等提示异常。提前使用该类型告知，这是可以进行的，是已知的情况的。**它不会进行类型检查，所以需要用户提前确保这是正确的。**
+7. 使用`static_cast`的时机：避免编译器执行隐式转换时可能会因为损失精度等提示异常。提前使用该类型告知，这是可以进行的，是已知的情况的。**它不会进行类型检查，所以需要用户提前确保这是正确的。**
 
    ```
    auto it = m_task.find(static_cast<CmdType>(item.operate()));
@@ -683,14 +818,14 @@
    #例子：此处的map，key为自定义enum类型。而获取到的是protobuffer数据格式的枚举，没有规定两者之间进行隐式转换的定义，会报错，此时使用static_cast就可以正常使用了
    ```
 
-5. `using` 定义函数签名和回调函数
+8. `using` 定义函数签名和回调函数
 
    ```
    using MessageHandler = std::function<void(IBundle *pBundle)>;
    #MessageHandler 是一个可以接受指向 IBundle 类型的指针 pBundle 的函数的类型别名
    ```
 
-6. `unordered_multimap`的`equal_range`函数
+9. `unordered_multimap`的`equal_range`函数
 
    > multimap：可重复map
    >
@@ -706,38 +841,38 @@
    	#第二个元素是指向第一个不匹配元素的迭代器（即结束位置）。
    ```
 
-7. **map**：map 的底层是用 **红黑树（Red-Black Tree）** 实现的。红黑树是一种自平衡的二叉搜索树，能够保证查找、插入和删除等操作的时间复杂度为 O(log⁡n)O(\log n)O(logn)。因此，map 中的键是有序的，按照键的顺序存储。
+10. **map**：map 的底层是用 **红黑树（Red-Black Tree）** 实现的。红黑树是一种自平衡的二叉搜索树，能够保证查找、插入和删除等操作的时间复杂度为 O(log⁡n)O(\log n)O(logn)。因此，map 中的键是有序的，按照键的顺序存储。
 
    **unordered_map**：unordered_map 的底层是用 **哈希表（Hash Table）** 实现的。它通过哈希函数将键映射到对应的桶（bucket）中，桶内可能使用链表或类似结构来处理哈希冲突（collision）。由于哈希表的特性，unordered_map 的键是无序的，平均情况下查找、插入和删除的时间复杂度为 O(1)，但在最坏情况下（比如大量冲突）可能退化为 O(n）
 
-8. 容器(`multimap`)加锁
+11. 容器(`multimap`)加锁
 
-   ```
-   #map和multimap使用的都是<map>头文件
-   ```
+    ```
+    #map和multimap使用的都是<map>头文件
+    ```
 
-9. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
+12. 循环依赖问题(当class a 导入class b的头文件，classb 也导入class a的头文件时)，需要使用前置声明。不然编译器会不知道先编译哪个
 
-   ```c++
-   // A.h
-   class B;  // 前向声明B
-   class A {
-       B* b;  // 这里我们不需要完整的B类，只需要声明指针
-   public:
-       void doSomething();
-   };
-   
-   // B.h
-   class A;  // 前向声明A
-   class B {
-       A* a;  // 同样，使用A的指针，不需要完整的A类
-   public:
-       void doSomethingElse();
-   };
-   
-   ```
+    ```c++
+    // A.h
+    class B;  // 前向声明B
+    class A {
+        B* b;  // 这里我们不需要完整的B类，只需要声明指针
+    public:
+        void doSomething();
+    };
+    
+    // B.h
+    class A;  // 前向声明A
+    class B {
+        A* a;  // 同样，使用A的指针，不需要完整的A类
+    public:
+        void doSomethingElse();
+    };
+    
+    ```
 
-10. 智能指针循环依赖问题
+13. 智能指针循环依赖问题
 
    ```c++
    class A;
@@ -1779,7 +1914,41 @@
 
 ### 13. 基本
 
-1. `#if...#else...#endif...` 符合条件时**编译**，同`is else`
+1. `.cc`文件也是c++源文件
+
+2. 函数参数为`const char*`，传入`char *`即可，以为这个`const`是修饰这个函数内的形参的。**代表这个函数内不可以修改这个字符串**。
+
+3. << 是一个**位运算符**，具体为**左移运算符**
+
+   含义：**左移运算符**将左侧操作数的二进制位向左移动指定的位数，右侧空出的位用符号位（对于有符号整数）或 0（对于无符号整数）填充。
+
+   ```c++
+   a << b
+   // a 是要移动的数值。
+   // b 是移动的位数。
+   // 结果是 a 的二进制表示向左移动 b 位后的值。
+       
+   1 << 1
+   // 整数 1 的二进制表示为（假设 32 位整数）：00000000 00000000 00000000 00000001。
+   // 将 1 的二进制位向左移动 1 位：00000000 00000000 00000000 00000010（右侧空位补 0）。
+   ```
+
+   作用：可以通过**1 << 不同的枚举值**，通过 `|` (或运算符)，最终将32种或者64种操作(开关)融合到一个int整形，缩短所需要的字段数量
+
+   注意事项：要移动的位数(b)不可以超过a所能表示的最大位数。如果超过，需要显式转换a的类型：
+
+   ```c++
+   1 << 33;	// 默认int位32位，33超过其最大位数
+   (int64_t)1 << 33; // 显式转换，增加到64位
+   ```
+
+4. C/C++中报错：`transfer of control bypasses initialization of`
+
+   原因：程序的控制流（例如通过 `goto、break、continue` 或跳转到某个代码块）跳过了变量的初始化。这会导致未定义行为，因为变量可能在未初始化时被使用。
+
+   > 也就是说，在条件分支或者跳转语句可能使用了还未初始化的变量
+
+5. `#if...#else...#endif...` 符合条件时**编译**，同`is else`
 
    ```
    #if condition1
@@ -1790,12 +1959,12 @@
    	std::cout << a << std::endl;
    ```
 
-2. 宏定义判断：`#if defined(__linux__)` 和 `#endif` 是预处理指令，用于条件编译。在C++中，这些指令帮助控制代码的编译过程。具体而言：
+6. 宏定义判断：`#if defined(__linux__)` 和 `#endif` 是预处理指令，用于条件编译。在C++中，这些指令帮助控制代码的编译过程。具体而言：
 
    1. **条件编译**：`#if defined(__linux__)` 用于检查宏 `__linux__` 是否被定义。这通常是在 Linux 系统上编译代码时自动定义的宏。
    2. **编译特定部分**：如果在编译时检测到 `__linux__` 已定义，那么 `#if` 和 `#endif` 之间的代码会被编译。反之，如果不在 Linux 上编译（例如在 Windows 或其他操作系统上），那么这段代码将被忽略
 
-3. switch 语句中使用多个 case 标签共享同一代码块的写法是完全合法的。这种用法在 C++ 中称为 **fall-through（贯穿）**，只要多个 case 标签紧邻且没有中间插入 break，它们会共享后续的代码块
+7. switch 语句中使用多个 case 标签共享同一代码块的写法是完全合法的。这种用法在 C++ 中称为 **fall-through（贯穿）**，只要多个 case 标签紧邻且没有中间插入 break，它们会共享后续的代码块
 
    ```c++
    switch (m_enumPowerManageType) {
@@ -1813,14 +1982,14 @@
    }
    ```
 
-4. 在大多数平台上，`std::time_t` 是一个 64 位有符号整数（例如 Linux 的 x86-64 平台）。表示时间戳
+8. 在大多数平台上，`std::time_t` 是一个 64 位有符号整数（例如 Linux 的 x86-64 平台）。表示时间戳
 
    ```
    // 获取秒级时间戳
    int64_t timestamp = static_cast<int64_t>(time(nullptr));
    ```
 
-5. `std::string::npos` 是 C++ 标准库中 `std::string` 类的一个特殊常量，它的类型是 `std::string::size_type`（通常是 `size_t` **无符号整数**的别名），用于表示 "未找到" 的情况,它的值通常是一个非常大的整数（例如 `-1` 的无符号表示）
+9. `std::string::npos` 是 C++ 标准库中 `std::string` 类的一个特殊常量，它的类型是 `std::string::size_type`（通常是 `size_t` **无符号整数**的别名），用于表示 "未找到" 的情况,它的值通常是一个非常大的整数（例如 `-1` 的无符号表示）
 
    **具体用途**：
 
@@ -1829,7 +1998,7 @@
 
    **为什么用npos**：使用 `npos` 而不是其他值（如 -1）是因为 `size_t` 是无符号整数类型(`long unsigned int` )，无法表示负数。npos 作为最大值，天然适合表示“无效”或“超出范围”的情况
 
-6. 关于`std::nothrow` 
+10. 关于`std::nothrow` 
 
    ```
    int* p = new(std::nothrow) int[10000000000]; // 请求分配大量内存
@@ -1837,42 +2006,42 @@
 
    `std::nothrow` 是 C++ 标准库中的一个常量，用于控制内存分配失败时的行为。通常在使用 `new` 操作符进行内存分配时，分配失败会抛出 `std::bad_alloc` 异常。而使用 `std::nothrow`，可以使 `new` 操作符在分配失败时返回 `nullptr`，而不是抛出异常。
 
-7. 局部`static` 变量的销毁发生在**程序结束时，而不是在函数执行完毕时**。
+11. 局部`static` 变量的销毁发生在**程序结束时，而不是在函数执行完毕时**。
 
-8. 全局函数指的是整个程序内，只要导入其头文件就可以调用的**非static声明的**函数。
+12. 全局函数指的是整个程序内，只要导入其头文件就可以调用的**非static声明的**函数。
 
-   如果声明`static`那么该函数只能在该cpp内部进行链接，其他cpp文件只能获取到声明，拿不到内部函数定义
+    如果声明`static`那么该函数只能在该cpp内部进行链接，其他cpp文件只能获取到声明，拿不到内部函数定义
 
-9. 类外`static`和`inline`：
+13. 类外`static`和`inline`：
 
-   **前提**：使用`hpp`文件(即声明和定义在同一个文件)下，多个cpp导入该hpp头文件会产生多次**链接错误**
+    **前提**：使用`hpp`文件(即声明和定义在同一个文件)下，多个cpp导入该hpp头文件会产生多次**链接错误**
 
-   **解决**：
+    **解决**：
 
-   1. 函数前加上`inline`，声明为内联函数：**编译阶段**将代码展开到调用该函数的位置，**每个调用位置都有完整的代码**
-   2. 函数前加`static`，声明为静态函数：使用 `static` 时，**每个包含此头文件的翻译单元（.cpp 文件）都会生成一份独立的函数定义**。即`include`将该函数导入到当前cpp文件，由于函数是`static`，所以只会被当前cpp所使用
-   3. 声明和定义分离(使用`.h`和`.cpp`)
+    1. 函数前加上`inline`，声明为内联函数：**编译阶段**将代码展开到调用该函数的位置，**每个调用位置都有完整的代码**
+    2. 函数前加`static`，声明为静态函数：使用 `static` 时，**每个包含此头文件的翻译单元（.cpp 文件）都会生成一份独立的函数定义**。即`include`将该函数导入到当前cpp文件，由于函数是`static`，所以只会被当前cpp所使用
+    3. 声明和定义分离(使用`.h`和`.cpp`)
 
-   **总结**：
+    **总结**：
 
-   1. `static` 和 `inline` 函数都具有内部链接特性，可以混合使用；
-   2. 小型/频繁调用：`inline`。复杂/隔离性强：`static`。
+    1. `static` 和 `inline` 函数都具有内部链接特性，可以混合使用；
+    2. 小型/频繁调用：`inline`。复杂/隔离性强：`static`。
 
-10. 向前声明和使用头文件的区别
+14. 向前声明和使用头文件的区别
 
     1. **减少依赖**：使用向前声明，你不需要直接包含其他头文件。这可以减少类之间的直接依赖，有助于减少编译时间和避免循环依赖。例如，在 `Worker.h` 中向前声明 `Manager`，这样你可以避免包含 `Manager.h`，从而减少编译开销。
     2. **完整定义**：如果你需要使用类的具体实现（如访问成员、调用函数、创建实例等），则必须包含该类的头文件，以便编译器了解该类的具体结构。**向前声明只让编译器知道类型的名称，但不提供任何方法或成员的信息**。
     3. **避免循环依赖**：在两个类相互引用的情况下，使用向前声明可以打破循环依赖。例如，`Manager` 和 `Worker` 互相依赖时，使用向前声明可以避免直接包含彼此的头文件。
 
-11. 同步/异步事件？
+15. 同步/异步事件？
 
     同步事件：同步事件表示任务按顺序执行，当前任务完成后才会执行下一个任务。程序在处理同步事件时会阻塞当前线程，直到任务完成。
 
     异步事件：异步事件表示任务可以在后台运行，不会阻塞当前线程，程序可以继续执行其他任务。当异步任务完成时，通过回调、通知、或轮询的方式获取结果。
 
-12. hpp,其实质就是将.cpp的实现 代码混入.h头文件当中，定义与实现都包含在同一文件，则该类的调用者只需要include该hpp文件即可，无需再将cpp加入到project中进行编译。而实现代码将直接编译到调用者的obj文件中，不再生成单独的obj,采用hpp将大幅度减少调用 project中的cpp文件数与编译次数，也不用再发布烦人的lib与dll,因此非常适合用来编写公用的开源库。一般来说，.h里面只有声明，没有实现，而*.hpp里声明实现都有，后者可以减少.cpp的数量
+16. hpp,其实质就是将.cpp的实现 代码混入.h头文件当中，定义与实现都包含在同一文件，则该类的调用者只需要include该hpp文件即可，无需再将cpp加入到project中进行编译。而实现代码将直接编译到调用者的obj文件中，不再生成单独的obj,采用hpp将大幅度减少调用 project中的cpp文件数与编译次数，也不用再发布烦人的lib与dll,因此非常适合用来编写公用的开源库。一般来说，.h里面只有声明，没有实现，而*.hpp里声明实现都有，后者可以减少.cpp的数量
 
-13. C++中extern
+17. C++中extern
 
     ```
     #cmakelist中定义：
@@ -1906,7 +2075,7 @@
          - 符号是默认可见的，可以从共享库外部访问。
          - 这是导出符号（如插件 API）时常用的设置。
 
-14. `static_assert(std::is_base_of<IComponentInterface, T>::value, "T must derive from IComponentInterface");`
+18. `static_assert(std::is_base_of<IComponentInterface, T>::value, "T must derive from IComponentInterface");`
 
     >这条语句的作用是，**在编译时**强制要求 `T` 必须是 `IComponentInterface` 的派生类;如果 `T` 不是 `IComponentInterface` 的派生类，编译器会抛出错误，错误信息为 `T must derive from IComponentInterface`
 

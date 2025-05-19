@@ -3,7 +3,9 @@
    > 1. `cmake` 只是**配置工具**；执行cmake会根据cmakelist(项目的配置)生成对应的makefile文件，供make使用
    > 2. `make` 负责实际的**构建**工作（**编译、链接**）。它根据 `Makefile` 文件中的规则和依赖关系，检查哪些部分需要重新构建，生成最终的可执行文件或库。
 
-2. 将编译好的文件移动到程序目录下
+2. 在 CMake 中，当你使用 add_library 创建一个动态库（SHARED 类型）时，CMake 会自动在库名前添加前缀 lib，这是 Unix-like 系统（如 Linux）的惯例
+
+3. 将编译好的文件移动到程序目录下
 
    ```
    cd Output/bin2.0/JingyunSd_linux_2/bin/X86_64/
@@ -15,15 +17,15 @@
    sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/chenxinsd/lib/plugins/system/
    ```
 
-3. 什么时候需要重新执行cmake和make
+4. 什么时候需要重新执行cmake和make
 
    > 当更改了cmakelist中的库依赖、文件路径等需要重新对项目进行cmake
    >
    > 若只修改了代码并没有改变项目架构，那么只需要执行make编译就可
 
-4. Cmakelist添加头文件路径时，要指定到最终的文件夹下，不然还是找不到头文件。(它只会在你指定的那个而文件夹下面找头文件)
+5. Cmakelist添加头文件路径时，要指定到最终的文件夹下，不然还是找不到头文件。(它只会在你指定的那个而文件夹下面找头文件)
 
-5. `.cmake`文件：后缀是 `.cmake` 的文件是 **CMake** 使用的脚本文件，通常用于定义构建系统的配置、设置变量、导入/导出目标以及包含其他模块
+6. `.cmake`文件：后缀是 `.cmake` 的文件是 **CMake** 使用的脚本文件，通常用于定义构建系统的配置、设置变量、导入/导出目标以及包含其他模块
 
    ```
    include(MyCustomFile.cmake)				
@@ -31,12 +33,12 @@
    #在 .cmake 文件中定义的变量和函数会被导入当前的 CMake 环境
    ```
 
-6. cmake脚本和cmakelist的区别:
+7. cmake脚本和cmakelist的区别:
 
    1. `CMakeLists.txt`：用于描述项目的构建规则，是项目的入口文件
    2. `.cmake` 文件：通常是辅助文件，提供模块、工具或特定功能的实现，`.cmake` 文件通过 `include()` 或其他机制被调用
 
-7. cmakelist中的list类型：
+8. cmakelist中的list类型：
 
    ```
    list(APPEND ...) 命令用于将新的路径添加到现有的列表中
@@ -53,7 +55,7 @@
    endif()
    ```
 
-8. cmakelist中使用`find_library` 命令查找指定的库文件并将其路径存储到变量中
+9. cmakelist中使用`find_library` 命令查找指定的库文件并将其路径存储到变量中
 
    ```
    find_library(<VAR> NAMES <name> PATHS <path1> <path2> ... NO_DEFAULT_PATH)
@@ -68,7 +70,7 @@
    这里用的是 ${CURL_LIB_PATHS}，它们之前通过 list(APPEND ...) 定义了库的多个可能路径。
    ```
 
-9. CMakeList常用变量：
+10. CMakeList常用变量：
 
    ```
    CMAKE_SOURCE_DIR：表示 CMake 项目主目录的路径，也就是 CMakeLists.txt 文件首次被执行时所在的目录
@@ -78,20 +80,20 @@
    						  值会动态变化，即当前cmakelist所在文件夹地址。
    ```
 
-10. CMakelist，项目使用的cpp放入`add_library`中，项目使用的头文件要把头文件的所在文件夹放入`include_directories`中。打包动态库的时候需要。原理？
+11. CMakelist，项目使用的cpp放入`add_library`中，项目使用的头文件要把头文件的所在文件夹放入`include_directories`中。打包动态库的时候需要。原理？
 
-11. `add_subdirectory(zdfy)`是什么意思
+12. `add_subdirectory(zdfy)`是什么意思
 
     1. 进入子目录构建:`add_subdirectory(zdfy)` 会告诉 CMake 进入 `zdfy` 子目录，查找并执行该目录中的 `CMakeLists.txt` 文件。
     2. 管理依赖关系:主项目会与 `zdfy` 子目录的目标共享构建环境，例如头文件路径、链接库等。
 
     > JYNSAFED是组件的可执行文件`add_executable`，插件每个都是JYNSAFED的一个动态库`add_library`
 
-12. `make clean` ：删除在编译过程中生成的所有中间文件（如目标文件 `.o`、可执行文件、自动生成的依赖文件等），目的是清理项目目录，为重新编译做准备。
+13. `make clean` ：删除在编译过程中生成的所有中间文件（如目标文件 `.o`、可执行文件、自动生成的依赖文件等），目的是清理项目目录，为重新编译做准备。
 
-13. `make  -j8`  编译多线程
+14. `make  -j8`  编译多线程
 
-14. 问题：make的时候报`moc_xx.cpp`文件`had not been declared`
+15. 问题：make的时候报`moc_xx.cpp`文件`had not been declared`
 
     > 原因：复制root_partition_protection_plugin.h时没有修改头文件防护编码，导致有两个头文件包含一样的防重复编码，从而错误
 
@@ -106,8 +108,8 @@
     1. git status 查看仓库文件修改情况
     2. git checkout <文件名> 切换未修改前的文件（丢掉本次改动）
     3. 重新build最里面的cmakelist，发现是该文件的错误，由于只新加了新头文件，所以查看新文件发现错误
-    
-15. 关于项目中使用第三方库
+
+16. 关于项目中使用第三方库
 
       **什么是三方库**：**三方库**（Third-party library）是指由第三方开发和维护的、用于在应用程序中提供特定功能的代码库。三方库在 C++ 项目中用于增强功能，减少重复工作，帮助开发者解决常见的编程任务（如网络通信、数据解析、图形渲染等），而不需要从头开始编写每一行代码。
 
@@ -206,7 +208,7 @@
 
       **注意事项**：一般由于不同机子环境不同(gnu所需版本不同)，所以一般下三方源码之后，需要在自己的机子上编译。再移动include头文件和lib静态库到项目路径下。(移动其他机器编译后生成的库可能会出错)
 
-16. 在 CMake 中，生成 **可执行文件**、**静态库** 或 **动态库** 的过程中，执行 `make` 可能涉及 **编译** 和 **链接** 两个不同的阶段。
+17. 在 CMake 中，生成 **可执行文件**、**静态库** 或 **动态库** 的过程中，执行 `make` 可能涉及 **编译** 和 **链接** 两个不同的阶段。
 
       1. 如果你的 `CMakeLists.txt` 中生成的是一个 **可执行文件**（例如使用 `add_executable()` 来指定生成可执行文件），执行 `make` 会经历 **编译** 和 **链接** 两个步骤。
 
@@ -225,14 +227,14 @@
          >
          > 不进行最终可执行文件的链接：对于库文件来说，`make` 的目标是生成一个库，而不是一个最终的可执行文件。所以，**链接** 的部分是针对库内部的目标文件，而不是与其他可执行文件链接。
 
-17. 查看可执行文件(二进制文件)链接的动态库：使用 `ldd` 命令查看可执行文件依赖(链接)的动态库
+18. 查看可执行文件(二进制文件)链接的动态库：使用 `ldd` 命令查看可执行文件依赖(链接)的动态库
 
       ```
       ldd <executable_file>
       ldd /path/to/your/executable
       ```
 
-18. 符号表是什么？
+19. 符号表是什么？
 
     **定义**：符号表（Symbol Table）是编译器在编译过程中生成的一张表格，记录了程序中各种符号（如函数名、变量名）的名称、地址和类型等信息。它主要用于链接阶段和调试阶段。
 
@@ -241,7 +243,7 @@
     - **链接**：帮助链接器（linker）将代码中的符号引用（如函数调用）解析到对应的内存地址。
     - **调试**：为调试器（如 GDB）提供映射关系，让调试器能将内存地址关联到源代码中的函数名、变量名和行号。
 
-19. 为什么centos出包使用gdb时没有符号，即使切换为debug也没有。**即使没有符号，但是可以看出执行的是哪个函数**
+20. 为什么centos出包使用gdb时没有符号，即使切换为debug也没有。**即使没有符号，但是可以看出执行的是哪个函数**
 
     1. 编译选项：
 
@@ -253,13 +255,13 @@
 
        **RPM 包（CentOS）**：RPM 构建工具（如 rpmbuild）**默认会剥离符号**，并将调试信息放入单独的 `debuginfo` 包中。如果你直接使用 RPM 包里的二进制文件，而没安装 `debuginfo`，就会缺少符号。
 
-20. 关于目标架构机调试：目标机器安装的是release包，想要现场调试，需要编译(make)Dbug包，再将对应的执行文件拖到目标架构机的对应位置。
+21. 关于目标架构机调试：目标机器安装的是release包，想要现场调试，需要编译(make)Dbug包，再将对应的执行文件拖到目标架构机的对应位置。
 
       > 注意带上函数返回值，某些架构因为函数没有返回值会卡住死机，某些架构只是会提醒。
-    
-21. cmakelist在导入头文件时：使用`target_include_directories`，定义头文件夹，只会在该文件夹下找`.h`或者`.hpp`文件，不会递归找其子目录的头文件
 
-22. cmakelist在导入头文件时在导入头文件时一定要看好代码中引入的头文件路径，导入头文件路径一定要匹配。
+22. cmakelist在导入头文件时：使用`target_include_directories`，定义头文件夹，只会在该文件夹下找`.h`或者`.hpp`文件，不会递归找其子目录的头文件
+
+23. cmakelist在导入头文件时在导入头文件时一定要看好代码中引入的头文件路径，导入头文件路径一定要匹配。
 
     比如protobuffer的结构为`proto/proto_impl/ipc_proto`
 
@@ -267,4 +269,4 @@
 
     在cmakelist中声明头文件就得标记到`ipc_impl`路径即可，连接器会找到`ipc_impl->ipc_proto->`，如果标记到`ipc_proto`，那么会报错找不到对应头文件
 
-23. cmakelist导入头文件而不导入cpp文件的情况下，确保导入的动态库/静态库有其中的编译后的源码。否则需要将其cpp文件同样导入cmakelist中，不然就会报编译错误。
+24. cmakelist导入头文件而不导入cpp文件的情况下，确保导入的动态库/静态库有其中的编译后的源码。否则需要将其cpp文件同样导入cmakelist中，不然就会报编译错误。

@@ -3350,7 +3350,100 @@ m_pPool->submit([this, pBundle]() {
 
 12. `core`与组件和插件之间的关系，画图梳理->类图建立
 
-13. 关于RJJH里面的自定义事件处理：
+13. 前端、后端、客户端、服务端之间的区别
+
+    **前端**：用户界面和交互（展示层）
+
+    **后端**：业务逻辑和数据处理（服务层）
+
+    **客户端**：用户访问的载体，通常运行在用户的设备上（如电脑、手机）
+
+    **服务端**：指运行在远程服务器上的部分，负责处理客户端的请求，提供数据或执行复杂任务。
+
+14. 杀毒软件的架构划分
+
+    **客户端**：
+
+    1. **前端**：界面RJJH（用户操作的图形界面）。
+    2. **本地逻辑层**：助手Safed（执行查杀任务的本地处理模块）。
+    3. 运行在用户设备上，负责本地交互和任务执行。
+
+    **服务端**：
+
+    1. **后端**：中控的核心逻辑（处理客户端数据、提供操作接口）。
+    2. **前端**：中控的网页界面（展示数据给用户）。
+    3. 运行在远程服务器上，负责远程管理和数据展示。
+
+15. 关于**项目架构**
+
+    1. Safed只提供功能
+    2. RJJH(客户端用户)和中控(服务端管理员)可以调用Safed的功能并同时上报信息给另一方。其中若只有一方存在，就有获取功能的入口，程序就可以运行。
+    3. 中控调用Safed的功能时，若存在界面(RJJH)，那么会同步进度/信息到界面上。
+    4. RJJH使用Safed的功能时，会同步查杀进度、上报日志等到中控管理端上
+
+16. 关于组件和插件 / 功能和业务：
+
+    1. 有了功能之后才能考虑和拓展业务
+    2. 组件学名叫做功能型插件、插件学名叫做业务型插件。
+    3. 功能性插件即这个项目必须有的基础功能，比如通信、上报、任务队列管理等
+    4. 业务性插件就是可扩展的、根据业务需求进行增、删并且可以复用的功能部分。单独的插件就作为动态库调用。
+
+17. 关于**项目中的日志**
+
+    1. 自定义简式的：流式日志写入器，看plugins/common/client_management_log.hpp中的实现
+    2. 项目中的日志使用了glog三方库
+
+18. 关于**中控授权**
+
+    RJJH激活中控ip，safed就会重启“心跳”。`ctrl_center_agent.cpp`中该类就是一个继承于线程模板的类，重写了`run`函数。`run`函数会根据心跳阶段、通过读取文件(授权ip写在文件中)执行向中控请求，同时执行回调函数(`safed`的)
+
+19. 关于**查杀引擎**任务队列
+
+    扫描引擎是vector容器依次遍历的，所有的引擎都会走一遍，最终才会调用回调函数
+
+    ```
+      ENGINE_ENUM,		// 枚举引擎
+      ENGINE_CACHE,		// cache引擎
+      ENGINE_CLOUD,		// 云查
+      ENGINE_ZAV,			// ZAV
+      ENGINE_REDUCE,
+      ENGINE_CACHE,		// 为什么两个cache
+    ```
+
+20. 关于**项目之间通信**
+
+    RJJH和safed使用的是`ipc`；
+
+    safed和中控使用的是`cpr`(三方库)
+
+    他们都使用了一种订阅发布的模式，来发送和接收消息
+
+    这些 IPC 库的主要目的是让运行在同一台机器上的不同进程能够高效地交换数据。典型功能包括：
+
+    1. **共享内存**：多个进程共享同一块内存区域，避免数据复制。
+    2. **消息队列**：进程间传递消息。
+    3. **信号量/互斥锁**：同步进程访问共享资源。
+    4. **管道或套接字**：简单的通信通道。
+
+21. 关于**项目使用的进程和线程**
+
+    项目用了多少个线程？RJJH用了多少个线程呢，safed的插件统信用了8个线程？
+
+    1. 对于safed的插件来说，其重写的`start`函数中，使用了jy_thread.cpp中的线程模板函数启动线程；当`pause`或者`stop`的时候，在外面改变其中循环函数的条件值即可停止线程(函数)
+
+       ```c++
+       JYThread::autoRun(std::bind(&CTaskManagerComponentImpl::taskQueueDistribution, this));
+       ```
+
+    2. 另一种是直接把类继承manageed_thread.cpp中的封装的线程类，再重写`run`函数。此时使用该封装的线程类的`start、stop`等函数来进行线程管理
+
+       ```c++
+       class CControlCenterAgent : public ThreadWrapper
+       ```
+
+       > 也就是说第一种需要自己实现start、stop；第二种只需要重写run(要执行线程的函数即可)
+
+22. 关于RJJH里面的**自定义事件处理**：
 
     1. 在**event**文件夹中创建自定义事件
 
@@ -3364,7 +3457,7 @@ m_pPool->submit([this, pBundle]() {
        QApplication::instance()->installEventFilter(this)
        ```
 
-14. **修改/增加protobuffer的步骤**：
+23. **修改/增加protobuffer的步骤**：
 
     1. 修改/增加protobuffer字段
 
@@ -3374,33 +3467,151 @@ m_pPool->submit([this, pBundle]() {
 
     3. 执行`gen_proto.sh`脚本。
 
-15. **修改/替换界面图片的步骤**：
-    
+24. **修改/替换界面图片的步骤**：
+
     1. 替换/修改图片
-    
+
     2. 如果是修改图片名字或者新增图片，需要在`widget.qrc`文件中修改.增加。替换不需要
-    
+
     3. 修改贴牌脚本`oem/gen_rcc.sh`中`rcc`的路径为本地的qt里的rcc，并执行脚本
-    
+
     4. 将`OutPut`路径下的生成的`skin_xxx.rcc`替换到本地的对应目录下即可
-    
+
     5. git时，只需要`push`改动的图片和生成的`rcc`文件即可，其他的不需`push`
-    
+
        > RJJH新增的东西删除掉(自己改动的图片除外)、只保留在Output中生成的所需要的rcc文件
-    
-16. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
+
+25. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
 
     1. 由于gitlib中已绑定自己的ssh公钥，所以直接使用git clone git@拉取即可
     2. thirdparty为项目中使用的三方库，需要在40环境下，进入该仓库的目标架构的build文件夹下，执行make编译。编译后的库文件将会输出到mod仓库的lib下。
     3. 在本地的normal_develop仓库下，需要将刚编译的lib移动到该仓库下。就可以正常使用了
-    
-17. **项目中的三方库**
+
+26. **项目中的三方库**
 
     1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
     2. lib文件夹下面包含的是当前架构下三方库的库文件(.a)存放的地方
     3. libsource文件夹下面包含的是自己做的库文件
     4. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
     5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
+
+27. **关于项目中的三方库**：
+
+    1. 项目中的三方库在**仓库**`third_party`中，里面包含的是项目中使用到的三方库的源码(针对自己的项目修改过功能代码)。
+    2. **三方库编译**：在40上对项目打包前需要先对`third_party`进行编译，打包时就会带上项目所需的三方库文件
+    3. **主项目编译**：在`normal_development`仓库的主cmakelist中，将三方库编译好的库文件移动到项目中对应位置(lib/X86_64)
+    4. **打包：**
+
+    > normal_development中的lib下是使用的编译好的库文件、libsource使用的是三方库cpp源码文件(主要是自己写的库)
+
+28. deb包的四个脚本作用和执行顺序：
+
+    1. preinst（预安装脚本）：在**包解压和安装文件之前**执行，用于准备安装环境或检查前提条件或**备份**
+
+       > **注意**：此时包的文件尚未解压，因此脚本不能依赖包内的文件。
+
+    2. 解压包并安装文件
+
+    3. postinst（后安装脚本）：**在包解压并安装文件之后**执行，用于完成配置或初始化。
+
+       > **注意**：此时包的文件已经可用，可以依赖它们进行操作，**适合执行安装脚本(完成配置、启动进程等)**
+
+    4. prerm（预移除脚本）：在**包的文件被移除之前**执行，用于准备移除过程
+
+       > **注意**：文件仍然存在，可以访问包的内容，**适合执行卸载脚本(停止进程、删除遗留文件等)**
+
+    5. 包文件被移除，此时deb和rpm管理器会将管理的文件进行删除操作
+
+    6. postrm（后移除脚本）：：在**包的文件被移除之后**执行，用于清理或完成移除
+
+29. 当一个deb包从版本A升级到版本B，对应脚本执行顺序如下：
+
+    1. A的 prerm：调用旧版本 A 的 prerm，参数为 upgrade 和新版本号，准备升级。
+
+       > 此时在prerm中调用A的卸载脚本
+
+    2. B的 preinst：调用新版本 B 的 preinst，参数为 upgrade 和旧版本号，检查升级条件。
+
+       > 备份A的相关信息
+
+    3. 解压新版本文件：dpkg 解压 B 的文件，覆盖 A 的文件。
+
+    4. A的 postrm：调用旧版本 A 的 postrm，参数为 upgrade 和新版本号，清理旧版本
+
+    5. B的 postinst：调用新版本 B 的 postinst，参数为 configure 和旧版本号，完成配置。
+
+       > 执行B的安装脚本
+
+30. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
+
+31. **关于项目deb和rpm包的升级脚本执行顺序**：
+
+    rpm和deb包对于升级的执行顺序不同：
+
+    - **deb**：prerm（旧包）→ preinst（新包）→ 安装新包 → postinst（新包）。postrm 通常不执行，除非显式移除旧包。
+    - **rpm**：%pre（新包）→ 安装新包 → %post（新包）→ %preun（旧包）→ %postun（旧包）。****
+
+32. deb包和rpm包打包区别：
+
+    1. 相同点：都会用到pre post的四个脚本，只是deb显示指定、rpm会通过创建`/SPECS/jingyun.spec`文件里面指定
+    2. rpm需要在spec文件中的`%file`字段显式的指定包管理文件、deb则自动根据打包目标路径下所有文件进行管理
+
+33. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
+
+    1. 在插件中定义一个宏(`PLUGIN_EXPORT`)，应用于`createPlugin` 函数的声明。
+
+       ```c++
+       # 插件代码cpp中：
+       PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()
+       {
+           return std::unique_ptr<CJYVirusLibraryManagementPluginImpl>(new CJYVirusLibraryManagementPluginImpl());
+       }
+       ```
+
+    2. 在CMakelist中定义该宏
+
+       ```c++
+       # 该插件的CMakelist
+       target_compile_definitions(${BIN_NAME} PRIVATE "PLUGIN_EXPORT=extern \"C\" __attribute__((visibility(\"default\")))")
+       ```
+
+       1. `extern "C"`：告诉编译器使用 C 链接约定，而不是 C++ 的名称修饰（name mangling）。因为在 C++ 中，函数名会被修饰（例如，包含参数类型等信息），导致编译后的符号名变得复杂（例如 _Z9createPluginv）。**使用 extern "C" 后，createPlugin 的符号名保持为 createPlugin，便于外部程序查找和调用。**
+       2. `**__**attribute((visibility("default")))`:在共享库中，符号默认可能是隐藏的（`hidden`），以减少符号表大小并提高加载性能，`visibility("default")` 明确指定该函数的符号是**公开的**，可以在共享库外部访问。这对于插件系统至关重要，因为主程序需要通过动态加载（例如 **dlopen** 和 **dlsym**）找到 `createPlugin` 函数。
+
+    3. 综上所述，函数声明等价于：
+
+       ```c++
+       extern "C" __attribute__((visibility("default"))) std::unique_ptr<IPlugin> createPlugin()
+       {
+           return std::unique_ptr<CJYVirusLibraryManagementPluginImpl>(new CJYVirusLibraryManagementPluginImpl());
+       }
+       ```
+
+34. 项目**工厂模式**：
+
+    1. 在safed下创建升级适配工具，根据参数705或者707来创建相应的处理程序(clipp)
+    2. 该升级适配工具cmake打成可执行包(cmakelist中`add_executable`)
+    3. 在安装脚本中调用该脚本并传入对应参数，开始执行该工具
+
+35. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
+
+36. 项目中的**单例模板**：
+
+    `ZySingleto.h`下存放了懒汉式的单例模板
+
+37. **经典bug、问题总结**
+
+    1. 隔离区恢复、删除过程的暂停和停止操作。由于在同一个线程只能依次操作函数，等到恢复/删除结束后才会调用暂停和停止函数。
+
+       解决：将隔离区恢复和删除的过程单独启动一个线程，由另外主线程进行对其暂停和停止的操作(修改条件值)
+
+       > 同理：网络防护功能、同样是插件开启**线程**操作、然后主线程就可以调用插件停止、暂停、继续等操作
+
+    2. 软件升级的管道问题: 执行dpkg -i 只执行了旧包的卸载脚本，没有执行新包的安装脚本
+
+       原因：卸载脚本已经将父进程杀死、导致管道那块不能使用`Logger::info()`日志记录器来写入管道，最终导致管道报错，子进程停止执行
+
+       > 最终原因还是因为使用了redis之后，执行卸载脚本将safed进程杀掉之后将子进程也杀掉了，导致管道中断
 
 ### 2. 工作部分
 
@@ -3519,6 +3730,10 @@ m_pPool->submit([this, pBundle]() {
 18. - [ ] 安装目录/log文件夹下的日志清除有问题(默认保存每个类型最后两个日志文件)：个别机器没有清除
 
       > 查看三方库下的Glog.cpp源码中是如何清除的，如果查找不到，就在safed中加入一个线程去检测清除
+      >
+      > **思路**：在主项目下的`third_party`项目中glog/src/logging.cc中900行的DeleteLogFile()函数中去看删除是否有问题为何不生效
+      >
+      > 待王帅留意复现的情况，看其日志结构是哪一块的问题，怀疑可能是启动了多个进程之后会记录多个日志
 
 
 
@@ -3573,20 +3788,11 @@ m_pPool->submit([this, pBundle]() {
    3. 事件处理器将会依次处理本轮事件队列，直到下一轮(app.exec)
    4. 事件event的总类(自定义事件)在event文件夹下
 
-45. 功能和业务：
-
-    1. 有了功能之后才能考虑和拓展业务
-    2. 组件学名叫做功能型插件、插件学名叫做业务型插件。
-    3. 功能性插件即这个项目必须有的基础功能，比如通信、上报、任务队列管理等
-    4. 业务性插件就是可扩展的、根据业务需求进行增、删并且可以复用的功能部分。单独的插件就作为动态库调用。
-
 55. map和hashmap的区别？
 
 65. 中控如何实现与safed发送消息的？
 
 71. RJJH中的model是如何收到消息的？哪里调用的receive函数
-
-81. ZySingleto.h下存放了懒汉式的单例模板
 
 82. 有时间分析一下SCAN插件和ZDFY插件关于接收消息的任务处理方式。一个是使用`map`，一个直接使用`if/else`
 
@@ -3610,84 +3816,7 @@ m_pPool->submit([this, pBundle]() {
 
 151. asyncScanTask返回的一个操作指针，可以直接使用其中的调用函数操作引擎的继续、停止等
 
-157. 项目中的三方库
-
-     1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
-
-     2. lib文件夹下面包含的是当前架构下三方库的库文件(.a)存放的地方
-     3. libsource文件夹下面包含的是自己做的库文件
-     4. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
-     5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
-
-25. 查杀引擎任务队列如何实现的
-
-26. 扫描引擎是vector容器依次遍历的，所有的引擎都会走一遍，最终才会调用回调函数
-
-      ```
-      ENGINE_ENUM,		// 枚举引擎
-      ENGINE_CACHE,		// cache引擎
-      ENGINE_CLOUD,		// 云查
-      ENGINE_ZAV,			// ZAV
-      ENGINE_REDUCE,
-      ENGINE_CACHE,		// 为什么两个cache
-      ```
-
-27. ipc_manager.cpp如何实现的，用了什么第三方库？
-
-    RJJH和safed使用的是`ipc`；
-
-    safed和中控使用的是`cpr`(三方库)
-
-    他们都使用了一种订阅发布的模式，来发送和接收消息
-
-28. 这些 IPC 库的主要目的是让运行在同一台机器上的不同进程能够高效地交换数据。典型功能包括：
-
-    1. **共享内存**：多个进程共享同一块内存区域，避免数据复制。
-    2. **消息队列**：进程间传递消息。
-    3. **信号量/互斥锁**：同步进程访问共享资源。
-    4. **管道或套接字**：简单的通信通道。
-
-    用AI搜索这些功能如何在CPP项目中应用
-
-29. RJJH激活中控ip，safed就会重启“心跳”。`ctrl_center_agent.cpp`中该类就是一个继承于线程模板的类，重写了`run`函数。`run`函数会根据心跳阶段、通过读取文件(授权ip写在文件中)执行向中控请求，同时执行回调函数(`safed`的)
-
 30. Obsdian和Notion,logsep 记笔记软件
-
-31. 关于项目架构
-
-    1. Safed只提供功能
-    2. RJJH(客户端用户)和中控(服务端管理员)可以调用Safed的功能并同时上报信息给另一方。其中若只有一方存在，就有获取功能的入口，程序就可以运行。
-    3. 中控调用Safed的功能时，若存在界面(RJJH)，那么会同步进度/信息到界面上。
-    4. RJJH使用Safed的功能时，会同步查杀进度、上报日志等到中控管理端上
-
-32. 前端、后端、客户端、服务端之间的区别
-
-    **前端**：用户界面和交互（展示层）
-
-    **后端**：业务逻辑和数据处理（服务层）
-
-    **客户端**：用户访问的载体，通常运行在用户的设备上（如电脑、手机）
-
-    **服务端**：指运行在远程服务器上的部分，负责处理客户端的请求，提供数据或执行复杂任务。
-
-33. 杀毒软件的架构划分
-
-    **客户端**：
-
-    1. **前端**：界面RJJH（用户操作的图形界面）。
-    2. **本地逻辑层**：助手Safed（执行查杀任务的本地处理模块）。
-    3. 运行在用户设备上，负责本地交互和任务执行。
-
-    **服务端**：
-
-    1. **后端**：中控的核心逻辑（处理客户端数据、提供操作接口）。
-    2. **前端**：中控的网页界面（展示数据给用户）。
-    3. 运行在远程服务器上，负责远程管理和数据展示。
-    
-34. “GC” 通常是 **Garbage Collection（垃圾回收）** 的缩写： 垃圾回收是一种**自动内存管理机制**，由运行时环境（如虚拟机或解释器）负责，旨在识别和回收程序中不再使用的内存（即“垃圾”），从而避免内存泄漏并简化开发者的内存管理负担。
-
-    - **手动内存管理**：在像 C 或 C++ 这样的语言中，开发者需要显式地分配内存（malloc 或 new）和释放内存（free 或 delete）。如果忘记释放，就会导致内存泄漏。
-    - **垃圾回收**：在支持 GC 的语言（如 Java、Python、C#、JavaScript）中，开发者无需手动释放内存，垃圾回收器会自动检测并清理无用的对象。
 
 35. 组件接口父类分析
 
@@ -3766,63 +3895,11 @@ m_pPool->submit([this, pBundle]() {
     1. 在终端直接执行`export` 会设置环境变量，但只对当前终端会话有效。如果会话结束或新开终端会话，则无效
     2. 在`/etc/profiles`等环境变量文件中配置，则是全局环境变量，永久生效，每次启动终端或系统时都会自动应用
 
-39. 在 CMake 中，当你使用 add_library 创建一个动态库（SHARED 类型）时，CMake 会自动在库名前添加前缀 lib，这是 Unix-like 系统（如 Linux）的惯例
-
-40. 项目**工厂模式**：
-
-    1. 在safed下创建升级适配工具，根据参数705或者707来创建相应的处理程序(clipp)
-    2. 该升级适配工具cmake打成可执行包(cmakelist中`add_executable`)
-    3. 在安装脚本中调用该脚本并传入对应参数，开始执行该工具
-
-41. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
-
 42. 当使用shh链接时提示RSA认证失效，此时执行下面代码，删除掉失效的认证，重新认证即可
 
     ```
     ssh-keygen -R 192.168.3.154			// 后面为ip
     ```
-
-43. git 分支管理
-
-45. deb包的四个脚本作用和执行顺序：
-
-    1. preinst（预安装脚本）：在**包解压和安装文件之前**执行，用于准备安装环境或检查前提条件或**备份**
-
-       > **注意**：此时包的文件尚未解压，因此脚本不能依赖包内的文件。
-
-    2. 解压包并安装文件
-
-    3. postinst（后安装脚本）：**在包解压并安装文件之后**执行，用于完成配置或初始化。
-
-       > **注意**：此时包的文件已经可用，可以依赖它们进行操作，**适合执行安装脚本(完成配置、启动进程等)**
-
-    4. prerm（预移除脚本）：在**包的文件被移除之前**执行，用于准备移除过程
-
-       > **注意**：文件仍然存在，可以访问包的内容，**适合执行卸载脚本(停止进程、删除遗留文件等)**
-
-    5. 包文件被移除，此时deb和rpm管理器会将管理的文件进行删除操作
-
-    6. postrm（后移除脚本）：：在**包的文件被移除之后**执行，用于清理或完成移除
-
-46. 当一个deb包从版本A升级到版本B，对应脚本执行顺序如下：
-
-    1. A的 prerm：调用旧版本 A 的 prerm，参数为 upgrade 和新版本号，准备升级。
-
-       > 此时在prerm中调用A的卸载脚本
-
-    2. B的 preinst：调用新版本 B 的 preinst，参数为 upgrade 和旧版本号，检查升级条件。
-
-       > 备份A的相关信息
-
-    3. 解压新版本文件：dpkg 解压 B 的文件，覆盖 A 的文件。
-
-    4. A的 postrm：调用旧版本 A 的 postrm，参数为 upgrade 和新版本号，清理旧版本
-
-    5. B的 postinst：调用新版本 B 的 postinst，参数为 configure 和旧版本号，完成配置。
-
-       > 执行B的安装脚本
-    
-46. .deb安装包脚本的存放位置：`/var/lib/dpkg/info/`
 
 47. 看下isStringStream(流）如何使用的，如何通过>>赋值的
 
@@ -3832,408 +3909,51 @@ m_pPool->submit([this, pBundle]() {
     service ssh start
     ```
 
-49. 项目中safed和rjjh使用**ipc**进行通信，在core/component/local_service/ipc下
+34. 项目中safed和rjjh使用**ipc**进行通信，在core/component/local_service/ipc下
 
-    1. 定义引用队列，外面给其传来的队列。里面用引用传输，可以通过里面修改外面
+    定义引用队列，外面给其传来的队列。里面用引用传输，可以通过里面修改外面
 
-       > 本质上就类似于传输一个指针
+    > 本质上就类似于传输一个指针
 
-       ```
-        m_pBusService(new BusinessHelperService(m_readQueue))  // 外面定义新对象
-       
-       SafeQueue<IBundle *> &m_pReadQueue;	 //里面用引用接收
-       ```
-
-50. deb包和rpm包打包区别：
-
-    1. 相同点：都会用到pre post的四个脚本，只是deb显示指定、rpm会通过创建`/SPECS/jingyun.spec`文件里面指定
-    2. rpm需要在spec文件中的`%file`字段显式的指定包管理文件、deb则自动根据打包目标路径下所有文件进行管理
-
-51. cpr库如何使用、总结rjjh和safed之间如何使用ipc；safed和中控如何使用cpr
-
-52. bash脚本中启动程序的两种方式：
-
-    1. 使用`exec`启动(将要启动的程序放在当前进程环境中，之前的进程自动删除)：exec 是一个 Bash 内置命令，用于**替换当前 shell 进程**，执行指定的命令或程序。执行 exec 后，当前脚本的进程会被新命令完全替换，脚本后续的代码不会执行。
-
-       > 当你运行 exec command，当前 shell 的进程 ID（PID）保持不变，但进程的内容（代码、环境等）被替换为 command。
-
-       ```bash
-       exec $BASH_PATH/bin/JYNRJJH2 "$RJJH_PARA" -platform xcb "$typewriting" > /tmp/jy_rjjh.log 2>&1
-       ```
-
-    2. 使用 `&` 转为后台启动(即启动一个新进程)：& 是一个 Bash 语法，用于将命令放入**后台运行**，允许当前脚本继续执行后续代码。它不会替换当前进程，而是创建一个新的子进程。
-
-       > 当你运行 command &，Bash 会创建一个子进程来执行 command，子进程的 PID 不同于当前脚本的 PID。
-
-       ```bash
-       "$BASH_PATH/bin/IYNRJJH2" "$RJJH_PARA" -platform xcb "$typewriting" > /tmp/jy_rjjh.log 2>&1 &
-       
-       exit 1 	# 退出当前进程
-       ```
-
-53. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
-
-    1. 在插件中定义一个宏(`PLUGIN_EXPORT`)，应用于`createPlugin` 函数的声明。
-
-       ```c++
-       # 插件代码cpp中：
-       PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()
-       {
-           return std::unique_ptr<CJYVirusLibraryManagementPluginImpl>(new CJYVirusLibraryManagementPluginImpl());
-       }
-       ```
-
-    2. 在CMakelist中定义该宏
-
-       ```c++
-       # 该插件的CMakelist
-       target_compile_definitions(${BIN_NAME} PRIVATE "PLUGIN_EXPORT=extern \"C\" __attribute__((visibility(\"default\")))")
-       ```
-
-       1. `extern "C"`：告诉编译器使用 C 链接约定，而不是 C++ 的名称修饰（name mangling）。因为在 C++ 中，函数名会被修饰（例如，包含参数类型等信息），导致编译后的符号名变得复杂（例如 _Z9createPluginv）。**使用 extern "C" 后，createPlugin 的符号名保持为 createPlugin，便于外部程序查找和调用。**
-       2. `**__**attribute((visibility("default")))`:在共享库中，符号默认可能是隐藏的（`hidden`），以减少符号表大小并提高加载性能，`visibility("default")` 明确指定该函数的符号是**公开的**，可以在共享库外部访问。这对于插件系统至关重要，因为主程序需要通过动态加载（例如 **dlopen** 和 **dlsym**）找到 `createPlugin` 函数。
-
-    3. 综上所述，函数声明等价于：
-
-       ```c++
-       extern "C" __attribute__((visibility("default"))) std::unique_ptr<IPlugin> createPlugin()
-       {
-           return std::unique_ptr<CJYVirusLibraryManagementPluginImpl>(new CJYVirusLibraryManagementPluginImpl());
-       }
-       ```
-
-54. 函数参数为`const char*`，传入`char *`即可，以为这个`const`是修饰这个函数内的形参的。**代表这个函数内不可以修改这个字符串**。
-
-55. bash脚本的语法总结
-
-56. bash中：test语句两种方式，对应处理的文件路径格式不同
-
-    ```bash
-    # 使用test，文件路径不需要加引号
-    if test -e $desktop_path/JYNRJJH2.desktop ; then        
-    		rm $desktop_path/JYNRJJH2.desktop
-    fi
+    ```
+     m_pBusService(new BusinessHelperService(m_readQueue))  // 外面定义新对象
     
-    # 不使用test，文件路径需要加引号
-    if [ -e $desktop_path/"JYNRJJH2.desktop" ]; then
-            rm -rf $desktop_path/"JYNRJJH2.desktop"
-    fi
+    SafeQueue<IBundle *> &m_pReadQueue;	 //里面用引用接收
     ```
 
-57. `soft_name=${jyn_install_path%/}`：**功能**：移除变量 jyn_install_path 末尾的斜杠 /（如果存在）。
+35. cpr库如何使用、总结rjjh和safed之间如何使用ipc；safed和中控如何使用cpr
 
-    `${jyn_install_path%/}` 是一种参数扩展形式，**`%` 表示从字符串末尾移除匹配的模式。**
+37. bash脚本的语法总结
 
-    **`/` 是要匹配的模式，`%/` 表示移除末尾的单个 `/`（如果有的话）。**
+47. 解bug及时反馈进度，看4个小时还没思路的话就去找这之前负责这块的人。正常1天就得给一次反馈，大约几天解决
 
-58. `soft_name=${soft_name##*/}`：**功能**：从 `soft_name` 中移除最长匹配的 `*/`（即路径部分），提取最后一个路径组件（文件名或目录名）。
-
-    `${soft_name##*/}` 是一种参数扩展形式，**`##` 表示从字符串开头移除最长匹配的模式。**
-
-    **`*/` 是要匹配的模式，表示任意字符（`*`）后跟一个 `/`。**
-
-59. << 是一个**位运算符**，具体为**左移运算符**
-
-    含义：**左移运算符**将左侧操作数的二进制位向左移动指定的位数，右侧空出的位用符号位（对于有符号整数）或 0（对于无符号整数）填充。
-
-    ```c++
-    a << b
-    // a 是要移动的数值。
-    // b 是移动的位数。
-    // 结果是 a 的二进制表示向左移动 b 位后的值。
-        
-    1 << 1
-    // 整数 1 的二进制表示为（假设 32 位整数）：00000000 00000000 00000000 00000001。
-    // 将 1 的二进制位向左移动 1 位：00000000 00000000 00000000 00000010（右侧空位补 0）。
-    ```
-
-    作用：可以通过**1 << 不同的枚举值**，通过 `|` (或运算符)，最终将32种或者64种操作(开关)融合到一个int整形，缩短所需要的字段数量
-
-    注意事项：要移动的位数(b)不可以超过a所能表示的最大位数。如果超过，需要显式转换a的类型：
-
-    ```c++
-    1 << 33;	// 默认int位32位，33超过其最大位数
-    (int64_t)1 << 33; // 显式转换，增加到64位
-    ```
-
-60. bash的选择分支语法(`if..else`..、  `case`)
-
-    ```
-    case "$variable" in
-        pattern1)
-            # 匹配 pattern1 时执行的代码
-            ;;
-        pattern2)
-            # 匹配 pattern2 时执行的代码
-            ;;
-        *)
-            # 可选，默认分支（未匹配任何模式时）
-            ;;
-    esac
-    ```
-
-61. bash脚本中是否对变量名使用双引号（如 `"$var"` 或 `$var`）
-
-    **基本原则**：
-
-    1. **使用双引号（"$var"）**：在大多数情况下，建议始终使用双引号引用变量，以<u>防止变量未定义或包含空格等特殊字符时导致的语法错误或意外行为</u>。
-    2. **不使用双引号（$var）**：在少数特定场景下，变量值明确且<u>不含特殊字符（如空格、换行符等）</u>，可以省略双引号，但仍需谨慎。
-
-    为了防止变量未定义或者包含特殊字符导致解析错误，建议使用双引号的场景:
-
-    1. 在 `if [ ... ]` 或 `test` 命令中，变量必须用双引号引用，以避免变量未定义或为空时的语法错误。
-
-    2. 当变量用于**字符串比较**、拼接或作为命令参数时，使用双引号防止空格或特殊字符导致的解析错误。
-
-    3. 将变量**作为命令参数**传递时，使用双引号确保变量值作为一个整体传递。
-
-       > 不加双引号时，变量值中的空格会导致参数被分割。
-
-    可以不使用双引号的场景(使用双引号也没影响)：
-
-    1. 在变量赋值时，**右侧的变量**不需要双引号，因为 Bash 不会对赋值右侧进行单词拆分。
-
-       ```
-       var1="hello"
-       var2=$var1           # 正确：var2 赋值为 "hello"
-       echo "$var2"         # 输出 "hello"
-       ```
-
-    2. **算术运算中**：在 Bash 的算术表达式（`(( ... ))` 或 `$(( ... ))`）中，变量不需要双引号，因为算术上下文会将变量解析为数值。
-
-    3. **case 语句的模式匹配**：变量用于模式匹配时通常不需要双引号，因为 case 会将变量值作为一个整体处理。
-
-62. C/C++中报错：`transfer of control bypasses initialization of`
-
-    原因：程序的控制流（例如通过 `goto、break、continue` 或跳转到某个代码块）跳过了变量的初始化。这会导致未定义行为，因为变量可能在未初始化时被使用。
-
-    > 也就是说，在条件分支或者跳转语句可能使用了还未初始化的变量
-
-63. QString截取字符串
-
-    1. 方式1：根据要截取的下标使用`QString::mid()`函数
-
-       ```c++
-       if (install_path.contains("/files")) { // uos系统保存的安装路径是files
-                   install_path = install_path.mid(0, install_path.indexOf("/files"));
-       }
-       ```
-
-    2. 方式2：直接使用`QString::remove()`函数去除不想要的子字符串
-
-       ```c++
-       if (inspath.contains("com.vsecure.")) // uos特殊处理
-                   inspath = inspath.remove("files/");
-       ```
-
-64. 关于linux系统磁盘分区：
-
-    1. linux分区布局和原理：
-
-       ```
-       /dev/sda (40GB, 物理磁盘)
-       ├── sda1 (主分区, 可能用于 /boot, 1GB)
-       ├── sda2 (扩展分区, 初始 30GB, 包含逻辑分区)
-       │   └── sda5 (逻辑分区, 初始 30GB, 系统分区, 挂载为 /)
-       └── 未分配空间 (10GB, 物理扩容后新增)
-       ```
-
-       - 主分区：直接在磁盘上创建的分区，数量有限（传统 MBR 分区表最多支持 4 个主分区）。
-       - 扩展分区：一种特殊的主分区，用于容纳多个逻辑分区。**扩展分区本身不存储数据**，而是作为一个容器，包含逻辑分区。MBR 分区表中最多只能有一个扩展分区（**占用一个主分区槽**）。
-       - 逻辑分区；创建在扩展分区内的分区，用于实际存储数据（例如文件系统）。逻辑分区通常从 sda5 开始编号（因为 sda1 到 sda4 为主分区或扩展分区）。
-
-    2.  MBR（Master Boot Record分区表结构：
-
-       - 磁盘最多支持 4 个主分区，或者 3 个主分区 + 1 个扩展分区。
-       - 扩展分区是一个逻辑容器，**逻辑分区的边界必须在扩展分区范围内**。
-       - 分区信息存储在磁盘的 MBR 区域，包括每个分区的起始扇区和大小。
-
-    3. 所以要想扩展磁盘容量，先把扩展分区扩充到最大，然后再将逻辑分区扩充。因为逻辑分区（sda5）是定义在扩展分区（sda2）内的，其起始和结束扇区必须在扩展分区的范围内。
-
-65. 解bug及时反馈进度，看4个小时还没思路的话就去找这之前负责这块的人。正常1天就得给一次反馈，大约几天解决
-
-66. QFrame部件：
-
-    1. 主要用于提供一个框架或容器，通常用于组织和装饰其他控件。它是许多其他部件（如 QLabel、QPushButton 等）的基类，提供了绘制边框和背景的功能。
-    2. QFrame 可以作为一个容器，承载其他控件。比如创建一个带有背景色的区域，里面放置按钮、标签等控件
-
-67. std::ref有什么用？使用bind和lambda来绑定对象函数，实现开启多线程
-
-    1. 使用lambda，常用
-
-       ```c++
-       std::thread t([&m_pScan](const std::string& data) {
-           m_pScan.virusScanProcessIsolateRecover(data);
-       }, info.data());
-       t.join(); // 推荐使用 join 而不是 detach
-       ```
-
-    2. 使用bind，要确保参数类型一致
-
-       ```c++
-       auto data = info.data(); // 显式复制，确保是一个 std::string 值
-       auto bundFunc = std::bind(&ScanFlowController::virusScanProcessIsolateRecover, &m_pScan, std::placeholders::_1);
-       std::thread t(bundFunc, data);
-       t.join();
-       ```
-
-    3. 如果需要传入的参数是引用类型，使用 `std::ref` 包装引用
-
-       ```c++
-       auto bundFunc = std::bind(&ScanFlowController::virusScanProcessIsolateRecover, &m_pScan, std::placeholders::_1);
-       std::thread t(bundFunc, std::ref(info.data()));
-       t.join();
-       ```
-
-       > std::ref(info.data()) 告诉 std::thread 将 info.data() 作为引用传递，而不是复制或转换为右值。
-
-68. 经典bug、问题总结
-
-    1. 隔离区恢复、删除过程的暂停和停止操作。由于在同一个线程只能依次操作函数，等到恢复/删除结束后才会调用暂停和停止函数。
-
-       解决：将隔离区恢复和删除的过程单独启动一个线程，由另外主线程进行对其暂停和停止的操作(修改条件值)
-
-       > 同理：网络防护功能、同样是插件开启**线程**操作、然后主线程就可以调用插件停止、暂停、继续等操作
-       
-    2. 软件升级的管道问题: 执行dpkg -i 只执行了旧包的卸载脚本，没有执行新包的安装脚本
-
-       原因：卸载脚本已经将父进程杀死、导致管道那块不能使用`Logger::info()`日志记录器来写入管道，最终导致管道报错，子进程停止执行
-
-69. 关于lambda函数出现的问题
-
-    ```c++
-    class CJYVirusScanPluginImpl {
-    public:
-        ScanFlowController* m_pScan;
-        void someStaticFunc() {
-            std::thread t([&m_pScan](const std::string &data) { //错误：不能直接捕获类成员变量
-                m_pScan->virusScanProcessIsolateRecover(data);
-            }, info.data());
-        }
-    };
-    ```
-
-    1. Lambda 表达式的捕获列表（如 [&m_pScan]）只能捕获**非静态成员变量**或局部变量。如果 m_pScan 是以下类型之一，捕获会失败：
-       - **静态成员变量**（static 修饰）。
-       - **类型别名**（typedef 或 using）。
-       - **枚举值**或常量。
-       - **函数成员**或非变量实体。
-    2. 使用 [&m_pScan] 试图直接捕获成员变量是不合法的，因为 Lambda 不能直接捕获类的成员变量（m_pScan 属于 this 的成员）。正确的捕获方式是捕获 this 或 *this
-    3. 如果 m_pScan 是一个正常的成员变量（例如 ScanFlowController* m_pScan;），但代码在**非成员函数或静态成员函数中**定义 Lambda，this 指针不可用，m_pScan 无法通过 [&m_pScan] 捕获。
-
-70. `std::remove`、`std::remove_if`、`std::erase`这几个函数的区别
-
-    1. `std::remove`
-
-       ```c++
-       	std::vector<int> vec = {1, 2, 2, 3, 2, 4};
-           auto new_end = std::remove(vec.begin(), vec.end(), 2); // 移除所有 2
-       
-           // 此时 vec = {1, 3, 4, ?, ?, ?}，size 仍为 6
-           for (auto it = vec.begin(); it != new_end; ++it) {
-               std::cout << *it << ' '; // 输出 1 3 4
-           }
-           std::cout << '\n';
-       ```
-
-       **std::remove** 从范围 [first, last) 中“逻辑移除”所有等于 value 的元素。
-
-       它并不真正删除容器中的元素，而是将所有不等于 value 的元素移到范围的前部，并**返回一个迭代器，指向新的逻辑末尾**（即移除后有效范围的末尾）。
-
-    2. `std::remove_if`
-
-       ```c++
-       	std::vector<int> vec = {1, 2, 3, 4, 5};
-           auto new_end = std::remove_if(vec.begin(), vec.end(), [](int x) {
-               return x % 2 == 0; // 移除偶数
-           });
-       
-           // 此时 vec = {1, 3, 5, ?, ?}，size 仍为 5
-           for (auto it = vec.begin(); it != new_end; ++it) {
-               std::cout << *it << ' '; // 输出 1 3 5
-           }
-           std::cout << '\n';
-       ```
-
-       **std::remove_if** 从范围 [first, last) 中“逻辑移除”所有满足谓词 pred 的元素。
-
-       与 std::remove 类似，它将不满足 pred 的元素移到范围前部，返回新的逻辑末尾迭代器。
-
-       pred 是一个**一元谓词（函数、函数对象或 Lambda）**，接受一个元素并返回 bool（true 表示移除）。
-
-    3. `std::erase`
-
-       在 C++20 之前，std::erase 不是标准算法，而是容器（如 std::vector、std::list）的成员函数。C++20 引入了全局 std::erase 和 std::erase_if。
-
-       ```c++
-       	std::vector<int> vec = {1, 2, 2, 3, 2, 4};
-           // 移除所有 2（erase-remove 惯用法）
-           vec.erase(std::remove(vec.begin(), vec.end(), 2), vec.end());
-       ```
-
-       **std::erase**从容器中“物理移除“指定位置（position）或范围 [first, last) 的元素。
-
-71. 逻辑处理器：CPU 逻辑处理器（Logical Processor）是指**操作系统能够识别和调度的基本计算单元**，它是 CPU 核心（Core）与超线程技术（Hyper-Threading，简称 HT）结合后的产物。逻辑处理器数量通常决定了一个 CPU 在操作系统中表现为多少个“处理器”，直接影响多任务处理和并行计算能力。
-
-72. 项目用了多少个线程？RJJH用了多少个线程呢，safed的插件统信用了8个线程？
-
-    1. 对于safed的插件来说，其重写的`start`函数中，使用了jy_thread.cpp中的线程模板函数启动线程；当`pause`或者`stop`的时候，在外面改变其中循环函数的条件值即可停止线程(函数)
-
-       ```c++
-       JYThread::autoRun(std::bind(&CTaskManagerComponentImpl::taskQueueDistribution, this));
-       ```
-
-    2. 另一种是直接把类继承manageed_thread.cpp中的封装的线程类，再重写`run`函数。此时使用该封装的线程类的`start、stop`等函数来进行线程管理
-
-       ```c++
-       class CControlCenterAgent : public ThreadWrapper
-       ```
-
-       > 也就是说第一种需要自己实现start、stop；第二种只需要重写run(要执行线程的函数即可)
-
-73. 对于C++字符串来说，str1 删除掉其中包含的str2的两种方法
-
-    ```c++
-    url = url.substr(url.find(frontUrl) + frontUrl.size());		// 截取字符串
-    url.erase(url.find(frontUrl), frontUrl.size());				// 直接从原字符串中删除，erase是原地修改的，不需要接收
-    ```
-
-    如果对于QString来说
-
-    ```c++
-    QString url = url.replace(frontUrl, "");					// 将子字符串替换为空
-    url.remove(url.find(frontUrl), frontUrl.size())				// 同上面第二个
-    ```
-
-74. IBudles是什么？为什么要使用这个来进行传输
+55. IBudles是什么？为什么要使用这个来进行传输
 
     ```c++
     IBundle *pPublishBundle = CBundle::createInstance();
     ```
-
-75. 流式日志写入器，看plugins/common/client_management_log.hpp中的实现
-
-76. 汇报逻辑： 
+    
+58. 汇报逻辑： 
 
     1. 问题的现象
     2. 问题的原因(查看日志/gdb 哪一块执行错误/没有执行)
     3. 具体的代码分析
     4. 个人推测、结果
 
-77. rpm 安装指令区别
+36. `common/ipc_common`该文件夹下实现ipc(进程通信)，使用的方式为**socket通信**。其实现了IPCclt(客户端)和IPCSvr(服务端)。并封装了接口
 
-    ```
-    rpm -i  // 安装全新包，仅用于安装尚未安装的软件包，如果系统中已存在同名软件包（即使版本不同），会报错（如“包已安装”）
-    
-    rpm -U // 升级已安装的软件包，或安装新软件包。
-    ```
-
-78. rpm和deb包对于升级的执行顺序不同：
-
-    - **deb**：prerm（旧包）→ preinst（新包）→ 安装新包 → postinst（新包）。postrm 通常不执行，除非显式移除旧包。
-    - **rpm**：%pre（新包）→ 安装新包 → %post（新包）→ %preun（旧包）→ %postun（旧包）。
+    1. 对于IPCSvr：
+       1. 接受消息：功能类继承`Interface_IPCLogical`类，重写回调`OnRecieveMsg`
+       2. 发送消息：调用`ipcSvr`的`SendMsgToAllClts`
+    2. 对于IPCclt：
+       1. 接收消息：功能类继承`CallBack_IPCclt`类，重写回调`OnRecieveMsg`
+       2. 发送消息：调用`ipcClt`的`SendMsg`
 
     
+
+
+
+
 
 ### 4. 末尾
 
