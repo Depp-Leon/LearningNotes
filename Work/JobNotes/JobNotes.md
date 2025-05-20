@@ -3735,9 +3735,10 @@ m_pPool->submit([this, pBundle]() {
       >
       > 待王帅留意复现的情况，看其日志结构是哪一块的问题，怀疑可能是启动了多个进程之后会记录多个日志
 
+19. - [ ] 北信源有个项目(705)，需要标准版客户端做一些调整
 
-
-
+    1. 病毒查杀+文件监控的日志 除了咱们自身生成的以外，需要以json格式 在系统中特定位置存放一份
+    2. 三方程序会到上述特定位置获取，需要考虑和对方做接口联动，目前想到的是 对方提供接口，我们存放的时候 调一下接口通知对方。
 
 
 
@@ -3949,11 +3950,29 @@ m_pPool->submit([this, pBundle]() {
        1. 接收消息：功能类继承`CallBack_IPCclt`类，重写回调`OnRecieveMsg`
        2. 发送消息：调用`ipcClt`的`SendMsg`
 
-    
+37. gdb在启动带参数的可执行程序
 
+    1. 启动时指定参数
 
+       ```
+       gdb --args ./your_program arg1 arg2 arg3
+       ```
 
+    2. 启动gdb后指定参数
 
+       ```
+       gdb ./your_program			// 启动gdb
+       (gdb) run arg1 arg2 arg3	// 在gdb下，使用 run 命令（或简写为 r）并在后面加上参数：
+       ```
+
+    3. 通过`set args`命令设置参数：在启动 GDB 后**多次运行程序而无需重复输入参数**，可以使用 `set args` 命令。
+
+       ```
+       gdb ./your_program
+       (gdb) set args arg1 arg2 arg3	// set args 是命令，后面的是实参
+       ```
+
+       
 
 ### 4. 末尾
 
