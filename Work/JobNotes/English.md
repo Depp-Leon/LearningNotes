@@ -5,3 +5,5 @@
 **platform**	n. 平台
 
 **migrate**		v. 迁移
+
+**summary**	n. 总结，概述

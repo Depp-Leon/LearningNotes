@@ -601,7 +601,7 @@
 
         ```
         git rebase <branch-name>	// 将当前分支的提交“移动”到目标分支的最新提交之上，保持线性历史
-        
+        								改变的是当前分支，比merge少了一个合并记录
         git rebase --continue		// 如果有冲突，解决后执行
         git rebase --abort			// 中止变基
         ```
