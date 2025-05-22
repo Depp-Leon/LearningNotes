@@ -3,9 +3,29 @@
    > 1. `cmake` 只是**配置工具**；执行cmake会根据cmakelist(项目的配置)生成对应的makefile文件，供make使用
    > 2. `make` 负责实际的**构建**工作（**编译、链接**）。它根据 `Makefile` 文件中的规则和依赖关系，检查哪些部分需要重新构建，生成最终的可执行文件或库。
 
-2. 在 CMake 中，当你使用 add_library 创建一个动态库（SHARED 类型）时，CMake 会自动在库名前添加前缀 lib，这是 Unix-like 系统（如 Linux）的惯例
+2. cmake 与 编译器的关系：
 
-3. 将编译好的文件移动到程序目录下
+   cmake只是一个跨平台的构建生成工具(不同架构，比如longarch64、x64、arm64)，它通过生成适用于不同平台的构建文件（如 Makefile、Ninja 文件或 IDE 项目文件）来协调项目的**编译、链接和安装**。
+
+   1. cmake在运行时会尝试检测系统中的默认 C++ 编译器
+
+   2. 用户可以通过设置环境变量或 CMake 变量指定编译器
+
+      ```
+      # CMakeLists.txt 中指定
+      set(CMAKE_C_COMPILER "gcc")
+      set(CMAKE_CXX_COMPILER "g++")
+      ```
+
+   3. CMake 支持不同的生成器（如 Unix Makefiles、Ninja、Visual Studio），生成器决定了调用哪个编译器
+
+      > Unix Makefiles：通常调用 g++ 或 clang++。
+      >
+      > Visual Studio：调用 MSVC。
+
+3. 在 CMake 中，当你使用 add_library 创建一个动态库（SHARED 类型）时，CMake 会自动在库名前添加前缀 lib，这是 Unix-like 系统（如 Linux）的惯例
+
+4. 将编译好的文件移动到程序目录下
 
    ```
    cd Output/bin2.0/JingyunSd_linux_2/bin/X86_64/
@@ -17,15 +37,15 @@
    sudo cp libJYFileShred.so libJYNetProtection.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/chenxinsd/lib/plugins/system/
    ```
 
-4. 什么时候需要重新执行cmake和make
+5. 什么时候需要重新执行cmake和make
 
    > 当更改了cmakelist中的库依赖、文件路径等需要重新对项目进行cmake
    >
    > 若只修改了代码并没有改变项目架构，那么只需要执行make编译就可
 
-5. Cmakelist添加头文件路径时，要指定到最终的文件夹下，不然还是找不到头文件。(它只会在你指定的那个而文件夹下面找头文件)
+6. Cmakelist添加头文件路径时，要指定到最终的文件夹下，不然还是找不到头文件。(它**只会在你指定的那个而文件夹下面找头文件**)
 
-6. `.cmake`文件：后缀是 `.cmake` 的文件是 **CMake** 使用的脚本文件，通常用于定义构建系统的配置、设置变量、导入/导出目标以及包含其他模块
+7. `.cmake`文件：后缀是 `.cmake` 的文件是 **CMake** 使用的脚本文件，通常用于定义构建系统的配置、设置变量、导入/导出目标以及包含其他模块
 
    ```
    include(MyCustomFile.cmake)				
@@ -33,12 +53,12 @@
    #在 .cmake 文件中定义的变量和函数会被导入当前的 CMake 环境
    ```
 
-7. cmake脚本和cmakelist的区别:
+8. cmake脚本和cmakelist的区别:
 
    1. `CMakeLists.txt`：用于描述项目的构建规则，是项目的入口文件
    2. `.cmake` 文件：通常是辅助文件，提供模块、工具或特定功能的实现，`.cmake` 文件通过 `include()` 或其他机制被调用
 
-8. cmakelist中的list类型：
+9. cmakelist中的list类型：
 
    ```
    list(APPEND ...) 命令用于将新的路径添加到现有的列表中
@@ -55,7 +75,7 @@
    endif()
    ```
 
-9. cmakelist中使用`find_library` 命令查找指定的库文件并将其路径存储到变量中
+10. cmakelist中使用`find_library` 命令查找指定的库文件并将其路径存储到变量中
 
    ```
    find_library(<VAR> NAMES <name> PATHS <path1> <path2> ... NO_DEFAULT_PATH)
@@ -70,7 +90,7 @@
    这里用的是 ${CURL_LIB_PATHS}，它们之前通过 list(APPEND ...) 定义了库的多个可能路径。
    ```
 
-10. CMakeList常用变量：
+11. CMakeList常用变量：
 
    ```
    CMAKE_SOURCE_DIR：表示 CMake 项目主目录的路径，也就是 CMakeLists.txt 文件首次被执行时所在的目录
@@ -259,7 +279,7 @@
 
       > 注意带上函数返回值，某些架构因为函数没有返回值会卡住死机，某些架构只是会提醒。
 
-22. cmakelist在导入头文件时：使用`target_include_directories`，定义头文件夹，只会在该文件夹下找`.h`或者`.hpp`文件，不会递归找其子目录的头文件
+22. cmakelist在导入头文件时：使用`target_include_directories`，定义头文件夹，**只会在该文件夹下找`.h`或者`.hpp`文件，不会递归找其子目录的头文件**
 
 23. cmakelist在导入头文件时在导入头文件时一定要看好代码中引入的头文件路径，导入头文件路径一定要匹配。
 

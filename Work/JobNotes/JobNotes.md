@@ -524,7 +524,7 @@
 
       1. C++编译器：
 
-         > - Linux用**gcc**
+         > - Linux用**gcc**、**g++**
          > - Windows 用**msvc**(visual studio使用)，**minGW**(Windows平台上的GNU工具集合)
          > - ios/mac 用**clang**(也可以在window下使用)
 
@@ -1888,10 +1888,12 @@ m_pPool->submit([this, pBundle]() {
 
 2. 将编译好的文件移动到程序目录下
 
+   > 由于zdfy本地无法编译，若将本地zdfy移动过去会导致zdfy启动不了
+
    ```
    cd Output/bin2.0/JingyunSd_linux_2/bin/X86_64/
    
-   sudo cp cur_user JYNRJJH2 JYNRJJH2-UTRAY1 JYNSAFED JYNZDFY2 JYUpdateUI /opt/apps/chenxinsd/bin/
+   sudo cp cur_user JYNRJJH2 JYNRJJH2-UTRAY1 JYNSAFED  JYUpdateUI  	/opt/apps/chenxinsd/bin/ 
    
    sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libSysMonManage.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so  /opt/apps/chenxinsd/lib/modules/
    
@@ -1950,7 +1952,7 @@ m_pPool->submit([this, pBundle]() {
    #案例： find_library(LIB_CURL NAMES curl PATHS ${CURL_LIB_PATHS})
    这里用的是 ${CURL_LIB_PATHS}，它们之前通过 list(APPEND ...) 定义了库的多个可能路径。
    ```
-   
+
 9. CMakeList常用变量：
 
    ```
@@ -3481,13 +3483,19 @@ m_pPool->submit([this, pBundle]() {
 
        > RJJH新增的东西删除掉(自己改动的图片除外)、只保留在Output中生成的所需要的rcc文件
 
-25. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
+25. **项目中更改三方库源码**(以更改glog库为例)
+
+    1. 40上`708/third_party/`下修改源码
+    2. `third_party/build_x64`/执行 `make glog`，编译后的库放在`708/mod/lib/`下
+    3. 在`normal_development`仓库下重新编译打包
+
+26. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
 
     1. 由于gitlib中已绑定自己的ssh公钥，所以直接使用git clone git@拉取即可
     2. thirdparty为项目中使用的三方库，需要在40环境下，进入该仓库的目标架构的build文件夹下，执行make编译。编译后的库文件将会输出到mod仓库的lib下。
     3. 在本地的normal_develop仓库下，需要将刚编译的lib移动到该仓库下。就可以正常使用了
 
-26. **项目中的三方库**
+27. **项目中的三方库**
 
     1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
     2. lib文件夹下面包含的是当前架构下三方库的库文件(.a)存放的地方
@@ -3495,7 +3503,7 @@ m_pPool->submit([this, pBundle]() {
     4. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
     5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
 
-27. **关于项目中的三方库**：
+28. **关于项目中的三方库**：
 
     1. 项目中的三方库在**仓库**`third_party`中，里面包含的是项目中使用到的三方库的源码(针对自己的项目修改过功能代码)。
     2. **三方库编译**：在40上对项目打包前需要先对`third_party`进行编译，打包时就会带上项目所需的三方库文件
@@ -3504,7 +3512,7 @@ m_pPool->submit([this, pBundle]() {
 
     > normal_development中的lib下是使用的编译好的库文件、libsource使用的是三方库cpp源码文件(主要是自己写的库)
 
-28. deb包的四个脚本作用和执行顺序：
+29. deb包的四个脚本作用和执行顺序：
 
     1. preinst（预安装脚本）：在**包解压和安装文件之前**执行，用于准备安装环境或检查前提条件或**备份**
 
@@ -3524,7 +3532,7 @@ m_pPool->submit([this, pBundle]() {
 
     6. postrm（后移除脚本）：：在**包的文件被移除之后**执行，用于清理或完成移除
 
-29. 当一个deb包从版本A升级到版本B，对应脚本执行顺序如下：
+30. 当一个deb包从版本A升级到版本B，对应脚本执行顺序如下：
 
     1. A的 prerm：调用旧版本 A 的 prerm，参数为 upgrade 和新版本号，准备升级。
 
@@ -3542,21 +3550,21 @@ m_pPool->submit([this, pBundle]() {
 
        > 执行B的安装脚本
 
-30. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
+31. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
 
-31. **关于项目deb和rpm包的升级脚本执行顺序**：
+32. **关于项目deb和rpm包的升级脚本执行顺序**：
 
     rpm和deb包对于升级的执行顺序不同：
 
     - **deb**：prerm（旧包）→ preinst（新包）→ 安装新包 → postinst（新包）。postrm 通常不执行，除非显式移除旧包。
     - **rpm**：%pre（新包）→ 安装新包 → %post（新包）→ %preun（旧包）→ %postun（旧包）。****
 
-32. deb包和rpm包打包区别：
+33. deb包和rpm包打包区别：
 
     1. 相同点：都会用到pre post的四个脚本，只是deb显示指定、rpm会通过创建`/SPECS/jingyun.spec`文件里面指定
     2. rpm需要在spec文件中的`%file`字段显式的指定包管理文件、deb则自动根据打包目标路径下所有文件进行管理
 
-33. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
+34. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
 
     1. 在插件中定义一个宏(`PLUGIN_EXPORT`)，应用于`createPlugin` 函数的声明。
 
@@ -3587,19 +3595,19 @@ m_pPool->submit([this, pBundle]() {
        }
        ```
 
-34. 项目**工厂模式**：
+35. 项目**工厂模式**：
 
     1. 在safed下创建升级适配工具，根据参数705或者707来创建相应的处理程序(clipp)
     2. 该升级适配工具cmake打成可执行包(cmakelist中`add_executable`)
     3. 在安装脚本中调用该脚本并传入对应参数，开始执行该工具
 
-35. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
+36. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
 
-36. 项目中的**单例模板**：
+37. 项目中的**单例模板**：
 
     `ZySingleto.h`下存放了懒汉式的单例模板
 
-37. **经典bug、问题总结**
+38. **经典bug、问题总结**
 
     1. 隔离区恢复、删除过程的暂停和停止操作。由于在同一个线程只能依次操作函数，等到恢复/删除结束后才会调用暂停和停止函数。
 
@@ -3743,11 +3751,23 @@ m_pPool->submit([this, pBundle]() {
     2. 通信需要额外做一层socket通信协议封装，用于双方通信
     3. 通过该三方软件调用杀毒的查杀结束后向特定位置发送(写入)JSON格式的扫描日志，并发送扫描结束的消息 
 
-20. 708执行强力查杀时，先执行的病毒库升级卡死；正常在查杀时执行病毒库升级没有问题；发生的位置在于执行升级之前卸载旧版引擎
+20. - [x] /log目录下日志文件不会被清除
 
-21. 中控执行软件升级，界面进度卡住，但是后台均已执行，日志已记录；文件监控之后容易复现此问题
+    > 因为zdfy进程存在导致不可以执行remove命令
 
+21. - [x] 扫描结果中存在病毒时，勾选扫描完成关机，后续再次开机客户端首页信息错误
 
+22. - [x] 自动关机选项在查杀无毒的情况下也进行关机操作
+
+23. - [ ] 联接测试授权超过三次服务端后，授权管理弹窗页面不能关闭
+
+24. - [ ] 查杀过程中升级病毒库成功后，未上报到服务端
+
+      > 日志还是版本
+      >
+      > 如果是日志，就看356行有没有执行
+
+    
 
 
 
@@ -3984,6 +4004,14 @@ m_pPool->submit([this, pBundle]() {
     1. 编程风格、设计思想的认知
     2. 熟悉三方库的使用
     3. 学习框架设计
+    
+39. 遗留需要总结的内容：
+
+    1. bash脚本总结
+    2. cmake、make总结
+    3. python语法总结
+
+40. 
 
 ### 4. 末尾
 
