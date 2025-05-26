@@ -3427,7 +3427,17 @@ m_pPool->submit([this, pBundle]() {
     3. **信号量/互斥锁**：同步进程访问共享资源。
     4. **管道或套接字**：简单的通信通道。
 
-21. 关于**项目使用的进程和线程**
+21. `common/ipc_common`该文件夹下实现**ipc(进程通信)**，使用的方式为**socket通信**。其实现了IPCclt(客户端)和IPCSvr(服务端)。并封装了接口
+
+    1. 对于IPCSvr：
+   1. 接受消息：功能类继承`Interface_IPCLogical`类，重写回调`OnRecieveMsg`
+      
+       2. 发送消息：调用`ipcSvr`的`SendMsgToAllClts`
+2. 对于IPCclt：
+       1. 接收消息：功能类继承`CallBack_IPCclt`类，重写回调`OnRecieveMsg`
+       2. 发送消息：调用`ipcClt`的`SendMsg`
+   
+22. 关于**项目使用的进程和线程**
 
     项目用了多少个线程？RJJH用了多少个线程呢，safed的插件统信用了8个线程？
 
@@ -3445,7 +3455,7 @@ m_pPool->submit([this, pBundle]() {
 
        > 也就是说第一种需要自己实现start、stop；第二种只需要重写run(要执行线程的函数即可)
 
-22. 关于RJJH里面的**自定义事件处理**：
+23. 关于RJJH里面的**自定义事件处理**：
 
     1. 在**event**文件夹中创建自定义事件
 
@@ -3459,7 +3469,7 @@ m_pPool->submit([this, pBundle]() {
        QApplication::instance()->installEventFilter(this)
        ```
 
-23. **修改/增加protobuffer的步骤**：
+24. **修改/增加protobuffer的步骤**：
 
     1. 修改/增加protobuffer字段
 
@@ -3469,7 +3479,7 @@ m_pPool->submit([this, pBundle]() {
 
     3. 执行`gen_proto.sh`脚本。
 
-24. **修改/替换界面图片的步骤**：
+25. **修改/替换界面图片的步骤**：
 
     1. 替换/修改图片
 
@@ -3483,19 +3493,19 @@ m_pPool->submit([this, pBundle]() {
 
        > RJJH新增的东西删除掉(自己改动的图片除外)、只保留在Output中生成的所需要的rcc文件
 
-25. **项目中更改三方库源码**(以更改glog库为例)
+26. **项目中更改三方库源码**(以更改glog库为例)
 
     1. 40上`708/third_party/`下修改源码
     2. `third_party/build_x64`/执行 `make glog`，编译后的库放在`708/mod/lib/`下
     3. 在`normal_development`仓库下重新编译打包
 
-26. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
+27. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
 
     1. 由于gitlib中已绑定自己的ssh公钥，所以直接使用git clone git@拉取即可
     2. thirdparty为项目中使用的三方库，需要在40环境下，进入该仓库的目标架构的build文件夹下，执行make编译。编译后的库文件将会输出到mod仓库的lib下。
     3. 在本地的normal_develop仓库下，需要将刚编译的lib移动到该仓库下。就可以正常使用了
 
-27. **项目中的三方库**
+28. **项目中的三方库**
 
     1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
     2. lib文件夹下面包含的是当前架构下三方库的库文件(.a)存放的地方
@@ -3503,7 +3513,7 @@ m_pPool->submit([this, pBundle]() {
     4. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
     5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
 
-28. **关于项目中的三方库**：
+29. **关于项目中的三方库**：
 
     1. 项目中的三方库在**仓库**`third_party`中，里面包含的是项目中使用到的三方库的源码(针对自己的项目修改过功能代码)。
     2. **三方库编译**：在40上对项目打包前需要先对`third_party`进行编译，打包时就会带上项目所需的三方库文件
@@ -3512,7 +3522,7 @@ m_pPool->submit([this, pBundle]() {
 
     > normal_development中的lib下是使用的编译好的库文件、libsource使用的是三方库cpp源码文件(主要是自己写的库)
 
-29. deb包的四个脚本作用和执行顺序：
+30. deb包的四个脚本作用和执行顺序：
 
     1. preinst（预安装脚本）：在**包解压和安装文件之前**执行，用于准备安装环境或检查前提条件或**备份**
 
@@ -3532,7 +3542,7 @@ m_pPool->submit([this, pBundle]() {
 
     6. postrm（后移除脚本）：：在**包的文件被移除之后**执行，用于清理或完成移除
 
-30. 当一个deb包从版本A升级到版本B，对应脚本执行顺序如下：
+31. 当一个deb包从版本A升级到版本B，对应脚本执行顺序如下：
 
     1. A的 prerm：调用旧版本 A 的 prerm，参数为 upgrade 和新版本号，准备升级。
 
@@ -3550,21 +3560,21 @@ m_pPool->submit([this, pBundle]() {
 
        > 执行B的安装脚本
 
-31. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
+32. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
 
-32. **关于项目deb和rpm包的升级脚本执行顺序**：
+33. **关于项目deb和rpm包的升级脚本执行顺序**：
 
     rpm和deb包对于升级的执行顺序不同：
 
     - **deb**：prerm（旧包）→ preinst（新包）→ 安装新包 → postinst（新包）。postrm 通常不执行，除非显式移除旧包。
     - **rpm**：%pre（新包）→ 安装新包 → %post（新包）→ %preun（旧包）→ %postun（旧包）。****
 
-33. deb包和rpm包打包区别：
+34. deb包和rpm包打包区别：
 
     1. 相同点：都会用到pre post的四个脚本，只是deb显示指定、rpm会通过创建`/SPECS/jingyun.spec`文件里面指定
     2. rpm需要在spec文件中的`%file`字段显式的指定包管理文件、deb则自动根据打包目标路径下所有文件进行管理
 
-34. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
+35. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
 
     1. 在插件中定义一个宏(`PLUGIN_EXPORT`)，应用于`createPlugin` 函数的声明。
 
@@ -3595,19 +3605,19 @@ m_pPool->submit([this, pBundle]() {
        }
        ```
 
-35. 项目**工厂模式**：
+36. 项目**工厂模式**：
 
     1. 在safed下创建升级适配工具，根据参数705或者707来创建相应的处理程序(clipp)
     2. 该升级适配工具cmake打成可执行包(cmakelist中`add_executable`)
     3. 在安装脚本中调用该脚本并传入对应参数，开始执行该工具
 
-36. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
+37. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
 
-37. 项目中的**单例模板**：
+38. 项目中的**单例模板**：
 
     `ZySingleto.h`下存放了懒汉式的单例模板
 
-38. **经典bug、问题总结**
+39. **经典bug、问题总结**
 
     1. 隔离区恢复、删除过程的暂停和停止操作。由于在同一个线程只能依次操作函数，等到恢复/删除结束后才会调用暂停和停止函数。
 
@@ -3639,8 +3649,6 @@ m_pPool->submit([this, pBundle]() {
 | :----------------------------: | :------: | :--: |
 |  1. 708bug修改，实现对外发布   |   5.30   |      |
 | 2. linux和windows的model层接口 |   6.30   |      |
-
-
 
 1. - [x] 软件升级0425问题：redhat linux8(21)、centos7.2(88)、ubuntu_16_x64(98)  
 
@@ -3735,13 +3743,13 @@ m_pPool->submit([this, pBundle]() {
       >
       > 思路：将该病毒库升级改为静默执行，无需等待Ui界面
 
-18. - [ ] 安装目录/log文件夹下的日志清除有问题(默认保存每个类型最后两个日志文件)：个别机器没有清除
+18. - [x] 安装目录/log文件夹下的日志清除有问题(默认保存每个类型最后两个日志文件)：个别机器没有清除
 
       > 查看三方库下的Glog.cpp源码中是如何清除的，如果查找不到，就在safed中加入一个线程去检测清除
       >
       > **思路**：在主项目下的`third_party`项目中glog/src/logging.cc中900行的DeleteLogFile()函数中去看删除是否有问题为何不生效
       >
-      > 待王帅留意复现的情况，看其日志结构是哪一块的问题，怀疑可能是启动了多个进程之后会记录多个日志
+      > **结果**：三方库代码没问题，是zdfy进程存在导致三方库不可以执行remove命令
 
 19. - [ ] 北信源有个项目(705)，需要标准版客户端做一些调整
 
@@ -3753,23 +3761,80 @@ m_pPool->submit([this, pBundle]() {
 
 20. - [x] /log目录下日志文件不会被清除
 
-    > 因为zdfy进程存在导致不可以执行remove命令
+      > 因为zdfy进程存在导致不可以执行remove命令
+      
+      ```c++
+      static void ZyRefreshGlog() {
+          std::string log_dir = JYN_INSTALL_PATH_EX("log");
+          DIR* dir = opendir(log_dir.c_str());
+          if (!dir) {
+              LOG(ERROR) << "Failed to open log directory: " << log_dir;
+              return;
+          }
+      
+          struct dirent* entry;
+          std::map<std::string, std::string> latest_logs; // key: 日志级别, value: 最新日志文件名
+      
+          while ((entry = readdir(dir)) != nullptr) {
+              std::string filename(entry->d_name);
+              if (filename.find("JYNSAFED") == 0 && filename.find(".log.") != std::string::npos) {
+                  size_t pos = filename.find_last_of('.');
+                  if (pos != std::string::npos) {
+                      std::string log_level = filename.substr(pos + 1, 5); // 获取日志级别
+                      if (latest_logs.find(log_level) == latest_logs.end() || 
+                          filename > latest_logs[log_level]) {
+                          latest_logs[log_level] = filename; // 更新最新日志文件
+                      }
+                  }
+              }
+          }
+      
+          closedir(dir);
+      
+          // 删除旧的日志文件
+          for (const auto& pair : latest_logs) {
+              std::string filepath = log_dir + "/" + pair.second;
+              for (const auto& other_pair : latest_logs) {
+                  if (other_pair.first != pair.first) {
+                      std::string other_filepath = log_dir + "/" + other_pair.second;
+                      remove(other_filepath.c_str());
+                  }
+              }
+          }
+      }
+      ```
 
 21. - [x] 扫描结果中存在病毒时，勾选扫描完成关机，后续再次开机客户端首页信息错误
 
+      > 没有把查杀时间、查杀数量等信息记录
+
 22. - [x] 自动关机选项在查杀无毒的情况下也进行关机操作
 
-23. - [ ] 联接测试授权超过三次服务端后，授权管理弹窗页面不能关闭
+23. - [x] 联接测试授权超过三次服务端后，授权管理弹窗页面不能关闭
 
-24. - [ ] 查杀过程中升级病毒库成功后，未上报到服务端
-
-      > 日志还是版本
+      > 当界面执行`QApplication::exit();` 时，**Qt 的事件循环会退出**，整个应用程序会开始关闭流程
       >
-      > 如果是日志，就看356行有没有执行
+      > 1. **所有顶层窗口（包括主窗口和子窗口）都会收到关闭事件**，会依次触发它们的 `closeEvent`。如果窗口的 `closeEvent` 没有被 `ignore()`，窗口会被关闭。
+      > 2. 窗口对象执行close后只会在app.exec()处退出，即**退出了事件循环**，但是对象被没有被析构。只有父类窗口对象析构或者调用者主动delete，该对象才会被析构
+      > 3. 但是由于RJJH进程的IPC通信线程未退出，就会导致后台进程一直存在并未退出
 
+24. - [x] 查杀过程中升级病毒库成功后，未上报到服务端
+
+      > 未复现
     
+25. - [x] 强力查杀结束后点击立即重启卡住
 
+      > 更换了重启/关机的方式
+    
+26. - [x] 隔离区恢复大批量威胁时，有部分威胁存在恢复失败的情况（数据已被成功恢复，但界面显示有误）
 
+      > 原因是当safed回复消息频率过快，导致RJJH还没处理完要删除的model数据，新的要处理的数据就来了。因为删除的时候需要遍历整个模型的数据，就会比较费时间。所以需要增加safed发送消息的时间间隔
+    
+27. - [x] 客户端没有执行查杀、也没有定时任务、中控也没有下发查杀任务，自己开始执行闪电查杀
+
+      > 原因是每次safed启动后，第一次将任务插入数据库时字段有问题，导致后续无法删除一致存放在数据库中
+
+28. - [ ] model层接口是实现UML类图
 
 #### 2.2 备忘录
 
@@ -3968,38 +4033,7 @@ m_pPool->submit([this, pBundle]() {
     3. 具体的代码分析
     4. 个人推测、结果
 
-36. `common/ipc_common`该文件夹下实现ipc(进程通信)，使用的方式为**socket通信**。其实现了IPCclt(客户端)和IPCSvr(服务端)。并封装了接口
-
-    1. 对于IPCSvr：
-       1. 接受消息：功能类继承`Interface_IPCLogical`类，重写回调`OnRecieveMsg`
-       2. 发送消息：调用`ipcSvr`的`SendMsgToAllClts`
-    2. 对于IPCclt：
-       1. 接收消息：功能类继承`CallBack_IPCclt`类，重写回调`OnRecieveMsg`
-       2. 发送消息：调用`ipcClt`的`SendMsg`
-
-37. gdb在启动带参数的可执行程序
-
-    1. 启动时指定参数
-
-       ```
-       gdb --args ./your_program arg1 arg2 arg3
-       ```
-
-    2. 启动gdb后指定参数
-
-       ```
-       gdb ./your_program			// 启动gdb
-       (gdb) run arg1 arg2 arg3	// 在gdb下，使用 run 命令（或简写为 r）并在后面加上参数：
-       ```
-
-    3. 通过`set args`命令设置参数：在启动 GDB 后**多次运行程序而无需重复输入参数**，可以使用 `set args` 命令。
-
-       ```
-       gdb ./your_program
-       (gdb) set args arg1 arg2 arg3	// set args 是命令，后面的是实参
-       ```
-
-38. 提升C++能力
+36. 提升C++能力
 
     1. 编程风格、设计思想的认知
     2. 熟悉三方库的使用
@@ -4011,7 +4045,11 @@ m_pPool->submit([this, pBundle]() {
     2. cmake、make总结
     3. python语法总结
 
-40. 
+38. 函数、类、变量等命名规范
+
+39. cpr通信的总结、http总结(四个标识，post、get等)
+
+40. 插件、组件、抽象头等使用UML类图画出来
 
 ### 4. 末尾
 

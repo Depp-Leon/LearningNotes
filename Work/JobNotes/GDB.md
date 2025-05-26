@@ -112,3 +112,27 @@
 
     1. 如果 `.cpp` 文件是你自己定义的，并且它们需要被编译成库的一部分，你必须将这些 `.cpp` 文件列出在 `add_library` 中。如果你仅通过 `include_directories` 引用了其他目录的头文件，而没有将对应的 `.cpp` 文件包含到 `add_library` 中，编译器将找不到这些源文件并报错
     2. 如果你的代码依赖于外部库（比如系统库或第三方库），你可以通过 `target_link_libraries` 来指定这些库
+    
+20. gdb在启动带参数的可执行程序
+
+    1. 启动时指定参数
+
+       ```
+       gdb --args ./your_program arg1 arg2 arg3
+       ```
+
+    2. 启动gdb后指定参数
+
+       ```
+       gdb ./your_program			// 启动gdb
+       (gdb) run arg1 arg2 arg3	// 在gdb下，使用 run 命令（或简写为 r）并在后面加上参数：
+       ```
+
+    3. 通过`set args`命令设置参数：在启动 GDB 后**多次运行程序而无需重复输入参数**，可以使用 `set args` 命令。
+
+       ```
+       gdb ./your_program
+       (gdb) set args arg1 arg2 arg3	// set args 是命令，后面的是实参
+       ```
+
+21. 
