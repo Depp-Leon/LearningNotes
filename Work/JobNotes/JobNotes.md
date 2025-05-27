@@ -1116,16 +1116,20 @@
    		
    		
    src_2.0的具体分布
-   1. moudles模块：PostDataReport
-   			   UploadFile
-   			   ZyScanPlug
-   			   virus_scan_engine_plugin	
+   1. moudles模块：PostDataReport		上报中控的实际cpp实现
+   			   UploadFile		  上传文件的实际cpp实现  
+   			   virus_scan_engine_plugin	 实际的引擎扫描cpp实现
    2. oem: 贴牌文件夹
    3. qt_ui: 前端界面文件：RJJH 主界面
    					  Udish_protection U盘界面
    					  ZyUpdateUi 升级界面
    					  cur_user 跟用户相关？
-   4. safed: 助手层
+   					  common 共用的构件，比如titlebar、warnning dlog
+   4. safed: 助手层：
+   				common 共用的功能类：包含epoll、framework(连接组件和插件的接口)、		    nlohmann(python相关函数)、thread(线程相关函数)、utils(类型转换、时间转换工具)
+   				core 运转核心，包含组件实现、组件、插件配置及其初始化
+   				plugins 插件实现
+   				version_compatible_tool 版本同步工具
    5. tools: 工具文件夹
    ```
 
@@ -3763,47 +3767,7 @@ m_pPool->submit([this, pBundle]() {
 
       > 因为zdfy进程存在导致不可以执行remove命令
       
-      ```c++
-      static void ZyRefreshGlog() {
-          std::string log_dir = JYN_INSTALL_PATH_EX("log");
-          DIR* dir = opendir(log_dir.c_str());
-          if (!dir) {
-              LOG(ERROR) << "Failed to open log directory: " << log_dir;
-              return;
-          }
-      
-          struct dirent* entry;
-          std::map<std::string, std::string> latest_logs; // key: 日志级别, value: 最新日志文件名
-      
-          while ((entry = readdir(dir)) != nullptr) {
-              std::string filename(entry->d_name);
-              if (filename.find("JYNSAFED") == 0 && filename.find(".log.") != std::string::npos) {
-                  size_t pos = filename.find_last_of('.');
-                  if (pos != std::string::npos) {
-                      std::string log_level = filename.substr(pos + 1, 5); // 获取日志级别
-                      if (latest_logs.find(log_level) == latest_logs.end() || 
-                          filename > latest_logs[log_level]) {
-                          latest_logs[log_level] = filename; // 更新最新日志文件
-                      }
-                  }
-              }
-          }
-      
-          closedir(dir);
-      
-          // 删除旧的日志文件
-          for (const auto& pair : latest_logs) {
-              std::string filepath = log_dir + "/" + pair.second;
-              for (const auto& other_pair : latest_logs) {
-                  if (other_pair.first != pair.first) {
-                      std::string other_filepath = log_dir + "/" + other_pair.second;
-                      remove(other_filepath.c_str());
-                  }
-              }
-          }
-      }
-      ```
-
+    
 21. - [x] 扫描结果中存在病毒时，勾选扫描完成关机，后续再次开机客户端首页信息错误
 
       > 没有把查杀时间、查杀数量等信息记录
@@ -3834,7 +3798,12 @@ m_pPool->submit([this, pBundle]() {
 
       > 原因是每次safed启动后，第一次将任务插入数据库时字段有问题，导致后续无法删除一致存放在数据库中
 
-28. - [ ] model层接口是实现UML类图
+28. - [x] 增加启动杀毒、尝试关闭、关闭杀毒的上报日志
+
+29. - [ ] 708Model层实现
+      1. 有一处睡眠，应该用条件变量的，否则会有隐患
+
+    
 
 #### 2.2 备忘录
 
@@ -4050,6 +4019,72 @@ m_pPool->submit([this, pBundle]() {
 39. cpr通信的总结、http总结(四个标识，post、get等)
 
 40. 插件、组件、抽象头等使用UML类图画出来
+
+41. epoll是什么
+
+42. `::time(nullptr)` 是 C++ 标准库中的一个函数调用，用于获取当前的系统时间（通常是自 1970 年 1 月 1 日 00:00:00 UTC 到现在的秒数，称为“Unix 时间戳”）。
+
+    ```
+    #include <ctime>
+    time_t now = ::time(nullptr); // 获取当前时间戳 
+    ```
+
+    > `::` 前缀确保调用的是全局命名空间下的 time 函数，避免和其他同名函数冲突。
+
+43. protobuffer问题
+
+    ```
+    message TerminalStartStatusInfo {
+        enum StatusType {
+          CLIENT_STARTUP = 0;
+          CLIENT_ATTEMPT_EXIT = 1;
+          CLIENT_EXIT = 2;
+        }
+        StatusType type = 1;
+    }
+    ```
+
+    使用上面的protobuffer来传输数据时，如果`type`为`CLIENT_STARTUP`时解析出来的数据为空，因为`proto`的空值的默认值为0，而这个`message`只有一个枚举类型的成员，当这个成员的值为0时，就会导致传递时当成空值来传递
+
+44. linux关于磁盘和内存的命令
+
+    ```
+    df -Th		# disk free 查看磁盘占用空间情况		T 显示文件系统类型 h 以人类可读形式(GB MB)
+    lsblk		# 查看系统中所有磁盘设备及其信息
+    
+    free -h 	# 查看内存占用情况
+    top			# 实时监控系统进程、CPU 和内存使用情况。
+    netstat -ntlp | grep 3306	# 查看特定端口号
+    ```
+
+45. **deb包**使用`dpkg`命令和`apt`工具来管理
+
+    1. `dpkg`命令是 低级工具，直接操作 `deb` 包，类似 `rpm`，适合**离线安装**或手动管理。
+    2. `apt / apt-get`通过软件源自动下载和安装包，类似 `yum`，自动解析依赖，适合**在线安装**
+
+46. `apt`和`apt-get`的区别和联系：
+
+    1. `apt` 和 `apt-get` 都是用于管理 Debian 系发行版（如 Ubuntu）软件包**(deb包)**的工具
+    2. `apt-get`是传统的 Debian 包管理工具，存在时间更长，功能更全面
+    3. `apt`整合了 `apt-get` 和 `apt-cache` 的常用功能，简化操作
+
+47. **rpm包**使用`rpm`命令和`yum`工具来管理
+
+    1. `rpm` 不自动解决依赖问题，安装时可能因缺少依赖而失败，常用于**离线安装**或管理单个 `RPM` 包
+    2. `yum`（Yellowdog Updater Modified）是基于 `RPM` 的高级包管理工具，自动处理依赖关系
+    3. `yum`可以从配置的软件源（repository）下载包，自动解决依赖，适合**在线安装**
+
+48. 左值引用(&)和右值引用(&&)本质上都是引用，即都指向对象的地址。但编译器会根据引用类型决定能否绑定到某个对象、是否可以移动资源、是否可以延长临时对象的生命周期等
+
+    1. 声明为右值引用后，就表示目标函数可以对目标地址的资源进行**获取并转移**
+
+       > 因为声明为右值，也就是说该值是个临时值，可以对资源转移，因为其资源马上就会被回收清理
+
+    2. 声明为左值引用后，原则上目标函数只能对目标地址的资源进行获取、但**不能转移**
+
+       > 因为左值是具有存储空间的值，其可能还需要被别的地方使用，一旦转移，其变为空值/空指针，所以其资源不能转移
+
+    3. 左值引用和右值引用本质上都是引用，只是给编译器设置了一个规范，防止后续代码出错
 
 ### 4. 末尾
 
