@@ -3434,14 +3434,49 @@ m_pPool->submit([this, pBundle]() {
 21. `common/ipc_common`该文件夹下实现**ipc(进程通信)**，使用的方式为**socket通信**。其实现了IPCclt(客户端)和IPCSvr(服务端)。并封装了接口
 
     1. 对于IPCSvr：
-   1. 接受消息：功能类继承`Interface_IPCLogical`类，重写回调`OnRecieveMsg`
-      
+          1. 接受消息：功能类继承`Interface_IPCLogical`类，重写回调`OnRecieveMsg`
        2. 发送消息：调用`ipcSvr`的`SendMsgToAllClts`
-2. 对于IPCclt：
-       1. 接收消息：功能类继承`CallBack_IPCclt`类，重写回调`OnRecieveMsg`
-       2. 发送消息：调用`ipcClt`的`SendMsg`
-   
-22. 关于**项目使用的进程和线程**
+    2. 对于IPCclt：
+              1. 接收消息：功能类继承`CallBack_IPCclt`类，重写回调`OnRecieveMsg`
+              2. 发送消息：调用`ipcClt`的`SendMsg`
+
+22. RJJH的model层与ipc**(IPCclient)剖析**
+
+    1. RJJH的ipc作为FramelessWindow的成员(ipc_manager)，通过**信号槽机制**实现消息同步发送
+2. RJJH的ipc收到消息后通过不同的model进行分发，在各自的model中去解析数据并与RJJH交互
+    3. RJJH通过model来将消息传递给safed
+
+    ```
+    business_helper_client.cpp				// 负责实现ipc通信的接收和发送
+    
+ipc_manager.cpp			// 1.  包含成员business_helper_client，收到消息通过信号槽传递过来
+    						// 2.  可以注册不同的model 以及 这些model的接收类型
+						// 3.  收到消息就根据消息类型从map中找到对应model，分发消息
+    						// 4，  发送消息直接调用business_helper_client
+    						
+    model 层 		// 1. 继承IIPCBaseModelInterface接口重写receive函数，方便ipc分发消息
+				//  2. emit send 消息，在ipc_manager中实现信号槽，在ipc中发送消息
+    ```
+
+23. Safed层的ipc**(IPCServer)剖析**
+
+    1. Safed的ipc作为一个组件(local_service)，通过**启动一个线程**实现消息同步分发
+    2. Safed收到消息就会调用消息订阅的publish进行分发
+    3. Safed的组件和插件向RJJH发送消息时使用该组件功能类进行发送
+
+    ```
+    business_helper_service.cpp		// 负责实现ipc服务端的接收和发送
+    								// 1. 收到消息将消息放入队列(SafeQueue,重写的安全队列)
+    								// 2. 实现发送消息的接口(sendMsgToUI)
+    
+    communication_agent_component_impl.cpp	// 组件接口
+    
+    communication_agent.cpp		// 组件具体功能类
+    							// 1. 继承线程类，重写run，任务队列中有数据就取出并publish
+    							// 2. business_helper_service为其成员，使用其发送接口进行通信
+    ```
+
+24. 关于**项目使用的进程和线程**
 
     项目用了多少个线程？RJJH用了多少个线程呢，safed的插件统信用了8个线程？
 
@@ -3459,7 +3494,7 @@ m_pPool->submit([this, pBundle]() {
 
        > 也就是说第一种需要自己实现start、stop；第二种只需要重写run(要执行线程的函数即可)
 
-23. 关于RJJH里面的**自定义事件处理**：
+25. 关于RJJH里面的**自定义事件处理**：
 
     1. 在**event**文件夹中创建自定义事件
 
@@ -3473,7 +3508,7 @@ m_pPool->submit([this, pBundle]() {
        QApplication::instance()->installEventFilter(this)
        ```
 
-24. **修改/增加protobuffer的步骤**：
+26. **修改/增加protobuffer的步骤**：
 
     1. 修改/增加protobuffer字段
 
@@ -3483,7 +3518,7 @@ m_pPool->submit([this, pBundle]() {
 
     3. 执行`gen_proto.sh`脚本。
 
-25. **修改/替换界面图片的步骤**：
+27. **修改/替换界面图片的步骤**：
 
     1. 替换/修改图片
 
@@ -3497,19 +3532,19 @@ m_pPool->submit([this, pBundle]() {
 
        > RJJH新增的东西删除掉(自己改动的图片除外)、只保留在Output中生成的所需要的rcc文件
 
-26. **项目中更改三方库源码**(以更改glog库为例)
+28. **项目中更改三方库源码**(以更改glog库为例)
 
     1. 40上`708/third_party/`下修改源码
     2. `third_party/build_x64`/执行 `make glog`，编译后的库放在`708/mod/lib/`下
     3. 在`normal_development`仓库下重新编译打包
 
-27. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
+29. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
 
     1. 由于gitlib中已绑定自己的ssh公钥，所以直接使用git clone git@拉取即可
     2. thirdparty为项目中使用的三方库，需要在40环境下，进入该仓库的目标架构的build文件夹下，执行make编译。编译后的库文件将会输出到mod仓库的lib下。
     3. 在本地的normal_develop仓库下，需要将刚编译的lib移动到该仓库下。就可以正常使用了
 
-28. **项目中的三方库**
+30. **项目中的三方库**
 
     1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
     2. lib文件夹下面包含的是当前架构下三方库的库文件(.a)存放的地方
@@ -3517,7 +3552,7 @@ m_pPool->submit([this, pBundle]() {
     4. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
     5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
 
-29. **关于项目中的三方库**：
+31. **关于项目中的三方库**：
 
     1. 项目中的三方库在**仓库**`third_party`中，里面包含的是项目中使用到的三方库的源码(针对自己的项目修改过功能代码)。
     2. **三方库编译**：在40上对项目打包前需要先对`third_party`进行编译，打包时就会带上项目所需的三方库文件
@@ -3526,7 +3561,7 @@ m_pPool->submit([this, pBundle]() {
 
     > normal_development中的lib下是使用的编译好的库文件、libsource使用的是三方库cpp源码文件(主要是自己写的库)
 
-30. deb包的四个脚本作用和执行顺序：
+32. deb包的四个脚本作用和执行顺序：
 
     1. preinst（预安装脚本）：在**包解压和安装文件之前**执行，用于准备安装环境或检查前提条件或**备份**
 
@@ -3546,7 +3581,7 @@ m_pPool->submit([this, pBundle]() {
 
     6. postrm（后移除脚本）：：在**包的文件被移除之后**执行，用于清理或完成移除
 
-31. 当一个deb包从版本A升级到版本B，对应脚本执行顺序如下：
+33. 当一个deb包从版本A升级到版本B，对应脚本执行顺序如下：
 
     1. A的 prerm：调用旧版本 A 的 prerm，参数为 upgrade 和新版本号，准备升级。
 
@@ -3564,21 +3599,21 @@ m_pPool->submit([this, pBundle]() {
 
        > 执行B的安装脚本
 
-32. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
+34. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
 
-33. **关于项目deb和rpm包的升级脚本执行顺序**：
+35. **关于项目deb和rpm包的升级脚本执行顺序**：
 
     rpm和deb包对于升级的执行顺序不同：
 
     - **deb**：prerm（旧包）→ preinst（新包）→ 安装新包 → postinst（新包）。postrm 通常不执行，除非显式移除旧包。
     - **rpm**：%pre（新包）→ 安装新包 → %post（新包）→ %preun（旧包）→ %postun（旧包）。****
 
-34. deb包和rpm包打包区别：
+36. deb包和rpm包打包区别：
 
     1. 相同点：都会用到pre post的四个脚本，只是deb显示指定、rpm会通过创建`/SPECS/jingyun.spec`文件里面指定
     2. rpm需要在spec文件中的`%file`字段显式的指定包管理文件、deb则自动根据打包目标路径下所有文件进行管理
 
-35. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
+37. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
 
     1. 在插件中定义一个宏(`PLUGIN_EXPORT`)，应用于`createPlugin` 函数的声明。
 
@@ -3609,19 +3644,19 @@ m_pPool->submit([this, pBundle]() {
        }
        ```
 
-36. 项目**工厂模式**：
+38. 项目**工厂模式**：
 
     1. 在safed下创建升级适配工具，根据参数705或者707来创建相应的处理程序(clipp)
     2. 该升级适配工具cmake打成可执行包(cmakelist中`add_executable`)
     3. 在安装脚本中调用该脚本并传入对应参数，开始执行该工具
 
-37. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
+39. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
 
-38. 项目中的**单例模板**：
+40. 项目中的**单例模板**：
 
     `ZySingleto.h`下存放了懒汉式的单例模板
 
-39. **经典bug、问题总结**
+41. **经典bug、问题总结**
 
     1. 隔离区恢复、删除过程的暂停和停止操作。由于在同一个线程只能依次操作函数，等到恢复/删除结束后才会调用暂停和停止函数。
 
@@ -3802,6 +3837,14 @@ m_pPool->submit([this, pBundle]() {
 
 29. - [ ] 708Model层实现
       1. 有一处睡眠，应该用条件变量的，否则会有隐患
+
+30. - [ ] 查杀时取消界面卡住
+
+      > 1. engine_plugin_control.cpp中172行的这个智能指针(TaskInfoPtr)在查杀结束后进行析构。其析构函数为调用回调函数，上传进度到百分之百，从而停止查杀并同步RJJH
+      > 2. 查看complete函数打印的日志，看其智能指针计数是否归零
+      > 3. 若智能指针计数归零，看Docomplete打印日志，如果最后一行未打印，则是任务队列(m_pWorkTaskPool)的问题(取消查杀前会暂停查杀，暂停查杀会将任务队列移动)、
+
+31. - [ ] 日志逻辑需要修改，将其改为组件形式，定时去删除日志。三方库中代码已被注释
 
     
 
@@ -4085,6 +4128,8 @@ m_pPool->submit([this, pBundle]() {
        > 因为左值是具有存储空间的值，其可能还需要被别的地方使用，一旦转移，其变为空值/空指针，所以其资源不能转移
 
     3. 左值引用和右值引用本质上都是引用，只是给编译器设置了一个规范，防止后续代码出错
+    
+49. 
 
 ### 4. 末尾
 
