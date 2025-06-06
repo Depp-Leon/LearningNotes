@@ -167,7 +167,7 @@
 7. 上述使用lambda实现
 
      ```
-
+     
      ```
 
 8. 关于分离进程和守护进程：
@@ -235,8 +235,8 @@
 
    **两者区别**：
 
-       1. 分离进程作为子进程，会受到父类的**资源管理和生命周期**方面的影响。**不会自动管理资源**，也 **没有恢复机制**，通常用于那些希望在后台执行、但不需要长期稳定服务的进程。
-       2. 守护进程 **脱离了父进程和终端的控制**，并且通过一系列的步骤（如 `setsid()`、`chdir()`、关闭文件描述符等）确保自己可以长期独立稳定地运行。它 **不受父进程结束的影响**，并且具有 **自我管理能力**，如资源回收、自动重启等。通常用于后台服务和长期运行的任务
+   1. 分离进程作为子进程，会受到父类的**资源管理和生命周期**方面的影响。**不会自动管理资源**，也 **没有恢复机制**，通常用于那些希望在后台执行、但不需要长期稳定服务的进程。
+   2. 守护进程 **脱离了父进程和终端的控制**，并且通过一系列的步骤（如 `setsid()`、`chdir()`、关闭文件描述符等）确保自己可以长期独立稳定地运行。它 **不受父进程结束的影响**，并且具有 **自我管理能力**，如资源回收、自动重启等。通常用于后台服务和长期运行的任务
 
 9. 分离进程的返回值问题
 
@@ -247,76 +247,138 @@
              Logger::error() << "Fork failed";
              return false;
          }
-    if (pid == 0) {
-             // 子进程
-        UpgradeControl control;
-             bool success = control.executeInstallCommand();
-             exit(success ? EXIT_SUCCESS : EXIT_FAILURE); // 子进程用 exit
+     if (pid == 0) {
+              // 子进程
+         UpgradeControl control;
+              bool success = control.executeInstallCommand();
+              exit(success ? EXIT_SUCCESS : EXIT_FAILURE); // 子进程用 exit
+          }
+          // 父进程
+          int status;
+          waitpid(pid, &status, 0);
+          if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+              return true; // 父进程用 return
+          }
+          return false;
+      }
+     ```
+
+10. 分离进程(**fork**)、分离进程之后成为守护进程(**daemon**)的实际操作及资源回收 / **僵尸进程**的产生
+
+     1. **fork**：分离子进程，父进程负责资源回收（需 wait，否则产生僵尸进程），父进程退出后由 `init` (系统)回收
+     2. **daemon**：实际上**在其内部调用了fork**，**之后将父进程退出，子进程成为孤儿进程**，由`init`（或 systemd）负责资源回收
+     3. **fork后使用daemon**：
+        - `fork` 后，子进程调用 `daemon(0, 0)`，`daemon` 内部会再次 `fork` 并让父进程退出。
+        - 这种情况下，主进程只需要 `waitpid` 第一个子进程即可，孙子进程会被 `init` 收养，不会有僵尸。
+        - **注意**：如果你在主进程里看到 `<defunct>`，通常是**第一个子进程**还没被 waitpid 回收。
+
+11. 关于执行shell命令的库函数`system()`和`popen()`：**本质上都是通过 fork 一个子进程来执行 shell 命令**。
+
+      1. **system()**
+
+         ```c++
+         system("your_command")
+         
+         // 实例
+         // 使用 system 执行命令
+         int status = system(strCmd.c_str());
+         if (status == -1) {
+             Logger::error() << "Software upgrade, system() call failed, error: " << strerror(errno);
+             return false;
          }
-         // 父进程
-         int status;
-         waitpid(pid, &status, 0);
+         
+         // 检查退出状态
          if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-             return true; // 父进程用 return
+             Logger::info() << "Software upgrade, Command executed with exit code 0";
+             return true;
+         } else {
+             Logger::error() << "Software upgrade, Command failed, exit code: " << WEXITSTATUS(status);
+             return false;
          }
-         return false;
-     }
-    ```
-    
-10. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
+         ```
 
-     > 线程A调用 `wait` 并释放互斥量。
-     >
-     > 线程B调用 `notify_one` 来唤醒线程A，但线程B不释放互斥量，保持锁定。
-     >
-     > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
-     >
-     > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
+         做了以下事情：
 
-     1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
+         1. **fork** 一个子进程。
+         2. 在子进程中用 `/bin/sh -c "your_command"` 执行命令（即让 shell 解析并执行你的命令）。
+         3. 父进程会等待子进程结束（调用 `waitpid`），并返回子进程的退出状态。
 
-        ```c++
-        std::mutex mtx;				//互斥变量
-        std::condition_variable cv;	//条件变量
-        bool ready = false;
-        
-        void print_id(int id) {
-            std::cout << "Thread " << id << " waiting...\n";
-            
-            // 使用 unique_lock 来锁住互斥量
-            std::unique_lock<std::mutex> lck(mtx);
-            
-            // 释放互斥量并等待条件满足
-            while (!ready) { 
-                cv.wait(lck);  // 释放锁，等待被唤醒
-            }
-        
-            std::cout << "Thread " << id << " is executing\n";
-        }
-        ```
+      2. **popen()**
 
-     2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
+         ```c++
+         popen("your_command", "r")
+         
+         // 实例
+         FILE *pipe = popen(strCmd.c_str(), "r");	// 执行并建立管道
+         char buffer[1024] = {0};
+             while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {// 通过管道读取输入输出
+                 std::string line = buffer;
+                 Logger::info() << "Software upgrade: [" << line << "].";
+             }
+         pclose(pipe);	// 关闭管道
+         ```
 
-        ```c++
-        void go() {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        
-            // 修改共享条件变量
-            std::lock_guard<std::mutex> lck(mtx);
-            ready = true;
-            cv.notify_one();  // 唤醒一个等待线程
-        }
-        ```
+         也会：
 
-     3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
+         1. **fork** 一个子进程。
+         2. 在子进程中用 `/bin/sh -c "your_command"` 执行命令。
+         3. 建立一个**管道**，父进程可以通过这个管道读取子进程的输出（或写入子进程的输入）。
+         4. 父进程通过 `pclose()`等待子进程结束并获取退出状态。
 
-        1. **`std::unique_lock` 和 `wait`**：
-           - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
-           - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
-        2. **`std::lock_guard` 和 `notify_one`**：
-           - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
+12. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
 
-11. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
+       > 线程A调用 `wait` 并释放互斥量。
+       >
+       > 线程B调用 `notify_one` 来唤醒线程A，但线程B不释放互斥量，保持锁定。
+       >
+       > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
+       >
+       > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
+
+       1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
+
+          ```c++
+          std::mutex mtx;				//互斥变量
+          std::condition_variable cv;	//条件变量
+          bool ready = false;
+          
+          void print_id(int id) {
+              std::cout << "Thread " << id << " waiting...\n";
+              
+              // 使用 unique_lock 来锁住互斥量
+              std::unique_lock<std::mutex> lck(mtx);
+              
+              // 释放互斥量并等待条件满足
+              while (!ready) { 
+                  cv.wait(lck);  // 释放锁，等待被唤醒
+              }
+          
+              std::cout << "Thread " << id << " is executing\n";
+          }
+          ```
+
+       2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
+
+          ```c++
+          void go() {
+              std::this_thread::sleep_for(std::chrono::seconds(1));
+          
+              // 修改共享条件变量
+              std::lock_guard<std::mutex> lck(mtx);
+              ready = true;
+              cv.notify_one();  // 唤醒一个等待线程
+          }
+          ```
+
+       3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
+
+          1. **`std::unique_lock` 和 `wait`**：
+             - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
+             - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
+          2. **`std::lock_guard` 和 `notify_one`**：
+             - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
+
+13. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
 
    `store()` 是 `load()` 的对应存储函数，用于**原子地修改**（存储）`std::atomic` 变量的值。它们共同用于多线程环境中，保证数据访问的安全性。
 
@@ -669,7 +731,19 @@
 
 ### 4. 新特性
 
-1. `std::remove`、`std::remove_if`、`std::erase`这几个函数的区别
+1. 左值引用(`&`)和右值引用(`&&`)本质上都是引用，即都指向对象的地址。但编译器会根据引用类型决定能否绑定到某个对象、是否可以移动资源、是否可以延长临时对象的生命周期等
+
+   1. 声明为右值引用后，就表示目标函数可以对目标地址的资源进行**获取并转移**
+
+      > 因为声明为右值，也就是说该值是个临时值，可以对资源转移，因为其资源马上就会被回收清理
+   
+   2. 声明为左值引用后，原则上目标函数只能对目标地址的资源进行获取、但**不能转移**
+   
+      > 因为左值是具有存储空间的值，其可能还需要被别的地方使用，一旦转移，其变为空值/空指针，所以其资源不能转移
+   
+   3. 左值引用和右值引用本质上都是引用，只是给编译器设置了一个规范，防止后续代码出错
+   
+2. `std::remove`、`std::remove_if`、`std::erase`这几个函数的区别
 
    1. `std::remove`
 
@@ -721,7 +795,7 @@
 
       **std::erase**从容器中“物理移除“指定位置（position）或范围 [first, last) 的元素。
 
-2. std::ref有什么用？使用bind和lambda来绑定对象函数，实现开启多线程
+3. std::ref有什么用？使用bind和lambda来绑定对象函数，实现开启多线程
 
    1. 使用lambda，常用
 
@@ -751,7 +825,7 @@
 
       > std::ref(info.data()) 告诉 std::thread 将 info.data() 作为引用传递，而不是复制或转换为右值。
 
-3. 关于lambda函数出现的问题
+4. 关于lambda函数出现的问题
 
    ```c++
    class CJYVirusScanPluginImpl {
@@ -773,7 +847,7 @@
    2. 使用 [&m_pScan] 试图直接捕获成员变量是不合法的，因为 Lambda 不能直接捕获类的成员变量（m_pScan 属于 this 的成员）。正确的捕获方式是捕获 this 或 *this
    3. 如果 m_pScan 是一个正常的成员变量（例如 ScanFlowController* m_pScan;），但代码在**非成员函数或静态成员函数中**定义 Lambda，this 指针不可用，m_pScan 无法通过 [&m_pScan] 捕获。
 
-4. 使用map容器进行迭代器遍历时，`first`和`second`是成员变量而不是函数，不需要加括号(因为map使用`pair`对组作为成员，只有map使用`first`和`second`)
+5. 使用map容器进行迭代器遍历时，`first`和`second`是成员变量而不是函数，不需要加括号(因为map使用`pair`对组作为成员，只有map使用`first`和`second`)
 
    ```c++
    for(auto it = time_map.begin();it != time_map.end(); ){
@@ -786,7 +860,7 @@
    	}
    ```
 
-5. 进度回调和右值引用
+6. 进度回调和右值引用
 
    1. 右值引用：将指针转为右值，当进行了拷贝构造后就丢弃(销毁)之前的指针
    2. 将`scan_flow`的进度处理函数传给扫描引擎使用，在该插件内部调用该函数(看111)。
@@ -804,13 +878,13 @@
    };
    ```
 
-6. 执行`map[key]`会发生的行为：
+7. 执行`map[key]`会发生的行为：
 
        1. **查找**：`m_process_list[token]` 会尝试查找 `m_process_list` 中是否已经存在键为 `token` 的元素。
        2. **如果元素不存在**：`std::map` 会自动创建一个新的元素，其中键为 `token`，值为该键对应的默认值。
        3. **如果元素已存在**：`operator[]` 会返回对应的值（即 `std::set<pid_t>`），可以直接对其进行操作。
 
-7. 使用`static_cast`的时机：避免编译器执行隐式转换时可能会因为损失精度等提示异常。提前使用该类型告知，这是可以进行的，是已知的情况的。**它不会进行类型检查，所以需要用户提前确保这是正确的。**
+8. 使用`static_cast`的时机：避免编译器执行隐式转换时可能会因为损失精度等提示异常。提前使用该类型告知，这是可以进行的，是已知的情况的。**它不会进行类型检查，所以需要用户提前确保这是正确的。**
 
    ```
    auto it = m_task.find(static_cast<CmdType>(item.operate()));
@@ -818,14 +892,14 @@
    #例子：此处的map，key为自定义enum类型。而获取到的是protobuffer数据格式的枚举，没有规定两者之间进行隐式转换的定义，会报错，此时使用static_cast就可以正常使用了
    ```
 
-8. `using` 定义函数签名和回调函数
+9. `using` 定义函数签名和回调函数
 
    ```
    using MessageHandler = std::function<void(IBundle *pBundle)>;
    #MessageHandler 是一个可以接受指向 IBundle 类型的指针 pBundle 的函数的类型别名
    ```
 
-9. `unordered_multimap`的`equal_range`函数
+10. `unordered_multimap`的`equal_range`函数
 
    > multimap：可重复map
    >
@@ -841,7 +915,7 @@
    	#第二个元素是指向第一个不匹配元素的迭代器（即结束位置）。
    ```
 
-10. **map**：map 的底层是用 **红黑树（Red-Black Tree）** 实现的。红黑树是一种自平衡的二叉搜索树，能够保证查找、插入和删除等操作的时间复杂度为 O(log⁡n)O(\log n)O(logn)。因此，map 中的键是有序的，按照键的顺序存储。
+11. **map**：map 的底层是用 **红黑树（Red-Black Tree）** 实现的。红黑树是一种自平衡的二叉搜索树，能够保证查找、插入和删除等操作的时间复杂度为 O(log⁡n)O(\log n)O(logn)。因此，map 中的键是有序的，按照键的顺序存储。
 
    **unordered_map**：unordered_map 的底层是用 **哈希表（Hash Table）** 实现的。它通过哈希函数将键映射到对应的桶（bucket）中，桶内可能使用链表或类似结构来处理哈希冲突（collision）。由于哈希表的特性，unordered_map 的键是无序的，平均情况下查找、插入和删除的时间复杂度为 O(1)，但在最坏情况下（比如大量冲突）可能退化为 O(n）
 
@@ -1914,11 +1988,29 @@
 
 ### 13. 基本
 
-1. `.cc`文件也是c++源文件
+1. `::time(nullptr)` 是 C++ 标准库中的一个函数调用，用于获取当前的系统时间（通常是自 1970 年 1 月 1 日 00:00:00 UTC 到现在的秒数，称为“Unix 时间戳”）。
 
-2. 函数参数为`const char*`，传入`char *`即可，以为这个`const`是修饰这个函数内的形参的。**代表这个函数内不可以修改这个字符串**。
+   ```
+   #include <ctime>
+   time_t now = ::time(nullptr); // 获取当前时间戳 
+   ```
+   
+   > `::` 前缀确保调用的是全局命名空间下的 time 函数，避免和其他同名函数冲突。
 
-3. << 是一个**位运算符**，具体为**左移运算符**
+2. &&与&的区别：
+
+   1. `&&` 是**短路与**（逻辑与）：
+      - 如果左边条件为 `false`，右边的表达式**不会被执行**。
+      - 只要有一个为 `false`，整个表达式立即为 `false`，后面的不再判断。
+   2. `&` 是**按位与**（也可用于布尔类型）：
+      - 不管左边条件是否为 `false`，**右边的表达式都会被执行**。
+      - 两边的表达式都会被求值，然后做与运算。
+
+3. `.cc`文件也是c++源文件
+
+4. 函数参数为`const char*`，传入`char *`即可，以为这个`const`是修饰这个函数内的形参的。**代表这个函数内不可以修改这个字符串**。
+
+5. << 是一个**位运算符**，具体为**左移运算符**
 
    含义：**左移运算符**将左侧操作数的二进制位向左移动指定的位数，右侧空出的位用符号位（对于有符号整数）或 0（对于无符号整数）填充。
 
@@ -1942,13 +2034,13 @@
    (int64_t)1 << 33; // 显式转换，增加到64位
    ```
 
-4. C/C++中报错：`transfer of control bypasses initialization of`
+6. C/C++中报错：`transfer of control bypasses initialization of`
 
    原因：程序的控制流（例如通过 `goto、break、continue` 或跳转到某个代码块）跳过了变量的初始化。这会导致未定义行为，因为变量可能在未初始化时被使用。
 
    > 也就是说，在条件分支或者跳转语句可能使用了还未初始化的变量
 
-5. `#if...#else...#endif...` 符合条件时**编译**，同`is else`
+7. `#if...#else...#endif...` 符合条件时**编译**，同`is else`
 
    ```
    #if condition1
@@ -1959,12 +2051,12 @@
    	std::cout << a << std::endl;
    ```
 
-6. 宏定义判断：`#if defined(__linux__)` 和 `#endif` 是预处理指令，用于条件编译。在C++中，这些指令帮助控制代码的编译过程。具体而言：
+8. 宏定义判断：`#if defined(__linux__)` 和 `#endif` 是预处理指令，用于条件编译。在C++中，这些指令帮助控制代码的编译过程。具体而言：
 
    1. **条件编译**：`#if defined(__linux__)` 用于检查宏 `__linux__` 是否被定义。这通常是在 Linux 系统上编译代码时自动定义的宏。
    2. **编译特定部分**：如果在编译时检测到 `__linux__` 已定义，那么 `#if` 和 `#endif` 之间的代码会被编译。反之，如果不在 Linux 上编译（例如在 Windows 或其他操作系统上），那么这段代码将被忽略
 
-7. switch 语句中使用多个 case 标签共享同一代码块的写法是完全合法的。这种用法在 C++ 中称为 **fall-through（贯穿）**，只要多个 case 标签紧邻且没有中间插入 break，它们会共享后续的代码块
+9. switch 语句中使用多个 case 标签共享同一代码块的写法是完全合法的。这种用法在 C++ 中称为 **fall-through（贯穿）**，只要多个 case 标签紧邻且没有中间插入 break，它们会共享后续的代码块
 
    ```c++
    switch (m_enumPowerManageType) {
@@ -1982,14 +2074,14 @@
    }
    ```
 
-8. 在大多数平台上，`std::time_t` 是一个 64 位有符号整数（例如 Linux 的 x86-64 平台）。表示时间戳
+10. 在大多数平台上，`std::time_t` 是一个 64 位有符号整数（例如 Linux 的 x86-64 平台）。表示时间戳
 
    ```
    // 获取秒级时间戳
    int64_t timestamp = static_cast<int64_t>(time(nullptr));
    ```
 
-9. `std::string::npos` 是 C++ 标准库中 `std::string` 类的一个特殊常量，它的类型是 `std::string::size_type`（通常是 `size_t` **无符号整数**的别名），用于表示 "未找到" 的情况,它的值通常是一个非常大的整数（例如 `-1` 的无符号表示）
+11. `std::string::npos` 是 C++ 标准库中 `std::string` 类的一个特殊常量，它的类型是 `std::string::size_type`（通常是 `size_t` **无符号整数**的别名），用于表示 "未找到" 的情况,它的值通常是一个非常大的整数（例如 `-1` 的无符号表示）
 
    **具体用途**：
 
@@ -1998,7 +2090,7 @@
 
    **为什么用npos**：使用 `npos` 而不是其他值（如 -1）是因为 `size_t` 是无符号整数类型(`long unsigned int` )，无法表示负数。npos 作为最大值，天然适合表示“无效”或“超出范围”的情况
 
-10. 关于`std::nothrow` 
+11. 关于`std::nothrow` 
 
    ```
    int* p = new(std::nothrow) int[10000000000]; // 请求分配大量内存

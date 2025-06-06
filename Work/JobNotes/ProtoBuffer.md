@@ -368,4 +368,17 @@
     | **文件扩展名**     | `.xml`                                           | `.json`                                   | `.proto`（定义数据结构），编译后生成特定语言的文件         |
     | **兼容性**         | 广泛支持，几乎所有平台和语言都支持               | 广泛支持，尤其是现代 Web 开发             | 需要使用 `protobuf` 库，支持多语言（C++, Java, Python 等） |
 
-    
+30. protobuffer问题
+
+    ```
+    message TerminalStartStatusInfo {
+        enum StatusType {
+          CLIENT_STARTUP = 0;
+          CLIENT_ATTEMPT_EXIT = 1;
+          CLIENT_EXIT = 2;
+        }
+        StatusType type = 1;
+    }
+    ```
+
+    使用上面的protobuffer来传输数据时，如果`type`为`CLIENT_STARTUP`时解析出来的数据为空，因为`proto`的空值的默认值为0，而这个`message`只有一个枚举类型的成员，当这个成员的值为0时，就会导致传递时当成空值来传递
