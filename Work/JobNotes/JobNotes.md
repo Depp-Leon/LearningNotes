@@ -3899,7 +3899,9 @@ m_pPool->submit([this, pBundle]() {
 
 4. - [x] 软件升级，目前只有静默、升级免打扰情况下不会判断UI界面是否存在而后台执行升级软件。但是如果存在用户界面卡住、RJJH使用不了的情况下执行软件升级会失败，这个是否需要扩充功能
 
-5. 
+5. - [ ] 705问题修改：中控下发威胁清除，无毒/找不到的文件没有回馈状态。
+
+     > 思路：由于proc版本和中控都有下发清除威胁功能，所以需要确认一下如果是来自于中控，则执行查杀时scan函数的参数需要加上强制上报
 
 #### 2.2 备忘录
 
@@ -4175,7 +4177,38 @@ m_pPool->submit([this, pBundle]() {
 
 41. epoll是什么
 
-41. 
+41. 705打包流程
+
+    ```
+    // 1. 40上705仓库路径
+    cd workspace2/git_repo/release_705
+    
+    // 2. 编译，执行快速编译脚本/ 或者单独去对应架构编译
+    ./QuickCrossCompiling_proc.sh
+    ./QuickCrossCompiling.sh
+    // X86在进程版编译前需要将bin.cmake中携带的界面相关部分注释掉
+    
+    // 3. 打包路径，该文件夹下包含打包脚本
+    cd workspace2/git_repo/release_705/Output/bin2.0/
+    
+    // 4. 打单个包
+    vim package/pack/comp_ver_conf.ini		// 修改打包信息
+    // 具体类型去vim package/pack/version_gen_fun 里找
+    ./make_packet.sh dep gen_dep			// 执行打包脚本，第一个参数deb包，第二个为带界面
+    
+    // 5， 打全量包
+    up_pack.sh				// 全量包
+    up_proc_pack.sh			// 服务器版全量
+    up_sm_pack.sh			// 涉密版全量
+    up_vrv_pack.sh			// 北信源全量
+    
+    // 6. 出完包，查看出包地址
+    cat alpha_packets/ap.txt | grep Linux
+    ```
+
+    
+
+    
 
 
 ### 4. 末尾
