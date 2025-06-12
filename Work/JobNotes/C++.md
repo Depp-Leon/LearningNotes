@@ -327,56 +327,60 @@
 
 12. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
 
-       > 线程A调用 `wait` 并释放互斥量。
-       >
-       > 线程B调用 `notify_one` 来唤醒线程A，但线程B不释放互斥量，保持锁定。
-       >
-       > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
-       >
-       > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
+         > 线程A调用 `wait` 并释放互斥量。
+         >
+         > 线程B调用 `notify_one` 来唤醒线程A，但线程B不释放互斥量，保持锁定。
+         >
+         > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
+         >
+         > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
 
-       1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
+         1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
 
-          ```c++
-          std::mutex mtx;				//互斥变量
-          std::condition_variable cv;	//条件变量
-          bool ready = false;
-          
-          void print_id(int id) {
-              std::cout << "Thread " << id << " waiting...\n";
-              
-              // 使用 unique_lock 来锁住互斥量
-              std::unique_lock<std::mutex> lck(mtx);
-              
-              // 释放互斥量并等待条件满足
-              while (!ready) { 
-                  cv.wait(lck);  // 释放锁，等待被唤醒
-              }
-          
-              std::cout << "Thread " << id << " is executing\n";
-          }
-          ```
+            ```c++
+            std::mutex mtx;				//互斥变量
+            std::condition_variable cv;	//条件变量
+            bool ready = false;
+            
+            void print_id(int id) {
+                std::cout << "Thread " << id << " waiting...\n";
+                
+                // 使用 unique_lock 来锁住互斥量
+                std::unique_lock<std::mutex> lck(mtx);
+                
+                // 释放互斥量并等待条件满足
+                while (!ready) { 
+                    cv.wait(lck);  // 释放锁，等待被唤醒
+                }
+            
+                std::cout << "Thread " << id << " is executing\n";
+            }
+            ```
 
-       2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
+         2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
 
-          ```c++
-          void go() {
-              std::this_thread::sleep_for(std::chrono::seconds(1));
-          
-              // 修改共享条件变量
-              std::lock_guard<std::mutex> lck(mtx);
-              ready = true;
-              cv.notify_one();  // 唤醒一个等待线程
-          }
-          ```
+            ```c++
+            void go() {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            
+                // 修改共享条件变量
+                std::lock_guard<std::mutex> lck(mtx);
+                ready = true;
+                cv.notify_one();  // 唤醒一个等待线程
+            }
+            ```
 
-       3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
+            > - 当 `print_id` 线程在 `cv.wait(lck)` 处等待时，`mtx` 是**释放状态**，所以 `go()` 线程可以顺利加锁。
+            > - `go()` 线程加锁后，修改 `ready` 并 `notify_one()`，然后解锁。
+            > - 被唤醒的 `print_id` 线程会重新加锁 `mtx`，继续执行。
 
-          1. **`std::unique_lock` 和 `wait`**：
-             - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
-             - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
-          2. **`std::lock_guard` 和 `notify_one`**：
-             - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
+         3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
+
+            1. **`std::unique_lock` 和 `wait`**：
+               - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
+               - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
+            2. **`std::lock_guard` 和 `notify_one`**：
+               - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
 
 13. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
 

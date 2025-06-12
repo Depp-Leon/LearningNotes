@@ -2166,21 +2166,54 @@ m_pPool->submit([this, pBundle]() {
    /usr/bin/python3.8 ./main.py -a PACK_TEST -n vrvsd -v V708			// 本地测试
    ```
    
-4. 本地通过`192.168.1.6`(共用的包环境),拉取最新的包进行安装测试
+4. **705**打包流程
+
+   ```
+   // 1. 40上705仓库路径
+   cd ~/workspace2/git_repo/release_705
+   
+   // 2. 编译，执行快速编译脚本/ 或者单独去对应架构编译
+   ./QuickCrossCompiling_proc.sh
+   ./QuickCrossCompiling.sh
+   // X86在进程版编译前需要将bin.cmake中携带的界面相关部分注释掉
+   
+   // 3. 打包路径，该文件夹下包含打包脚本
+   cd ~/workspace2/git_repo/release_705/Output/bin2.0/
+   
+   // 4. 打单个包
+   vim package/pack/comp_ver_conf.ini		// 修改打包信息
+   // 具体类型去vim package/pack/version_gen_fun 里找
+   ./make_packet.sh dep gen_dep			// 执行打包脚本，第一个参数deb包，第二个为带界面
+   
+   // 5， 打全量包
+   up_pack.sh				// 全量包
+   up_proc_pack.sh			// 服务器版全量
+   up_sm_pack.sh			// 涉密版全量
+   up_vrv_pack.sh			// 北信源全量
+   
+   up_proc_pack.sh vrv		// 北信源服务版
+   
+   
+   // 6. 出完包，查看出包地址
+   cat alpha_packets/ap.txt | grep Linux
+   
+   ```
+
+5. 本地通过`192.168.1.6`(共用的包环境),拉取最新的包进行安装测试
 
    ```
    public share #账号密码
    cd Linux_Packets/text/common/deb/XXX.deb
    ```
 
-5. 安装、卸载
+6. 安装、卸载
 
    ```
    sudo dpkg -i xxx.deb		#安装
    sudo dpkg -P chenxinsd		#卸载
    ```
 
-6. 中控(ip变更、要最新ip)账号密码
+7. 中控(ip变更、要最新ip)账号密码
 
    ```
    admin	vsecure2020		#中控账号密码
@@ -2189,7 +2222,7 @@ m_pPool->submit([this, pBundle]() {
    192.168.1.112 	#试用中控
    ```
 
-7. 测试远程ip、账号、密码
+8. 测试远程ip、账号、密码
 
    ```
    192.168.2.14
@@ -2201,7 +2234,7 @@ m_pPool->submit([this, pBundle]() {
    1QAZ2wsx
    ```
 
-8. 本地出包：
+9. 本地出包：
 
    ```
    cd ~/ChenxinSpace/normal_develop/Output/bin2.0/py_make_packet
@@ -3899,9 +3932,42 @@ m_pPool->submit([this, pBundle]() {
 
 4. - [x] 软件升级，目前只有静默、升级免打扰情况下不会判断UI界面是否存在而后台执行升级软件。但是如果存在用户界面卡住、RJJH使用不了的情况下执行软件升级会失败，这个是否需要扩充功能
 
-5. - [ ] 705问题修改：中控下发威胁清除，无毒/找不到的文件没有回馈状态。
+5. - [x] 705问题修改：中控下发威胁清除，无毒/找不到的文件没有回馈状态。
 
      > 思路：由于proc版本和中控都有下发清除威胁功能，所以需要确认一下如果是来自于中控，则执行查杀时scan函数的参数需要加上强制上报
+   
+6. 升级相关问题：
+
+   - [x] 升级是进度条卡住不动:
+
+     1. 卡在分离子进程，此时关闭自保，将分离子进程kill掉，重新启动自保
+     2. 卡在分离子进程，且过段时间出现初始化失败，此时删除sock通信ipc文件
+
+     > deb包可以通过修改包名来测试升级，rpm不可以
+   
+7. - [x] 705上报md5，文件过大提交到中控是空的情况。
+
+     > ZyEnginePlugin.cpp 中414行为上传设置md5
+     >
+     > FileObject.cpp 中81行获取md5
+   
+8. - [x] 定时任务：
+
+     1. 存在无来源的查杀任务
+
+     2. 定时任务的关闭功能不生效
+
+        > 1. 刷新的时候如果从数据库读取为空(即今天之后没有任务了)则不刷新缓存了，这点错误
+        >
+        > 2. 病毒库升级插件和Scan插件都有对定时配置的注册，后续是否需要重新修改一下
+
+9. - [ ] 升级之后个别系统不会自动启动RJJH
+
+10. - [x] 强力查杀结束后无毒也重启
+
+    
+
+
 
 #### 2.2 备忘录
 
@@ -3921,7 +3987,7 @@ m_pPool->submit([this, pBundle]() {
 
    > 最终原因还是因为使用了redis之后，执行卸载脚本将safed进程杀掉之后将子进程也杀掉了，导致管道中断
 
-3. 问题：rpm包在中控执行下发软件升级(rpm -U )时，提示错误没有子进程:
+3. 问题：rpm包在中控执行下发软件升级(rpm -U )时，提示错误**没有子进程**:
 
    ```
    错误:%prein(chenxinsd-7.0.0.8-25053038.amd64)脚本执行失败,waitpid(10017)rc -1:No child processes
@@ -3955,7 +4021,7 @@ m_pPool->submit([this, pBundle]() {
 
    原因：fork子进程后，使用daemon，daemon会再次分离进程，并将父进程退出。主进程此时存在且未回收初次分离的子进程导致该子进程退出后未被回收成为僵尸进程
    
-5. protobuffer问题
+5. **protobuffer问题**
 
    ```
    message TerminalStartStatusInfo {
@@ -3969,6 +4035,24 @@ m_pPool->submit([this, pBundle]() {
    ```
 
    使用上面的protobuffer来传输数据时，如果`type`为`CLIENT_STARTUP`时解析出来的数据为空，因为`proto`的空值的默认值为0，而这个`message`只有一个枚举类型的成员，当这个成员的值为0时，就会导致传递时当成空值来传递
+   
+6. **lseek64参数溢出/类型问题**
+
+   ```
+   // 修改前：
+   off64_t pos = lseek64(fd, 0 - sizeof(tmpBuf), SEEK_END);
+   // 修改后：
+   off64_t poslseek64(fd, -(off64_t)sizeof(tmpBuf), SEEK_END);
+   ```
+
+   **原因**：
+
+   1. off64_t是一个有符号的 64 位整数类型，通常定义为 `long long int` 或 `int64_t`，用于表示文件中的偏移量（字节数）。
+   2. `sizeof(tmpBuf)` 的类型是 `size_t`，它是**无符号整数**。
+   3. 表达式 `0 - sizeof(tmpBuf)`，<u>由于有无符号参与，结果会先提升为无符号类型</u>，得到一个很大的正数（实际上是 `UINT_MAX + 1 - sizeof(tmpBuf)`）。
+   4. 这个大正数再被传递给 lseek64的参数off64_t(有符号），会被解释为一个很大的正偏移，而不是想要的负偏移。
+
+   **解决**：`sizeof(tmpBuf)` <u>先被转换为有符号类型</u>，再取负，结果才是想要的负偏移。
 
 ### 4. 代码部分
 
@@ -4177,38 +4261,112 @@ m_pPool->submit([this, pBundle]() {
 
 41. epoll是什么
 
-41. 705打包流程
+42. C删除文件
+
+    ```c++
+    if (stat(m_ipcServiceName.toStdString().c_str(), &st) == 0) {
+            if (unlink(m_ipcServiceName.toStdString().c_str()) != 0) {
+                LOG(WARNING) << "Failed to remove existing IPC service socket: " << m_ipcServiceName.toStdString();
+            }
+        }
+    ```
+    
+42. 在 C/C++ 中，**只要表达式中有无符号整数类型参与运算**（比如 `size_t`），整个表达式会提升为无符号类型，结果也是无符号类型。这叫做“整型提升”或“常规算术转换”。
+
+    这会导致负数结果变成一个很大的正数（溢出），如 `0 - sizeof(tmpBuf)`，如果 `sizeof(tmpBuf)` 是 `size_t`，结果是一个很大的无符号数。
+    
+43. 关于项目中<u>定时任务</u>使用到的**未来机制(std::future)**
 
     ```
-    // 1. 40上705仓库路径
-    cd workspace2/git_repo/release_705
+    // std::future<void> m_rutureTimedTask;
     
-    // 2. 编译，执行快速编译脚本/ 或者单独去对应架构编译
-    ./QuickCrossCompiling_proc.sh
-    ./QuickCrossCompiling.sh
-    // X86在进程版编译前需要将bin.cmake中携带的界面相关部分注释掉
     
-    // 3. 打包路径，该文件夹下包含打包脚本
-    cd workspace2/git_repo/release_705/Output/bin2.0/
+    CTimedTasks::~CTimedTasks()
+    {
+        m_runningTimedTask = false;
+        if (m_runningTimedTask && JYThread::isRunning(m_rutureTimedTask))
+            JYThread::waitForFinished(m_rutureTimedTask);
+    }
     
-    // 4. 打单个包
-    vim package/pack/comp_ver_conf.ini		// 修改打包信息
-    // 具体类型去vim package/pack/version_gen_fun 里找
-    ./make_packet.sh dep gen_dep			// 执行打包脚本，第一个参数deb包，第二个为带界面
-    
-    // 5， 打全量包
-    up_pack.sh				// 全量包
-    up_proc_pack.sh			// 服务器版全量
-    up_sm_pack.sh			// 涉密版全量
-    up_vrv_pack.sh			// 北信源全量
-    
-    // 6. 出完包，查看出包地址
-    cat alpha_packets/ap.txt | grep Linux
+    void CTimedTasks::start()
+    {
+        m_rutureTimedTask = JYThread::run(std::bind(&CTimedTasks::run, this));
+    }
     ```
 
-    
+44. 关于项目中<u>定时任务</u>使用到的**条件变量**
 
+    ```
+    std::condition_variable m_lockcv;
     
+    
+    void CTimedTasks::run()
+    {
+        while (m_runningTimedTask) {
+            updateTimedTasks();
+            checkTimedTasksRunnable();
+            // 定时任务暂时是按照分钟设置的，不需要那么高的检查频率
+            std::unique_lock<std::mutex> ulock(m_lockMutex);
+            m_lockcv.wait_for(ulock, std::chrono::seconds(50), [this] { return this->m_isCheckTime == true; });
+        }
+    }
+    
+    void CTimedTasks::UpdateTimedTasks()
+    {
+        m_isCheckTime = true;
+        m_lockcv.notify_all();
+    }
+    ```
+
+    1. 条件变量的`wait_for`的三个参数
+       - `std::unique_lock<std::mutex>`: 在等待期间自动解锁和加锁互斥量，保证线程安全；必须先持有锁，wait_for 内部会在等待时释放锁，唤醒后重新加锁
+       - `std::chrono::duration`: 指定最多等待多长时间，如果在这段时间内没有被唤醒，wait_for 会超时返回
+       - `lambda` 表达式或函数，返回 `bool`： 判断是否满足唤醒条件。只有当返回 true 时，wait_for 才会结束等待；如果条件为 false，即使被 notify 也会继续等待，直到超时或条件为 true。
+    2. 条件变量的通知函数`notify_all()`（或 `notify_one()`）
+       - 作用是唤醒正在 `wait_for` 上等待的线程，让它提前结束等待、立即继续执行
+       - 被唤醒后，`wait_for` 会再次检查(第三个参数) `[this] { return this->m_isCheckTime == true; }`；如果为 `true`，线程立即结束等待，继续执行后续逻辑（如刷新定时任务）。
+    3. 多个线程可以持有同一个 `std::condition_variable` 实例，并在不同的 `std::unique_lock` 上调用 `wait_for`，这在生产者-消费者、定时任务等场景非常常见。
+       - **每次 wait_for 都需要持有同一个 mutex（或 unique_lock）**，否则行为未定义。
+       - 如果有多个线程在同一个条件变量上等待，`notify_one` 只唤醒一个，`notify_all` 会唤醒所有等待线程。
+
+45. 关于C++的**互斥锁管理类**：`std::lock_guard<std::mutex>`和`std::unique_lock<std::mutex>`
+
+    1. `std::lock_guard<std::mutex>`：用法简单，只负责加锁和自动解锁（RAII），不能手动解锁或重新加锁。
+
+       > **RAII**（Resource Acquisition Is Initialization，资源获取即初始化）：对象的生命周期和资源的管理绑定在一起。在对象构造时**获取资源**（如锁、内存、文件句柄等），在对象析构时**自动释放资源**。
+
+    2. `std::unique_lock<std::mutex>`：不仅支持RAII，而且支持手动 `lock/unlock`、延迟加锁、**条件变量**等待等。
+
+       > **适合需要与条件变量配合使用的场景**
+
+46. 进程通信的方式并详细讲管道。原理、总结
+
+47. 信号量、互斥锁、条件变量之间的关系：
+
+    1. **互斥锁**：专注于**互斥**性，确保共享资源一次只被一个线程访问。常用于保护临界区
+
+    2. **条件变量**：
+
+       - **建立在互斥锁之上**，是一种**同步机制**，用于**线程间**的协作，允许线程等待某个条件成立，同时避免忙等待。
+
+       - 提供等待和通知机制，线程在**等待条件时释放锁，条件满足时被唤醒**。
+
+         ```
+         wait / wait_for
+         signal: notify_one / notify_all
+         ```
+
+       - 典型场景：生产者-消费者模型
+
+    3. **信号量**：信号量是一个计数器，操作系统提供的真实同步原语。
+
+       - 当计数器为1时可以模拟互斥锁
+
+       - 通过两个信号量（一个控制条件，一个控制互斥），可以模拟条件变量的等待/通知机制
+
+       - 但是其`P/V`操作与`wait/signal`有所不同
+
+         > 1. P/V为原语，不需要依赖互斥锁；而wait不仅阻塞线程，而且还释放互斥锁
 
 
 ### 4. 末尾
