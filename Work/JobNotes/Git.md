@@ -120,10 +120,16 @@
 9. 关于`git log`展示版本信息
 
    ```
-   commit e62ae9e1171a13a6a87c0149e00c448a5b73b4ce (HEAD -> feature_707_refactoring, origin/feature_707_refactoring, feature_707_refactoring_jyd)
+   commit e62ae9e1171a13a6a87c0149e00c448a5b73b4ce (HEAD -> feature_707_refactoring_jyd, origin/feature_707_refactoring, feature_707_refactoring)
    ```
 
-   1. `origin/feature_707_refactoring`
+   1. `HEAD -> feature_707_refactoring_jyd`
+
+      - **HEAD** 是 Git 中的特殊指针，表示你**当前所在的工作位置**（当前检出的提交，**本地分支**）。
+   - **-> feature_707_refactoring_jyd** 表示 HEAD 当前指向本地分支 feature_707_refactoring_jyd。
+      - **含义**：你当前检出的分支是 feature_707_refactoring_jyd，工作目录和索引（staging area）基于这个分支的最新提交。
+      
+   2. `origin/feature_707_refactoring`
 
       - 这是一个**远程跟踪分支**（remote-tracking branch）与本地的同名分支建立了跟踪关系。
 
@@ -135,15 +141,9 @@
 
       - **含义**：这是你本地仓库中记录的远程分支 `origin/feature_707_refactoring` 的状态，通常通过 `git fetch` 更新。它表示远程仓库中这个分支的最新提交。
 
-   2. `HEAD -> feature_707_refactoring_jyd`
-
-      - **HEAD** 是 Git 中的特殊指针，表示你**当前所在的工作位置**（当前检出的提交）。
-      - **-> feature_707_refactoring_jyd** 表示 HEAD 当前指向本地分支 feature_707_refactoring_jyd。
-      - **含义**：你当前检出的分支是 feature_707_refactoring_jyd，工作目录和索引（staging area）基于这个分支的最新提交。
-
    3. `feature_707_refactoring`
 
-      - 这是**本地分支**的名称
+      - 这是你本地的另一个分支 `feature_707_refactoring`，它也指向当前这个提交。
 
 10. `git push`时如果检测到某次`commit`有`error`(比如有文件大于100M)，那么就需要本地版本回溯然后再解决问题，不然历史提交记录永远会保存这次的提交信息，导致后续永远`push`错误
 
