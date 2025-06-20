@@ -893,12 +893,15 @@
        2. **如果元素不存在**：`std::map` 会自动创建一个新的元素，其中键为 `token`，值为该键对应的默认值。
        3. **如果元素已存在**：`operator[]` 会返回对应的值（即 `std::set<pid_t>`），可以直接对其进行操作。
 
-8. 使用`static_cast`的时机：避免编译器执行隐式转换时可能会因为损失精度等提示异常。提前使用该类型告知，这是可以进行的，是已知的情况的。**它不会进行类型检查，所以需要用户提前确保这是正确的。**
+8. 使用`static_cast`的时机：**避免编译器执行隐式转换时可能会因为损失精度等提示异常**，**保证跨平台类型安全**。提前使用该类型告知，这是可以进行的，是已知的情况的。**它不会进行类型检查，所以需要用户提前确保这是正确的。**
 
-   ```
+   ```c++
    auto it = m_task.find(static_cast<CmdType>(item.operate()));
    
-   #例子：此处的map，key为自定义enum类型。而获取到的是protobuffer数据格式的枚举，没有规定两者之间进行隐式转换的定义，会报错，此时使用static_cast就可以正常使用了
+   //例子1：此处的map，key为自定义enum类型。而获取到的是protobuffer数据格式的枚举，没有规定两者之间进行隐式转换的定义，会报错，此时使用static_cast就可以正常使用了
+   
+   sqlite3_bind_int64(stmtInsert, 3, static_cast<int64_t>(time(nullptr)));
+   //例子2：此处函数sqlite3_bind_int64的第三个参数为int64_t,time(nullptr) 的返回值类型是 std::time_t，它在不同平台上可能是 long、long long 或其他整型类型，但不一定等于 int64_t。所以明确把 time_t 转换为 int64_t，保证类型匹配，避免编译器警告或隐式类型转换带来的问题
    ```
 
 9. `using` 定义函数签名和回调函数
@@ -1488,7 +1491,7 @@
 
       > 在插件接口cpp中：`PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()`
 
-      ```
+      ```c++
       void *dlsym(void *handle, const char *symbol);
       
       #参数：
@@ -1496,27 +1499,33 @@
       symbol：需要查找的符号名称（通常是函数名或全局变量名）。
       
       #案例：
-      using CreatePluginFunc = std::unique_ptr<IPlugin>();
+      using CreatePluginFunc = std::unique_ptr<IPlugin>(); // 定义函数指针类型，接受动态库对外接口函数
       CreatePluginFunc *createPlugin = reinterpret_cast<CreatePluginFunc *>(dlsym(handle, "createPlugin"));
       if (!createPlugin) {
             std::cerr << "Error getting createPlugin function: " << dlerror() << std::endl;
              dlclose(handle);
              return false;
       }
-      ```
-
-   3. `dlclose`：关闭动态库，并释放相关资源
-
-      ```
-      int dlclose(void *handle);
       
-      #返回值：
+   // 插件中定义返回函数，用于获取插件指针
+      PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()
+   {
+          return std::unique_ptr<CJYVirusScanPluginImpl>(new CJYVirusScanPluginImpl());
+      }
+      ```
+   
+   3. `dlclose`：关闭动态库，并释放相关资源
+   
+      ```
+   int dlclose(void *handle);
+      
+   #返回值：
       成功：返回 0。
       失败：返回非零值
       ```
-
+   
    4. `dlerror`：返回最近一次 `dlopen`、`dlsym` 或 `dlclose` 调用的错误信息。
-
+   
       ```
       const char *dlerror(void);
       

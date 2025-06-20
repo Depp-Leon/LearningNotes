@@ -166,5 +166,95 @@
    (sqlite3_open(path.c_str(), &sourceDb)
    ```
 
-   
+10. C++中使用sqlite3的一些语法
+
+    1. 打开数据库
+
+       ```c++
+       sqlite3 *db = nullptr;
+       int rc = sqlite3_open("test.db", &db);		//test.db是路径
+       
+       // 打开数据库(只读)
+       int rc = sqlite3_open_v2(sqlSourcePath.c_str(), &sqlSource, SQLITE_OPEN_READONLY, nullptr);
+       // 打开目标数据库（读写）
+       rc = sqlite3_open_v2(sqlDestPath.c_str(), &sqlDest, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+       
+       // sqlite3_open_v2 和 sqlite3_open的区别在于sqlite3_open_v2更灵活，可以指定打开模式（只读/只写/创建等）
+       ```
+
+       > **作用**：打开（或创建）一个数据库文件，返回数据库连接句柄 `db`。
+
+    2. 预编译 SQL 语句
+
+       ```c++
+       sqlite3_stmt *stmt = nullptr;
+       const char *sql = "INSERT INTO users (name, age) VALUES (?, ?)";
+       int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
+       
+       // sqlite3_stmt 是SQLite 预编译语句对象的类型，它代表一条已经编译好的 SQL 语句，可以多次绑定参数、执行、重置，效率高
+       ```
+
+       > **作用**：将 SQL 语句编译成可执行的预编译语句（`stmt`），提高效率并防止 SQL 注入。
+
+    3. 绑定参数
+
+       ```C++
+       sqlite3_bind_text(stmt, 1, "Alice", -1, SQLITE_STATIC);
+       sqlite3_bind_int(stmt, 2, 30);
+       
+       // SQLITE_STATIC 是 SQLite 绑定参数时的一个回调参数，用于告诉 SQLite：
+       // 你传入的字符串是静态的，不需要 SQLite 负责释放内存
+       // 比如这里 "Alice" 是常量字符串，SQLite 不会在用完后去释放它。
+       ```
+
+       > **作用**：为 SQL 语句中的 `?` 占位符绑定实际参数。
+
+    4. 执行语句
+
+       ```c++
+       int rc = sqlite3_step(stmt);
+       ```
+
+       > **作用**：执行预编译语句。对于 `INSERT`/`UPDATE`/`DELETE`，执行一次即可；对于 `SELECT`，每次调用返回一行数据
+
+    5. 读取结果（仅 SELECT）
+
+       ```c++
+       const unsigned char *name = sqlite3_column_text(stmt, 0);
+       int age = sqlite3_column_int(stmt, 1);
+       ```
+
+       > **作用**：获取当前行的列数据。
+
+    6. 重置语句
+
+       ```
+       sqlite3_reset(stmt);
+       ```
+
+       > **作用**：重置语句到初始状态，可以重新绑定参数并再次执行。
+
+    7. 清除绑定
+
+       ```c++
+       sqlite3_clear_bindings(stmt);
+       ```
+
+       > **作用**：清除所有已绑定的参数。
+
+    8. 释放语句
+
+       ```c++
+       sqlite3_finalize(stmt);
+       ```
+
+       > **作用**：释放预编译语句对象，防止内存泄漏。
+
+    9. 关闭数据库
+
+       ```c++
+       sqlite3_close(db);
+       ```
+
+       
 

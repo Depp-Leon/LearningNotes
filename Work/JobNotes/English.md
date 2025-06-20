@@ -7,3 +7,5 @@
 **migrate**		v. 迁移
 
 **summary**	n. 总结，概述
+
+**district**	n. 地区，行政
