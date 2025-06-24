@@ -3865,7 +3865,55 @@ m_pPool->submit([this, pBundle]() {
 
     `ZySingleto.h`下存放了懒汉式的单例模板
 
-42. 
+42. 项目的**生产者消费者模式**：
+
+    1. 将查杀过程中的上报进度放入独立的线程进行上报
+    2. 将查杀过程(威胁清除)的上报空路径到中控放入到独立的线程
+
+    使用`std::thread`+`std::queue`+`std::mutex`/`std::condition_variable`实现生产者-消费者模型。
+
+    ```c++
+    std::queue<ThreatReportData> m_threatReportQueue;	// 共享队列
+    std::mutex m_threatReportMutex;						// 互斥锁
+    std::condition_variable m_threatReportCV;			// 条件变量
+    
+    bool m_threatReportThreadRunning = true;			// 线程循环条件
+    std::thread m_threatReportThread;					// 线程变量
+    
+    // 生产者实现入队
+    void ScanFlowController::enqueueThreatReport(const std::string& path, const std::string& md5, vse::CleanAction action) {
+        {
+            std::lock_guard<std::mutex> lock(m_threatReportMutex);
+            m_threatReportQueue.push({path, md5, action});
+        }
+        m_threatReportCV.notify_one();
+    }
+    
+    // 消费者实现出队并上报
+    void ScanFlowController::reportRemoveThreatListThread()
+    {
+        while (true) {
+            std::vector<std::string> batch;
+            {
+                std::unique_lock<std::mutex> lock(m_reportRemoveThreatListMutex);
+                m_threatReportCV.wait(lock, [this] { return !m_threatReportQueue.empty() || !m_threatReportThreadRunning; });
+                while (!m_threatReportQueue.empty() && batch.size() < 100) {
+                    LOG(WARNING) << "reportRemoveThreatListThread: " << m_threatReportQueue.front();
+                    batch.push_back(m_threatReportQueue.front());
+                    m_threatReportQueue.pop();
+                }
+                if (!m_threatReportThreadRunning && m_threatReportQueue.empty())
+                    break;
+            }
+            for (auto &data : batch) {
+                threatClearanceExceptionPathHandling(data, std::string(""), vse::CleanAction::CLEAN_CLEAN);
+            }
+        }
+    }
+    
+    ```
+
+    
 
 ### 2. 工作部分
 
@@ -4031,9 +4079,13 @@ m_pPool->submit([this, pBundle]() {
 
 12. - [x] 升级时增加判断逻辑，只有705之后的包可以升级到708，705之前的包在prinst中增加终端提示
 
-13. - [ ] 大批量数据上报，会导致查杀效率降低，需排查什么情况
+13. - [x] 大批量数据上报，会导致查杀效率降低，需排查什么情况
 
       > tips: 中控下发威胁清除，之前的逻辑是开始清除前要先遍历要查的文件，如果有不存在的就会进行上报。若不存在的威胁数据量比较大，这个上报一条一条进行上报就会导致查杀迟迟不开始，影响查杀
+      
+      思路：使用生产者、消费者模型，需要上报时将数据放入共享队列中，查杀时将上报操作放入独立的线程或任务队列
+      
+      > 共享队列，条件变量、互斥锁
 
 14. - [ ] 界面数据量过大时的卡顿问题，需要改为子线程发信号，槽函数阻塞式连接
 
@@ -4061,13 +4113,15 @@ m_pPool->submit([this, pBundle]() {
        优先判断如果是uos系统，则只找uos路径
        ```
 
-    - [ ] 705以下的数据库/设置适配，放入到705适配工具中实现，参考705的适配代码。看数据库(ALTER TABLE)适配时添加的那些字段即低版本需要适配的；设置就跟705一样，因为它的配置只会比705少，所以大概走705适配原代码就可以
+    - [x] 705以下的数据库/设置适配，放入到705适配工具中实现，参考705的适配代码。看数据库(ALTER TABLE)适配时添加的那些字段即低版本需要适配的；设置就跟705一样，因为它的配置只会比705少，所以大概走705适配原代码就可以
 
-       > 云查配置：Netxxx.ini    这个比较特殊，单独拿出来放在一个文件中
-
+       > 1. 版本信息：Config中，和配置信息在一块
+       > 2. 云查配置：Netxxx.ini    这个比较特殊，单独拿出来放在一个文件中
+       > 3. 隔离区的数据、隔离区、白名单、授权信息、中控信息等路径跟705一样的，使用705即可
+       > 4. 防护日志需要看一下和705的有区别没，若没区别则同使用705的
+       > 5. 定时任务704和705不同，但是由于定时任务这个版本同步功能并未实现。暂时记下任务，待后续有时间再实现
+       
     - [ ] 老版本和705没有RJJHetc路径，此路径在${HOME}中的Jingyunxxxx目录中，没有对这个目录进行适配。如果测试未提出此问题，暂时先搁置不关注
-
-
 
 #### 2.2 备忘录
 
@@ -4153,6 +4207,12 @@ m_pPool->submit([this, pBundle]() {
    4. 这个大正数再被传递给 lseek64的参数off64_t(有符号），会被解释为一个很大的正偏移，而不是想要的负偏移。
 
    **解决**：`sizeof(tmpBuf)` <u>先被转换为有符号类型</u>，再取负，结果才是想要的负偏移。
+   
+7. 威胁清除，上报空路径过多导致的查杀卡顿/失效
+
+   **背景**：下发威胁清除会重新走一遍查杀，若md5为空则上报中控。若这个数据量过大，会导致查杀卡顿。尝试使用缓存，查杀结束后统一上报，但是会导致查杀结束后不可以继续查杀。
+
+   **解决**：使用异步上报的方式，将上报操作放入独立的线程或任务队列，查杀主流程只负责将需要上报的数据推入队列，不等待上报完成。使用`std::thread`+`std::queue`+`std::mutex`/`std::condition_variable`实现生产者-消费者模型。
 
 ### 4. 代码部分
 
@@ -4422,10 +4482,29 @@ m_pPool->submit([this, pBundle]() {
        - `std::unique_lock<std::mutex>`: 在等待期间自动解锁和加锁互斥量，保证线程安全；必须先持有锁，wait_for 内部会在等待时释放锁，唤醒后重新加锁
        - `std::chrono::duration`: 指定最多等待多长时间，如果在这段时间内没有被唤醒，wait_for 会超时返回
        - `lambda` 表达式或函数，返回 `bool`： 判断是否满足唤醒条件。只有当返回 true 时，wait_for 才会结束等待；如果条件为 false，即使被 notify 也会继续等待，直到超时或条件为 true。
-    2. 条件变量的通知函数`notify_all()`（或 `notify_one()`）
+       
+    2. 条件变量的`wait()`和`wait_for()`的区别：
+
+       - `wait()`:线程会一直阻塞，直到收到通知（notify_one/notify_all）并且条件满足（如果有条件谓词的话）。
+
+         ```c++
+         std::unique_lock<std::mutex> lock(mutex);
+         cv.wait(lock, []{ return 条件; });
+         ```
+
+       - **wait_for**：线程会阻塞**一段指定的时间**。如果在这段时间内收到通知并且条件满足，则提前返回；否则超时后返回
+
+         ```c++
+         std::unique_lock<std::mutex> lock(mutex);
+         cv.wait_for(lock, std::chrono::seconds(5), []{ return 条件; });
+         ```
+
+    3. 条件变量的通知函数`notify_all()`（或 `notify_one()`）
+
        - 作用是唤醒正在 `wait_for` 上等待的线程，让它提前结束等待、立即继续执行
        - 被唤醒后，`wait_for` 会再次检查(第三个参数) `[this] { return this->m_isCheckTime == true; }`；如果为 `true`，线程立即结束等待，继续执行后续逻辑（如刷新定时任务）。
-    3. 多个线程可以持有同一个 `std::condition_variable` 实例，并在不同的 `std::unique_lock` 上调用 `wait_for`，这在生产者-消费者、定时任务等场景非常常见。
+
+    4. 多个线程可以持有同一个 `std::condition_variable` 实例，并在不同的 `std::unique_lock` 上调用 `wait_for`，这在生产者-消费者、定时任务等场景非常常见。
        - **每次 wait_for 都需要持有同一个 mutex（或 unique_lock）**，否则行为未定义。
        - 如果有多个线程在同一个条件变量上等待，`notify_one` 只唤醒一个，`notify_all` 会唤醒所有等待线程。
 
