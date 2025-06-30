@@ -4087,19 +4087,53 @@ m_pPool->submit([this, pBundle]() {
       
       > 共享队列，条件变量、互斥锁
 
-14. - [ ] 界面数据量过大时的卡顿问题，需要改为子线程发信号，槽函数阻塞式连接
+15. - [x] 黑名单分页逻辑重构
 
-15. - [ ] 清除威胁过程中，右键查杀卡死
+      > 1. 界面点击页码，RJJH只保存7条，点击哪页就请求safed获取哪几条数据
+      > 2. 界面点击恢复/删除，分为正选/反选(若全选模式)，同步safed去处理
+      > 3. RJJH和safed使用的protobuffer字段重新封装在HimitoHelper中
+
+      功能点：
+
+      > 1. RJJH界面功能
+      >
+      >    - 初始化界面数据同步请求、接收(initTable,updateTable，request)
+      >    - 页码切换
+      >    - 头选框状态修改,包括头选、全选(正选、反选、已选列表)、表格选框的更改槽函数
+      >    - 接收到数据请求时，Safed做的功能是从数据库**倒序**选择所需的数据并返回
+      >
+      > 2. RJJH添加数据、接收回馈      
+      >
+      >    - RJJH添加没问题，Safed回馈时不加info，只回馈成功
+      >    - RJJH接收到回馈时不存储数据，改为刷新界面
+      >
+      > 3. RJJH删除数据、接收回馈
+      >
+      >    - RJJH删除提交的是**选中的列表**，Safed接收后按照原方式进行删除(只能删除MD5格式)
+      >
+      >      删除的同时增加线程，按秒去读取数据库。当删除成功后，停止线程
+      >
+      >    - Safed删除时需要判断正选还是反选，如果是反选，则除了下发的这些其余都删除
+      >
+      >    - Safed对结果回馈，和添加回馈使用同一个字段，只需要确认成功后并且刷新界面就好
+      >
+      >    
+
+15. - [x] 清除威胁过程中，右键查杀卡死
 
       > 现象：如果在清除威胁的过程下发右键查杀，弹窗正在进行威胁清除，随后会导致界面卡住，且界面跳转异常
       >
       > 1. safed后台继续执行清除威胁
       > 2. 界面界面卡住，查看scanmodel是否收到safed向UI发送的数据
       > 3. 考虑是否是因为弹窗点击了确定，导致客户端界面更换，是否会跳转到其他界面，是否会清除掉清除威胁的数据等
+      >
+      > 界面下发查杀不会排队，会直接进行弹窗提示；safed会进行弹窗
+      >
+      > 排查界面为什么会跳转，看Safed是否继续上报处理，看RJJH是否能收到消息？在哪个地方断开
 
 17. - [x] 查杀上报进度问题，由于查杀引擎两个线程进行查杀，若两个都查杀大文件，会导致他们很长间隔才调用进度上报。所以开启独立线程进行上报
 
-17. - [ ] 通过中控下载的安装包，桌面双击安装包安装，授权服务器ip地址未填充
+18. - [x] 通过中控下载的安装包，桌面双击安装包安装，授权服务器ip地址未填充
 
       > 在JYNinstall中通过获取dpkg进程命令来获取到包名
       >
@@ -4107,7 +4141,7 @@ m_pPool->submit([this, pBundle]() {
 
 19. - [x] 添加、删除信任区数据及删除、恢复隔离区数据动作日志没有上报到中控(黑白隔离区先加)
 
-19. 低版本适配问题
+20. 低版本适配问题
 
     - [x] 705升级708，白名单以md5格式的数据存储在文件中，需要在适配白名单的时候，将该文件中的数据取出来插入到数据库中
 
@@ -4704,7 +4738,27 @@ m_pPool->submit([this, pBundle]() {
     echo $var    # 什么都不输出，var没有污染全局
     ```
 
-    
+57. 虚拟机挂起重新开启后，如果显示"有线未托管"，右上角丢失有线连接选项时，终端重启网络服务
+
+    ```shell
+    sudo systemctl restart NetworkManager
+    ```
+
+58. 学一下Qt的Model，数据模型。复盘Qt。完善简历。初心！(项目)
+
+    > QTableWidget、Model、
+
+59. 右键查杀
+
+    ```c++
+    1. 右键查杀槽函数定义在FramelessWindow中
+    2. 连接MainWindow和FramelessWindow的信号槽
+    connect(this, SIGNAL(sigRightSelectScan(QString)), m_pWindowController, SLOT(slotRightSelectScan(QString)));
+    3. 在rjjh.main中连接ZySinGleApplication和FramelessWindow的信号槽
+    app.connect(&app, SIGNAL(messageRightSelectScan(QString)), &mainWindow, SLOT(rightSelectScan(QString)));
+    ```
+
+60. 
 
 
 ### 4. 末尾
