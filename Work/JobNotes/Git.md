@@ -1,11 +1,19 @@
-1. 使用git
+1. 关于git合并之后的合并日志
+
+   1. 使用`git rebase` 代替 `git merge`可以做到将当前分支的提交“摘下来”，**顺序应用到目标分支的最新提交之后**，**不会生成合并提交**，历史变成一条直线，**合并记录消失**。
+
+   2. 如果`git merge` 之后，再提交之前执行了 `git pull --rebase` ，合并记录仍然会消失。
+
+      > 因为`git pull --rebase`实际上就是先 `git fetch`，然后 `git rebase` 到远程分支
+
+2. 使用git
 
    ```
    git status    #查看状态、包括所在分支、变更的文件信息
    git checkout <修改的文件地址>  #将这个文件恢复之前从版本库的样子	
    ```
 
-2. git push
+3. git push
 
    ```
    feat：新增功能
@@ -42,7 +50,7 @@
    示例：ci: update CI configuration
    ```
 
-3. git如何确认与远端的差异
+4. git如何确认与远端的差异
 
    > git pull是从远程仓库拉代码并merge到你的本地仓库，pull是两个命令的合（fetch和merge）
 
@@ -53,13 +61,13 @@
    git log --oneline --graph --all：可视化查看分支和提交情况。
    ```
 
-4. `git cherry-pick` 用于从一个分支中选择特定的提交（commit）并将其应用到当前分支
+5. `git cherry-pick` 用于从一个分支中选择特定的提交（commit）并将其应用到当前分支
 
    ```
    git cherry-pick <commit-hash>
    ```
 
-5. git先add再pull和commit后再pull
+6. git先add再pull和commit后再pull
 
    ```
    操作	先 git add 再 git pull	先 git commit 再 git pull
@@ -77,7 +85,7 @@
    >
    > pull将会拉取远端修改记录与本地做比较，从而会有冲突。解决完冲突完成本地合并（有冲突的文件如果已经add或者commit需要重新addcommit），再push远端将会有合并记录和commit记录
 
-6. git add. git commit git pull git push的理解
+7. git add. git commit git pull git push的理解
 
    > pull是为了本地 commit 和远程commit 的对比记录,git 是按照文件的行数操作进行对比的,如果同时操作了某文件的同一行（在两个人操作同一个分支才会冲突）那么就会产生冲突,git 也会把这个冲突给标记出来,这个时候就需要先把和你冲突的那个人拉过来问问保留谁的代码,然后在 git add && git commit && git pull 这三连,再次 pull 一次是为了防止再你们协商的时候另一个人给又提交了一版东西,如果真发生了那流程重复一遍,通常没有冲突的时候就直接给你合并了,不会把你的代码给覆盖掉
 
@@ -99,7 +107,7 @@
 
    > commit 后 push 之前需要 pull --rebase，然后再 push。pull 最好加 --rebase，可以将刚刚的 commit rebase 至远程最新的 commit，这样有时可避免直接 pull 造成的无用 merge 提交（因为 pull 等于 fetch && merge，如果远程提交比你本地提交新，就会产生 merge）。当然如果有冲突，是否加 --rebase 还都要手动解决冲突，然后再 push。
 
-7. `git` 版本回溯
+8. `git` 版本回溯
 
    ```
    git log 查看提交记录号
@@ -109,7 +117,7 @@
    git checkout .   #丢弃工作区的改动，如果还需要这些改动不要执行这句
    ```
 
-8. 关于`git clone`远程拉仓库
+9. 关于`git clone`远程拉仓库
 
    ```
    使用git clone就可以直接把仓库拉到本地，并同步log，并把当前作为本地git仓库
@@ -117,7 +125,7 @@
    使用git clone http@时不需要配公钥，根据仓库的类型可以允许克隆,但是需要在github上给用户权限才能push
    ```
 
-9. 关于`git log`展示版本信息
+10. 关于`git log`展示版本信息
 
    ```
    commit e62ae9e1171a13a6a87c0149e00c448a5b73b4ce (HEAD -> feature_707_refactoring_jyd, origin/feature_707_refactoring, feature_707_refactoring)
@@ -145,20 +153,20 @@
 
       - 这是你本地的另一个分支 `feature_707_refactoring`，它也指向当前这个提交。
 
-10. `git push`时如果检测到某次`commit`有`error`(比如有文件大于100M)，那么就需要本地版本回溯然后再解决问题，不然历史提交记录永远会保存这次的提交信息，导致后续永远`push`错误
+11. `git push`时如果检测到某次`commit`有`error`(比如有文件大于100M)，那么就需要本地版本回溯然后再解决问题，不然历史提交记录永远会保存这次的提交信息，导致后续永远`push`错误
 
-11. github报错：`ssh: connect to host github.com port 22: Connection refused fatal`
+12. github报错：`ssh: connect to host github.com port 22: Connection refused fatal`
 
     原因：`dns`被污染，导致解析`github.com`域名解析出来是本地`127.0.0.1`
 
     解决：在`host`文件中加入域名映射：`140.82.113.4 github.com`
 
-12. 关于git提交有感：
+13. 关于git提交有感：
 
     1. 先git add . 再git pull下，如果pull下的文件对本次修改的文件有冲突，因为没提交，所以直接pull将会覆盖本次对该文件的修改(git会提示)。需要先提交commit才能pull。(因为这种情况下没提交，本地没有给你提供待解决的冲突)。这种情况下优点是gitlab中记录只有一次，少了merge记录，缺点是有冲突发现不了会被覆盖
     2. 先commit 再pull，本地提交记录会保存该次提交，pull时会将仓库提交记录拉取下来与本地记录比较，如果有相同文件的操作，那么会在本地文件中标记冲突，需要解决后重新add  commit 再push。优点是有冲突直接可以找到并解决，缺点是push后远端仓库记录中会有两次
 
-13. 当使用`commit`注释打错了，可以使用如下命令，进入修改注释
+14. 当使用`commit`注释打错了，可以使用如下命令，进入修改注释
 
     ```
     git commit --amend

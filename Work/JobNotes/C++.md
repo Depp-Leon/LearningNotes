@@ -119,9 +119,103 @@
 > 3. 信号量、条件变量、互斥锁
 > 4. 承诺-未来机制
 
-1. 开启线程对日志进行实时检测，当停止时，不仅要停止外层的检查日志循环，也要停止行的检测，所以需要两个停止变量。
+1. 信号量、互斥锁、条件变量之间的关系：
 
-2. 线程里面对成员变量的访问/操作要使用原子操作(即使用原子类型)
+     1. **互斥锁**：专注于**互斥**性，确保共享资源一次只被一个线程访问。常用于保护临界区
+
+     2. **条件变量**：
+
+        - **建立在互斥锁之上**，是一种**同步机制**，用于**线程间**的协作，允许线程等待某个条件成立，同时避免忙等待。
+
+        - 提供等待和通知机制，线程在**等待条件时释放锁，条件满足时被唤醒**。
+
+          ```
+          wait / wait_for
+          signal: notify_one / notify_all
+          ```
+
+        - 典型场景：生产者-消费者模型
+
+     3. **信号量**：信号量是一个计数器，操作系统提供的真实同步原语。
+
+        - 当计数器为1时可以模拟互斥锁
+
+        - 通过两个信号量（一个控制条件，一个控制互斥），可以模拟条件变量的等待/通知机制
+
+        - 但是其`P/V`操作与`wait/signal`有所不同
+
+          > 1. P/V为原语，不需要依赖互斥锁；而wait不仅阻塞线程，而且还释放互斥锁
+
+2. 关于C++的**互斥锁管理类(互斥锁)**：`std::lock_guard<std::mutex>`和`std::unique_lock<std::mutex>`
+
+     1. `std::lock_guard<std::mutex>`：用法简单，只负责加锁和自动解锁（RAII），不能手动解锁或重新加锁。
+
+        > **RAII**（Resource Acquisition Is Initialization，资源获取即初始化）：对象的生命周期和资源的管理绑定在一起。在对象构造时**获取资源**（如锁、内存、文件句柄等），在对象析构时**自动释放资源**。
+
+     2. `std::unique_lock<std::mutex>`：不仅支持RAII，而且支持手动 `lock/unlock`、延迟加锁、**条件变量**等待等。
+
+        > **适合需要与条件变量配合使用的场景**
+
+3. 关于项目中<u>定时任务</u>使用到的**条件变量**，常搭配生产者消费者模式
+
+     > 同样的有：1、上报进度开启独立线程 2、威胁清除上报空字段开启独立线程
+
+     ```c++
+     std::condition_variable m_lockcv;
+     
+     void CTimedTasks::run()
+     {
+         while (m_runningTimedTask) {
+             updateTimedTasks();
+             checkTimedTasksRunnable();
+             // 定时任务暂时是按照分钟设置的，不需要那么高的检查频率
+             std::unique_lock<std::mutex> ulock(m_lockMutex);
+             m_lockcv.wait_for(ulock, std::chrono::seconds(50), [this] { return this->m_isCheckTime == true; });
+         }
+     }
+     
+     void CTimedTasks::UpdateTimedTasks()
+     {
+         m_isCheckTime = true;
+         m_lockcv.notify_all();
+     }
+     ```
+
+     1. 条件变量的`wait_for`的三个参数
+
+        - `std::unique_lock<std::mutex>`: 在等待期间自动解锁和加锁互斥量，保证线程安全；必须先持有锁，wait_for 内部会在等待时释放锁，唤醒后重新加锁
+        - `std::chrono::duration`: 指定最多等待多长时间，如果在这段时间内没有被唤醒，wait_for 会超时返回
+        - `lambda` 表达式或函数，返回 `bool`： 判断是否满足唤醒条件。只有当返回 true 时，wait_for 才会结束等待；如果条件为 false，即使被 notify 也会继续等待，直到超时或条件为 true。
+
+     2. 条件变量的`wait()`和`wait_for()`的区别：
+
+        - `wait()`:线程会一直阻塞，直到收到通知（notify_one/notify_all）并且条件满足（如果有条件谓词的话）。
+
+          ```c++
+          std::unique_lock<std::mutex> lock(mutex);
+          cv.wait(lock, []{ return 条件; });
+          ```
+
+        - **wait_for**：线程会阻塞**一段指定的时间**。如果在这段时间内收到通知并且条件满足，则提前返回；否则超时后返回
+
+          ```c++
+          std::unique_lock<std::mutex> lock(mutex);
+          cv.wait_for(lock, std::chrono::seconds(5), []{ return 条件; });
+          ```
+
+     3. 条件变量的通知函数`notify_all()`（或 `notify_one()`）
+
+        - 作用是唤醒正在 `wait_for` 上等待的线程，让它提前结束等待、立即继续执行
+        - 被唤醒后，`wait_for` 会再次检查(第三个参数) `[this] { return this->m_isCheckTime == true; }`；如果为 `true`，线程立即结束等待，继续执行后续逻辑（如刷新定时任务）。
+
+     4. 多个线程可以持有同一个 `std::condition_variable` 实例，并在不同的 `std::unique_lock` 上调用 `wait_for`，这在生产者-消费者、定时任务等场景非常常见。
+
+        - **每次 wait_for 都需要持有同一个 mutex（或 unique_lock）**，否则行为未定义。
+        - 如果有多个线程在同一个条件变量上等待，`notify_one` 只唤醒一个，`notify_all` 会唤醒所有等待线程。
+
+4. 开启线程对日志进行实时检测，当停止时，不仅要停止外层的检查日志循环，也要停止行的检测，所以需要两个停止变量。
+
+5. 线程里面对成员变量的访问/操作要使用原子操作(即使用原子类型)
 
    ```c++
    std::atomic<bool> 
@@ -129,13 +223,13 @@
    std::atomic<int>
    ```
 
-3. 开启线程时，把两个线程分开，要`detach`而不要加`join`，`join`会导致第二个线程开启不来
+6. 开启线程时，把两个线程分开，要`detach`而不要加`join`，`join`会导致第二个线程开启不来
 
-4. C++多线程，传递类的非静态函数，方法一使用`lambda`，方法二使用`bind`
+7. C++开启多线程时，传递类的非静态函数，方法一使用`lambda`，方法二使用`bind`
 
    > 原因：传递非静态函数需要指定对象指针
 
-5. 线程使用`bind`绑定`this`指针
+8. 类开启线程方式一：线程使用`bind`绑定`this`指针
 
    ```
    m_checkConnectStateThread = std::thread(std::bind(&CZDFYHandlerMassage::CheckUiConnectState, this));
@@ -147,7 +241,7 @@
    >
    > `&CZDFYHandlerMassage::CheckUiConnectState` 指向成员函数的指针，`this` 是指向当前类实例的指针。
 
-6. 如果在`std::bind`中使用实参，而不是占位符，那么在调用绑定的函数时，`std::bind`会将这些实参作为固定参数传递给成员函
+9. 如果在`std::bind`中使用实参，而不是占位符，那么在调用绑定的函数时，`std::bind`会将这些实参作为固定参数传递给成员函
 
        1. 传入实参
 
@@ -169,225 +263,226 @@
      boundFunc(3, 4);  // Output: Sum: 7
      ```
 
-7. 上述使用lambda实现
-
-     ```
-     
-     ```
-
-8. 关于分离进程和守护进程：
-
-   **分离进程**：分离进程是指一个进程从其父进程中“分离”出来，不再受父进程的控制。父进程和子进程各自独立运行，父进程不必等待子进程结束。
-
-   > 分离进程通常用于那些需要**在后台独立运行的程序**，例如在启动时与终端会话断开的任务。
-
-   1. 父子进程从 `fork()` 之后的代码开始**并行运行**
+10. 类开启线程方式二：上述使用lambda实现
 
      ```c++
-     pid_t pid = fork();
-     if (pid < 0) {
-         // 错误处理
-         exit(1);
-     } else if (pid > 0) {
-         exit(0);  // 父进程退出
-     }
-     // 子进程中 即  pid == 0 为子进程
-     if (setsid() < 0) {				
-         // 错误处理
-         exit(1);
-     }
-     
+     m_checkConnectStateThread = std::thread([this]() { CheckUiConnectState(); });
+     // 如果有参数就在()中添加
      ```
 
-     **守护进程**：守护进程是一种特殊的分离进程，它通常用于长期运行的**后台服务**。守护进程的生命周期**独立于任何控制终端**。
+11. 关于分离进程和守护进程：
 
-     > 通常需要先调用分离进程`fork`，再将子进程作为守护进程
+    **分离进程**：分离进程是指一个进程从其父进程中“分离”出来，不再受父进程的控制。父进程和子进程各自独立运行，父进程不必等待子进程结束。
 
-   2. `daemon`用于将当前进程变成 **守护进程**，即后台独立运行且与控制终端断开的进程
+    > 分离进程通常用于那些需要**在后台独立运行的程序**，例如在启动时与终端会话断开的任务。
 
-     ```
-     bool becomeDaemon()
-         {
-             if (chdir("/") == -1) {
-                 return false;
-             }
-     
-             if (daemon(0, 0) != 0) {
-                 std::cerr << "Failed to daemonize." << std::endl;
-                 return false;
-             }
-     
-             std::cout << "Daemon started." << std::endl;
-             return t=rue;
-         }		
-     ```
+    1. 父子进程从 `fork()` 之后的代码开始**并行运行**
 
-   ```
-   // 原型
-   #include <unistd.h>
-   int daemon(int nochdir, int noclose);
-   **`nochdir`**：
-   
-   - 如果为 **0**，将工作目录更改为根目录 (`/`)。
-   - 如果为 **1**，则保持当前工作目录不变。
-   
-   noclose：
-   - 如果为 **0**，则关闭标准输入 (`stdin`)、标准输出 (`stdout`)、标准错误 (`stderr`)，并将它们重定向到 `/dev/null`。
-   - 如果为 **1**，保持标准输入/输出/错误流不变。
-   ```
-
-     
-
-   **两者区别**：
-
-   1. 分离进程作为子进程，会受到父类的**资源管理和生命周期**方面的影响。**不会自动管理资源**，也 **没有恢复机制**，通常用于那些希望在后台执行、但不需要长期稳定服务的进程。
-   2. 守护进程 **脱离了父进程和终端的控制**，并且通过一系列的步骤（如 `setsid()`、`chdir()`、关闭文件描述符等）确保自己可以长期独立稳定地运行。它 **不受父进程结束的影响**，并且具有 **自我管理能力**，如资源回收、自动重启等。通常用于后台服务和长期运行的任务
-
-9. 分离进程的返回值问题
-
-     ```c++
-     bool UpgradeProcess::installPackage() {
-         pid_t pid = fork();
-         if (pid < 0) {
-             Logger::error() << "Fork failed";
-             return false;
-         }
-     if (pid == 0) {
-              // 子进程
-         UpgradeControl control;
-              bool success = control.executeInstallCommand();
-              exit(success ? EXIT_SUCCESS : EXIT_FAILURE); // 子进程用 exit
-          }
-          // 父进程
-          int status;
-          waitpid(pid, &status, 0);
-          if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-              return true; // 父进程用 return
-          }
-          return false;
+      ```c++
+      pid_t pid = fork();
+      if (pid < 0) {
+          // 错误处理
+          exit(1);
+      } else if (pid > 0) {
+          exit(0);  // 父进程退出
       }
-     ```
+      // 子进程中 即  pid == 0 为子进程
+      if (setsid() < 0) {				
+          // 错误处理
+          exit(1);
+      }
+      
+      ```
 
-10. 分离进程(**fork**)、分离进程之后成为守护进程(**daemon**)的实际操作及资源回收 / **僵尸进程**的产生
+      **守护进程**：守护进程是一种特殊的分离进程，它通常用于长期运行的**后台服务**。守护进程的生命周期**独立于任何控制终端**。
 
-     1. **fork**：分离子进程，父进程负责资源回收（需 wait，否则产生僵尸进程），父进程退出后由 `init` (系统)回收
-     2. **daemon**：实际上**在其内部调用了fork**，**之后将父进程退出，子进程成为孤儿进程**，由`init`（或 systemd）负责资源回收
-     3. **fork后使用daemon**：
-        - `fork` 后，子进程调用 `daemon(0, 0)`，`daemon` 内部会再次 `fork` 并让父进程退出。
-        - 这种情况下，主进程只需要 `waitpid` 第一个子进程即可，孙子进程会被 `init` 收养，不会有僵尸。
-        - **注意**：如果你在主进程里看到 `<defunct>`，通常是**第一个子进程**还没被 waitpid 回收。
+      > 通常需要先调用分离进程`fork`，再将子进程作为守护进程
 
-11. 关于执行shell命令的库函数`system()`和`popen()`：**本质上都是通过 fork 一个子进程来执行 shell 命令**。
+    2. `daemon`用于将当前进程变成 **守护进程**，即后台独立运行且与控制终端断开的进程
 
-      1. **system()**
+      ```
+      bool becomeDaemon()
+          {
+              if (chdir("/") == -1) {
+                  return false;
+              }
+      
+              if (daemon(0, 0) != 0) {
+                  std::cerr << "Failed to daemonize." << std::endl;
+                  return false;
+              }
+      
+              std::cout << "Daemon started." << std::endl;
+              return t=rue;
+          }		
+      ```
 
-         ```c++
-         system("your_command")
-         
-         // 实例
-         // 使用 system 执行命令
-         int status = system(strCmd.c_str());
-         if (status == -1) {
-             Logger::error() << "Software upgrade, system() call failed, error: " << strerror(errno);
-             return false;
-         }
-         
-         // 检查退出状态
-         if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-             Logger::info() << "Software upgrade, Command executed with exit code 0";
-             return true;
-         } else {
-             Logger::error() << "Software upgrade, Command failed, exit code: " << WEXITSTATUS(status);
-             return false;
-         }
-         ```
+    ```
+    // 原型
+    #include <unistd.h>
+    int daemon(int nochdir, int noclose);
+    **`nochdir`**：
+    
+    - 如果为 **0**，将工作目录更改为根目录 (`/`)。
+    - 如果为 **1**，则保持当前工作目录不变。
+    
+    noclose：
+    - 如果为 **0**，则关闭标准输入 (`stdin`)、标准输出 (`stdout`)、标准错误 (`stderr`)，并将它们重定向到 `/dev/null`。
+    - 如果为 **1**，保持标准输入/输出/错误流不变。
+    ```
 
-         做了以下事情：
+      
 
-         1. **fork** 一个子进程。
-         2. 在子进程中用 `/bin/sh -c "your_command"` 执行命令（即让 shell 解析并执行你的命令）。
-         3. 父进程会等待子进程结束（调用 `waitpid`），并返回子进程的退出状态。
+    **两者区别**：
 
-      2. **popen()**
+    1. 分离进程作为子进程，会受到父类的**资源管理和生命周期**方面的影响。**不会自动管理资源**，也 **没有恢复机制**，通常用于那些希望在后台执行、但不需要长期稳定服务的进程。
+    2. 守护进程 **脱离了父进程和终端的控制**，并且通过一系列的步骤（如 `setsid()`、`chdir()`、关闭文件描述符等）确保自己可以长期独立稳定地运行。它 **不受父进程结束的影响**，并且具有 **自我管理能力**，如资源回收、自动重启等。通常用于后台服务和长期运行的任务
 
-         ```c++
-         popen("your_command", "r")
-         
-         // 实例
-         FILE *pipe = popen(strCmd.c_str(), "r");	// 执行并建立管道
-         char buffer[1024] = {0};
-             while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {// 通过管道读取输入输出
-                 std::string line = buffer;
-                 Logger::info() << "Software upgrade: [" << line << "].";
-             }
-         pclose(pipe);	// 关闭管道
-         ```
+12. 分离进程的返回值问题
 
-         也会：
+      ```c++
+      bool UpgradeProcess::installPackage() {
+          pid_t pid = fork();
+          if (pid < 0) {
+              Logger::error() << "Fork failed";
+              return false;
+          }
+      if (pid == 0) {
+               // 子进程
+          UpgradeControl control;
+               bool success = control.executeInstallCommand();
+               exit(success ? EXIT_SUCCESS : EXIT_FAILURE); // 子进程用 exit
+           }
+           // 父进程
+           int status;
+           waitpid(pid, &status, 0);
+           if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+               return true; // 父进程用 return
+           }
+           return false;
+       }
+      ```
 
-         1. **fork** 一个子进程。
-         2. 在子进程中用 `/bin/sh -c "your_command"` 执行命令。
-         3. 建立一个**管道**，父进程可以通过这个管道读取子进程的输出（或写入子进程的输入）。
-         4. 父进程通过 `pclose()`等待子进程结束并获取退出状态。
+13. 分离进程(**fork**)、分离进程之后成为守护进程(**daemon**)的实际操作及资源回收 / **僵尸进程**的产生
 
-12. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
+       1. **fork**：分离子进程，父进程负责资源回收（需 wait，否则产生僵尸进程），父进程退出后由 `init` (系统)回收
+       2. **daemon**：实际上**在其内部调用了fork**，**之后将父进程退出，子进程成为孤儿进程**，由`init`（或 systemd）负责资源回收
+       3. **fork后使用daemon**：
+          - `fork` 后，子进程调用 `daemon(0, 0)`，`daemon` 内部会再次 `fork` 并让父进程退出。
+          - 这种情况下，主进程只需要 `waitpid` 第一个子进程即可，孙子进程会被 `init` 收养，不会有僵尸。
+          - **注意**：如果你在主进程里看到 `<defunct>`，通常是**第一个子进程**还没被 waitpid 回收。
 
-     > 线程A调用 `wait` 并释放互斥量。
-     >
-     > 线程B调用 `notify_one` 来唤醒线程A，但线程B不释放互斥量，保持锁定。
-     >
-     > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
-     >
-     > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
+14. 关于执行shell命令的库函数`system()`和`popen()`：**本质上都是通过 fork 一个子进程来执行 shell 命令**。
 
-     1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
+        1. **system()**
 
-        ```c++
-        std::mutex mtx;				//互斥变量
-        std::condition_variable cv;	//条件变量
-        bool ready = false;
-        
-        void print_id(int id) {
-            std::cout << "Thread " << id << " waiting...\n";
-            
-            // 使用 unique_lock 来锁住互斥量
-            std::unique_lock<std::mutex> lck(mtx);
-            
-            // 释放互斥量并等待条件满足
-            while (!ready) { 
-                cv.wait(lck);  // 释放锁，等待被唤醒
-            }
-        
-            std::cout << "Thread " << id << " is executing\n";
-        }
-        ```
+           ```c++
+           system("your_command")
+           
+           // 实例
+           // 使用 system 执行命令
+           int status = system(strCmd.c_str());
+           if (status == -1) {
+               Logger::error() << "Software upgrade, system() call failed, error: " << strerror(errno);
+               return false;
+           }
+           
+           // 检查退出状态
+           if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+               Logger::info() << "Software upgrade, Command executed with exit code 0";
+               return true;
+           } else {
+               Logger::error() << "Software upgrade, Command failed, exit code: " << WEXITSTATUS(status);
+               return false;
+           }
+           ```
 
-     2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
+           做了以下事情：
 
-        ```c++
-        void go() {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        
-            // 修改共享条件变量
-            std::lock_guard<std::mutex> lck(mtx);
-            ready = true;
-            cv.notify_one();  // 唤醒一个等待线程
-        }
-        ```
+           1. **fork** 一个子进程。
+           2. 在子进程中用 `/bin/sh -c "your_command"` 执行命令（即让 shell 解析并执行你的命令）。
+           3. 父进程会等待子进程结束（调用 `waitpid`），并返回子进程的退出状态。
 
-        > - 当 `print_id` 线程在 `cv.wait(lck)` 处等待时，`mtx` 是**释放状态**，所以 `go()` 线程可以顺利加锁。
-        > - `go()` 线程加锁后，修改 `ready` 并 `notify_one()`，然后解锁。
-        > - 被唤醒的 `print_id` 线程会重新加锁 `mtx`，继续执行。
+        2. **popen()**
 
-     3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
+           ```c++
+           popen("your_command", "r")
+           
+           // 实例
+           FILE *pipe = popen(strCmd.c_str(), "r");	// 执行并建立管道
+           char buffer[1024] = {0};
+               while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {// 通过管道读取输入输出
+                   std::string line = buffer;
+                   Logger::info() << "Software upgrade: [" << line << "].";
+               }
+           pclose(pipe);	// 关闭管道
+           ```
 
-        1. **`std::unique_lock` 和 `wait`**：
-           - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
-           - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
-        2. **`std::lock_guard` 和 `notify_one`**：
-           - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
+           也会：
 
-13. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
+           1. **fork** 一个子进程。
+           2. 在子进程中用 `/bin/sh -c "your_command"` 执行命令。
+           3. 建立一个**管道**，父进程可以通过这个管道读取子进程的输出（或写入子进程的输入）。
+           4. 父进程通过 `pclose()`等待子进程结束并获取退出状态。
+
+15. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
+
+       > 线程A调用 `wait` 并释放互斥量。
+       >
+       > 线程B调用 `notify_one` 来唤醒线程A，但线程B不释放互斥量，保持锁定。
+       >
+       > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
+       >
+       > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
+
+       1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
+
+          ```c++
+          std::mutex mtx;				//互斥变量
+          std::condition_variable cv;	//条件变量
+          bool ready = false;
+          
+          void print_id(int id) {
+              std::cout << "Thread " << id << " waiting...\n";
+              
+              // 使用 unique_lock 来锁住互斥量
+              std::unique_lock<std::mutex> lck(mtx);
+              
+              // 释放互斥量并等待条件满足
+              while (!ready) { 
+                  cv.wait(lck);  // 释放锁，等待被唤醒
+              }
+          
+              std::cout << "Thread " << id << " is executing\n";
+          }
+          ```
+
+       2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
+
+          ```c++
+          void go() {
+              std::this_thread::sleep_for(std::chrono::seconds(1));
+          
+              // 修改共享条件变量
+              std::lock_guard<std::mutex> lck(mtx);
+              ready = true;
+              cv.notify_one();  // 唤醒一个等待线程
+          }
+          ```
+
+          > - 当 `print_id` 线程在 `cv.wait(lck)` 处等待时，`mtx` 是**释放状态**，所以 `go()` 线程可以顺利加锁。
+          > - `go()` 线程加锁后，修改 `ready` 并 `notify_one()`，然后解锁。
+          > - 被唤醒的 `print_id` 线程会重新加锁 `mtx`，继续执行。
+
+       3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
+
+          1. **`std::unique_lock` 和 `wait`**：
+             - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
+             - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
+          2. **`std::lock_guard` 和 `notify_one`**：
+             - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
+
+16. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
 
    `store()` 是 `load()` 的对应存储函数，用于**原子地修改**（存储）`std::atomic` 变量的值。它们共同用于多线程环境中，保证数据访问的安全性。
 
@@ -740,19 +835,72 @@
 
 ### 4. 新特性
 
-1. 左值引用(`&`)和右值引用(`&&`)本质上都是引用，即都指向对象的地址。但编译器会根据引用类型决定能否绑定到某个对象、是否可以移动资源、是否可以延长临时对象的生命周期等
+1. C++显示类型转换
+
+   1. `static_cast`
+
+      作用：用于**相关类型之间的转换**，如基本类型之间、类层次结构的上/下转型（无虚函数时）
+   
+      > 编译期检查类型安全。
+   
+      场景：在两个自定义枚举类型之间转换时使用，否则编译无法识别，会报错
+   
+   2. `dynamic_cast`
+   
+      作用：用于**多态类型（有虚函数的类）之间的安全转换**，主要用于**向下转型**（**父类指针/引用转子类**）。
+   
+      ```
+      Base* b = new Derived();
+      Derived* d = dynamic_cast<Derived*>(b); 
+      // Derived继承于Base，如果b实际指向Derived，转换成功，否则返回nullptr
+      // 由于父指针可以指向不同的子类，所以使用动态转换可以辨别出父类指针指向的是哪个子类
+      ```
+   
+      > 运行时检查类型安全，转换失败返回 `nullptr`（指针）或抛异常（引用）。
+   
+      场景：多态基类指针/引用转子类指针/引用，判断实际类型。
+   
+   3. `const_cast`
+   
+      作用：用于**去除或添加 const/volatile 限定符**，但不能改变对象的底层类型。
+   
+      ```
+      const int* p = ...;
+      int* q = const_cast<int*>(p); // 去除const 
+      ```
+   
+      > 只能去除常量对象的指针或引用
+   
+      场景：需要调用只能接受非常量参数的函数，但你只有 const 对象时（需确保实际对象非const）。
+   
+   4. `reinterpret_cast`
+   
+      作用：用于**几乎任意类型之间的低级别转换**，如指针与整数、不同类型指针之间的转换。
+   
+      > 这种转换不会进行类型检查，完全按照位模式(比特位)重新解释内存中的数据
+   
+      ```c++
+      using CreatePluginFunc = std::unique_ptr<IPlugin>(); // 定义函数指针类型，接受动态库对外接口函数
+      CreatePluginFunc *createPlugin = reinterpret_cast<CreatePluginFunc *>(dlsym(handle, "createPlugin"));
+      ```
+   
+      场景：比如获取动态库的函数指针，dlsym返回的是`void*`，此时需要把这个 `void*` 转换为 `CreatePluginFunc*`（函数指针类型），才能调用它。这种转换**只能用 `reinterpret_cast`**，因为它允许不同类型指针之间的转换（包括 `void*` 到函数指针）
+   
+      > C++ 标准不允许直接把 `void*` 转换为函数指针,所以不能直接用 `static_cast`来转换
+   
+2. 左值引用(`&`)和右值引用(`&&`)本质上都是引用，即都指向对象的地址。但编译器会根据引用类型决定能否绑定到某个对象、是否可以移动资源、是否可以延长临时对象的生命周期等
 
    1. 声明为右值引用后，就表示目标函数可以对目标地址的资源进行**获取并转移**
 
       > 因为声明为右值，也就是说该值是个临时值，可以对资源转移，因为其资源马上就会被回收清理
-   
+
    2. 声明为左值引用后，原则上目标函数只能对目标地址的资源进行获取、但**不能转移**
-   
+
       > 因为左值是具有存储空间的值，其可能还需要被别的地方使用，一旦转移，其变为空值/空指针，所以其资源不能转移
-   
+
    3. 左值引用和右值引用本质上都是引用，只是给编译器设置了一个规范，防止后续代码出错
-   
-2. `std::remove`、`std::remove_if`、`std::erase`这几个函数的区别
+
+3. `std::remove`、`std::remove_if`、`std::erase`这几个函数的区别
 
    1. `std::remove`
 
@@ -804,7 +952,7 @@
 
       **std::erase**从容器中“物理移除“指定位置（position）或范围 [first, last) 的元素。
 
-3. std::ref有什么用？使用bind和lambda来绑定对象函数，实现开启多线程
+4. std::ref有什么用？使用bind和lambda来绑定对象函数，实现开启多线程
 
    1. 使用lambda，常用
 
@@ -834,7 +982,7 @@
 
       > std::ref(info.data()) 告诉 std::thread 将 info.data() 作为引用传递，而不是复制或转换为右值。
 
-4. 关于lambda函数出现的问题
+5. 关于lambda函数出现的问题
 
    ```c++
    class CJYVirusScanPluginImpl {
@@ -856,7 +1004,7 @@
    2. 使用 [&m_pScan] 试图直接捕获成员变量是不合法的，因为 Lambda 不能直接捕获类的成员变量（m_pScan 属于 this 的成员）。正确的捕获方式是捕获 this 或 *this
    3. 如果 m_pScan 是一个正常的成员变量（例如 ScanFlowController* m_pScan;），但代码在**非成员函数或静态成员函数中**定义 Lambda，this 指针不可用，m_pScan 无法通过 [&m_pScan] 捕获。
 
-5. 使用map容器进行迭代器遍历时，`first`和`second`是成员变量而不是函数，不需要加括号(因为map使用`pair`对组作为成员，只有map使用`first`和`second`)
+6. 使用map容器进行迭代器遍历时，`first`和`second`是成员变量而不是函数，不需要加括号(因为map使用`pair`对组作为成员，只有map使用`first`和`second`)
 
    ```c++
    for(auto it = time_map.begin();it != time_map.end(); ){
@@ -869,7 +1017,7 @@
    	}
    ```
 
-6. 进度回调和右值引用
+7. 进度回调和右值引用
 
    1. 右值引用：将指针转为右值，当进行了拷贝构造后就丢弃(销毁)之前的指针
    2. 将`scan_flow`的进度处理函数传给扫描引擎使用，在该插件内部调用该函数(看111)。
@@ -887,13 +1035,13 @@
    };
    ```
 
-7. 执行`map[key]`会发生的行为：
+8. 执行`map[key]`会发生的行为：
 
        1. **查找**：`m_process_list[token]` 会尝试查找 `m_process_list` 中是否已经存在键为 `token` 的元素。
        2. **如果元素不存在**：`std::map` 会自动创建一个新的元素，其中键为 `token`，值为该键对应的默认值。
        3. **如果元素已存在**：`operator[]` 会返回对应的值（即 `std::set<pid_t>`），可以直接对其进行操作。
 
-8. 使用`static_cast`的时机：**避免编译器执行隐式转换时可能会因为损失精度等提示异常**，**保证跨平台类型安全**。提前使用该类型告知，这是可以进行的，是已知的情况的。**它不会进行类型检查，所以需要用户提前确保这是正确的。**
+9. 使用`static_cast`的时机：**避免编译器执行隐式转换时可能会因为损失精度等提示异常**，**保证跨平台类型安全**。提前使用该类型告知，这是可以进行的，是已知的情况的。**它不会进行类型检查，所以需要用户提前确保这是正确的。**
 
    ```c++
    auto it = m_task.find(static_cast<CmdType>(item.operate()));
@@ -904,14 +1052,14 @@
    //例子2：此处函数sqlite3_bind_int64的第三个参数为int64_t,time(nullptr) 的返回值类型是 std::time_t，它在不同平台上可能是 long、long long 或其他整型类型，但不一定等于 int64_t。所以明确把 time_t 转换为 int64_t，保证类型匹配，避免编译器警告或隐式类型转换带来的问题
    ```
 
-9. `using` 定义函数签名和回调函数
+10. `using` 定义函数签名和回调函数
 
    ```
    using MessageHandler = std::function<void(IBundle *pBundle)>;
    #MessageHandler 是一个可以接受指向 IBundle 类型的指针 pBundle 的函数的类型别名
    ```
 
-10. `unordered_multimap`的`equal_range`函数
+11. `unordered_multimap`的`equal_range`函数
 
    > multimap：可重复map
    >
@@ -1507,6 +1655,8 @@
              return false;
       }
       
+      ```
+   
    // 插件中定义返回函数，用于获取插件指针
       PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()
    {
@@ -1518,7 +1668,7 @@
    
       ```
    int dlclose(void *handle);
-      
+   
    #返回值：
       成功：返回 0。
       失败：返回非零值
@@ -1528,10 +1678,13 @@
    
       ```
       const char *dlerror(void);
-      
+   
       #效果：
       成功调用 dlopen、dlsym 或 dlclose 后，会清除错误状态。
       返回值是一个描述错误的字符串，或 NULL 表示没有错误。
+   
+      ```
+   
       ```
 
 
@@ -2006,16 +2159,69 @@
 
 ### 13. 基本
 
-1. `::time(nullptr)` 是 C++ 标准库中的一个函数调用，用于获取当前的系统时间（通常是自 1970 年 1 月 1 日 00:00:00 UTC 到现在的秒数，称为“Unix 时间戳”）。
+1. C删除文件
+
+   ```c++
+   if (stat(m_ipcServiceName.toStdString().c_str(), &st) == 0) {
+           if (unlink(m_ipcServiceName.toStdString().c_str()) != 0) {
+               LOG(WARNING) << "Failed to remove existing IPC service socket: " << m_ipcServiceName.toStdString();
+           }
+       }
+   ```
+
+2. 在 C/C++ 中，**只要表达式中有无符号整数类型参与运算**（比如 `size_t`），整个表达式会提升为无符号类型，结果也是无符号类型。这叫做“整型提升”或“常规算术转换”。
+
+   这会导致负数结果变成一个很大的正数（溢出），如 `0 - sizeof(tmpBuf)`，如果 `sizeof(tmpBuf)` 是 `size_t`，结果是一个很大的无符号数。
+
+3. C++类的嵌套
+
+   1. C++可以实现嵌套类、嵌套结构体、嵌套命名空间等。**并且嵌套的类/结构体可以在被嵌套的类中进行定义**
+
+      ```c++
+      class Outer {
+      public:
+          struct InnerStruct {
+              int x;
+          };
+          class InnerClass {
+          public:
+              void foo() {}
+          };
+      };
+      ```
+
+   2. 在C++中，**嵌套类型（类/结构体）定义在类内部和全局作用域的区别主要体现在作用域、访问权限和代码组织上**，而**不会影响对象的实际内存占用**。
+
+      - 作用域和访问方式
+
+        ```
+        // 类内嵌套类型：只能通过 外部类名::嵌套类型名 访问，作用域限定在外部类内。
+        
+        class A {
+        public:
+            struct B { int x; };
+        };
+        A::B b; // 这样访问
+        ```
+
+      - 访问权限
+
+        ```
+        嵌套类型可以是 public、protected、private，可以限制外部访问，比如private就不可以通过上面的方式去访问
+        ```
+
+   3. 如果**只是被嵌套类本身内部使用嵌套类/结构体**，那么“类内嵌套定义”和“全局定义”在功能和内存占用上**没有本质区别**。
+
+4. `::time(nullptr)` 是 C++ 标准库中的一个函数调用，用于获取当前的系统时间（通常是自 1970 年 1 月 1 日 00:00:00 UTC 到现在的秒数，称为“Unix 时间戳”）。
 
    ```
    #include <ctime>
    time_t now = ::time(nullptr); // 获取当前时间戳 
    ```
-   
+
    > `::` 前缀确保调用的是全局命名空间下的 time 函数，避免和其他同名函数冲突。
 
-2. &&与&的区别：
+5. &&与&的区别：
 
    1. `&&` 是**短路与**（逻辑与）：
       - 如果左边条件为 `false`，右边的表达式**不会被执行**。
@@ -2024,11 +2230,11 @@
       - 不管左边条件是否为 `false`，**右边的表达式都会被执行**。
       - 两边的表达式都会被求值，然后做与运算。
 
-3. `.cc`文件也是c++源文件
+6. `.cc`文件也是c++源文件
 
-4. 函数参数为`const char*`，传入`char *`即可，以为这个`const`是修饰这个函数内的形参的。**代表这个函数内不可以修改这个字符串**。
+7. 函数参数为`const char*`，传入`char *`即可，以为这个`const`是修饰这个函数内的形参的。**代表这个函数内不可以修改这个字符串**。
 
-5. << 是一个**位运算符**，具体为**左移运算符**
+8. << 是一个**位运算符**，具体为**左移运算符**
 
    含义：**左移运算符**将左侧操作数的二进制位向左移动指定的位数，右侧空出的位用符号位（对于有符号整数）或 0（对于无符号整数）填充。
 
@@ -2052,13 +2258,13 @@
    (int64_t)1 << 33; // 显式转换，增加到64位
    ```
 
-6. C/C++中报错：`transfer of control bypasses initialization of`
+9. C/C++中报错：`transfer of control bypasses initialization of`
 
    原因：程序的控制流（例如通过 `goto、break、continue` 或跳转到某个代码块）跳过了变量的初始化。这会导致未定义行为，因为变量可能在未初始化时被使用。
 
    > 也就是说，在条件分支或者跳转语句可能使用了还未初始化的变量
 
-7. `#if...#else...#endif...` 符合条件时**编译**，同`is else`
+10. `#if...#else...#endif...` 符合条件时**编译**，同`is else`
 
    ```
    #if condition1
@@ -2069,30 +2275,30 @@
    	std::cout << a << std::endl;
    ```
 
-8. 宏定义判断：`#if defined(__linux__)` 和 `#endif` 是预处理指令，用于条件编译。在C++中，这些指令帮助控制代码的编译过程。具体而言：
+11. 宏定义判断：`#if defined(__linux__)` 和 `#endif` 是预处理指令，用于条件编译。在C++中，这些指令帮助控制代码的编译过程。具体而言：
 
-   1. **条件编译**：`#if defined(__linux__)` 用于检查宏 `__linux__` 是否被定义。这通常是在 Linux 系统上编译代码时自动定义的宏。
-   2. **编译特定部分**：如果在编译时检测到 `__linux__` 已定义，那么 `#if` 和 `#endif` 之间的代码会被编译。反之，如果不在 Linux 上编译（例如在 Windows 或其他操作系统上），那么这段代码将被忽略
+    1. **条件编译**：`#if defined(__linux__)` 用于检查宏 `__linux__` 是否被定义。这通常是在 Linux 系统上编译代码时自动定义的宏。
+    2. **编译特定部分**：如果在编译时检测到 `__linux__` 已定义，那么 `#if` 和 `#endif` 之间的代码会被编译。反之，如果不在 Linux 上编译（例如在 Windows 或其他操作系统上），那么这段代码将被忽略
 
-9. switch 语句中使用多个 case 标签共享同一代码块的写法是完全合法的。这种用法在 C++ 中称为 **fall-through（贯穿）**，只要多个 case 标签紧邻且没有中间插入 break，它们会共享后续的代码块
+12. switch 语句中使用多个 case 标签共享同一代码块的写法是完全合法的。这种用法在 C++ 中称为 **fall-through（贯穿）**，只要多个 case 标签紧邻且没有中间插入 break，它们会共享后续的代码块
 
-   ```c++
-   switch (m_enumPowerManageType) {
-       case ENUM_AUTO_RESTART_F_SCAN_FINISH:
-       case ENUM_AUTO_RESTART_F_CENTER:
-       case ENUM_AUTO_RESTART_F_TIMER:
-           command = "reboot";
-           break;
-       case ENUM_AUTO_POWEROFF_F_SCAN_FINISH:
-       case ENUM_AUTO_POWEROFF_F_CENTER:
-       case ENUM_AUTO_POWEROFF_F_TIMER:
-           command = "poweroff";
-           arguments << "-i";
-           break;
-   }
-   ```
+    ```c++
+    switch (m_enumPowerManageType) {
+        case ENUM_AUTO_RESTART_F_SCAN_FINISH:
+        case ENUM_AUTO_RESTART_F_CENTER:
+        case ENUM_AUTO_RESTART_F_TIMER:
+            command = "reboot";
+            break;
+        case ENUM_AUTO_POWEROFF_F_SCAN_FINISH:
+        case ENUM_AUTO_POWEROFF_F_CENTER:
+        case ENUM_AUTO_POWEROFF_F_TIMER:
+            command = "poweroff";
+            arguments << "-i";
+            break;
+    }
+    ```
 
-10. 在大多数平台上，`std::time_t` 是一个 64 位有符号整数（例如 Linux 的 x86-64 平台）。表示时间戳
+13. 在大多数平台上，`std::time_t` 是一个 64 位有符号整数（例如 Linux 的 x86-64 平台）。表示时间戳
 
    ```
    // 获取秒级时间戳
@@ -2416,6 +2622,9 @@
 
    **具体使用**：
 
+   1. 安装：从 GitHub 下载 clipp.h，并在项目中只需要导入该头文件并在代码中包含该头文件即可(它没有cpp文件)
+   2. 代码案例(版本适配工具)：
+
    ```c++
    auto opt = ((clipp::option("--migrate-version").doc("specify the version number, select: 7.0.0.5|7.0.0.7") & clipp::value("", args.version)),
                    clipp::option("--sync-protect-log").doc("sync protection log path").set(args.syncProtectLog),
@@ -2448,7 +2657,7 @@
       - 第一个参数 "" 是值的**占位符**名称（这里为空，通常可以写成 "VERSION" 之类更具描述性的名字，用于帮助文档）。
       - 第二个参数 args.version 是**目标变量**，用户输入的值会存储到 变量args.version 中。
 
-   4. `.set()` 方法将选项的出现与某个布尔变量绑定，**不需要额外值**。如果命令行中出现了该选项，**绑定的变量会被设置为 true**。
+   4. `.set()` 方法将选项的出现**与某个布尔变量绑定**，**不需要额外值**。如果命令行中出现了该选项，**绑定的变量会被设置为 true**。
 
    5. `((... & ...), ..., ...)` 的语法是 clipp 的组合方式：
 
@@ -2464,6 +2673,8 @@
       //cli：类型为 clipp::group，是你用 clipp::option、clipp::value 等定义的命令行选项和参数的集合
       ```
 
+      关于第三个参数：可以自定义一个对象，只要你用 `clipp::option`、`clipp::value`、`clipp::group` 等 clipp 提供的函数（这些函数返回的都是 clipp parser 类型或其组合），并用 `&`、`|`、`,` 等操作符组合起来，最终得到的对象就是 clipp 的 parser 对象
+
    7. `clipp::make_man_page` 是 clipp 库中用于生成命令行帮助文档（manual page）的函数。它会根据你定义的命令行选项和参数，自动生成格式化的使用说明，通常用于在用户请求帮助时（例如通过 -h 或 --help 选项）显示给用户。
 
       ```c++
@@ -2471,7 +2682,6 @@
       //cli：类型为 clipp::group，是你定义的命令行选项和参数的集合（例如通过 clipp::option 和 clipp::value 构建的选项组）。
       //prog_name：程序的名称，通常传入 argv[0]，用于在帮助文档中显示程序的使用方式。
       //fmt（可选）：类型为 clipp::doc_formatting，用于自定义帮助文档的格式，例如选项的缩进、对齐方式等。如果不提供，则使用默认格式。
-      
       ```
 
 2. main 函数的两个参数，第一个是参数的个数，第二个是字符串数组

@@ -3566,12 +3566,17 @@ m_pPool->submit([this, pBundle]() {
     3. 中控调用Safed的功能时，若存在界面(RJJH)，那么会同步进度/信息到界面上。
     4. RJJH使用Safed的功能时，会同步查杀进度、上报日志等到中控管理端上
 
-16. 关于组件和插件 / 功能和业务：
+16. 关于**组件和插件 / 功能和业务**：
 
     1. 有了功能之后才能考虑和拓展业务
-    2. 组件学名叫做功能型插件、插件学名叫做业务型插件。
+
+    2. **组件学名叫做功能型插件、插件学名叫做业务型插件**。
+
     3. 功能性插件即这个项目必须有的基础功能，比如通信、上报、任务队列管理等
-    4. 业务性插件就是可扩展的、根据业务需求进行增、删并且可以复用的功能部分。单独的插件就作为动态库调用。
+
+    4. 业务性插件就是可扩展的、根据业务需求进行增、删并且可以复用功能插件的部分。单独的插件就作为动态库调用。
+
+       > 业务型插件公共使用的代码部分放在common中，比如病毒库升级逻辑
 
 17. **Safed的实现**分为三个部分：
 
@@ -3770,7 +3775,27 @@ m_pPool->submit([this, pBundle]() {
 
     > normal_development中的lib下是使用的编译好的库文件、libsource使用的是三方库cpp源码文件(主要是自己写的库)
 
-33. deb包的四个脚本作用和执行顺序：
+33. 项目中的**右键查杀**
+
+    ```c++
+1. 右键查杀槽函数定义在FramelessWindow中
+    2. 连接MainWindow和FramelessWindow的信号槽
+connect(this, SIGNAL(sigRightSelectScan(QString)), m_pWindowController, SLOT(slotRightSelectScan(QString)));
+    3. 在rjjh.main中连接ZySinGleApplication和FramelessWindow的信号槽
+app.connect(&app, SIGNAL(messageRightSelectScan(QString)), &mainWindow, SLOT(rightSelectScan(QString)));
+    ```
+
+34. 项目中配置相关流程：
+
+    safed中负责保存、分发配置。界面(终端)、中控负责下发、修改配置
+
+    1. 界面下发/请求配置：
+       - 由**配置组件(config)**处理修改/请求配置，相关字段为`TerminalConfigSession`和`TerminalTimerConfigSession`
+       - 每一项配置有其自己的`key`，不同的插件/组件需要该配置时，就在初始化的时候订阅(`subscrib`)这个`key`。当配置组件(config)初始化/收到修改配置消息时，会分发(publish)相关配置，此时所有订阅过这个`key`的组件/插件都会获取到相关配置
+    2. 中控下发配置：
+       - 由**配置组件(config)**处理修改配置，每一项配置有其自己的`key`及处理函数
+
+35. deb包的四个脚本作用和执行顺序：
 
     1. preinst（预安装脚本）：在**包解压和安装文件之前**执行，用于准备安装环境或检查前提条件或**备份**
 
@@ -3790,7 +3815,7 @@ m_pPool->submit([this, pBundle]() {
 
     6. postrm（后移除脚本）：：在**包的文件被移除之后**执行，用于清理或完成移除
 
-34. 当一个deb包从版本A**升级**到版本B，对应脚本执行顺序如下：
+36. 当一个deb包从版本A**升级**到版本B，对应脚本执行顺序如下：
 
     1. A的 prerm：调用旧版本 A 的 prerm，参数为 upgrade 和新版本号，准备升级。
 
@@ -3808,21 +3833,21 @@ m_pPool->submit([this, pBundle]() {
 
        > 执行B的安装脚本
 
-35. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
+37. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
 
-36. **关于项目deb和rpm包的升级脚本执行顺序**：
+38. **关于项目deb和rpm包的升级脚本执行顺序**：
 
     rpm和deb包对于升级的执行顺序不同：
 
     - **deb**：prerm（旧包）→ preinst（新包）→ 安装新包 → postinst（新包）。postrm 通常不执行，除非显式移除旧包。
     - **rpm**：%pre（新包）→ 安装新包 → %post（新包）→ %preun（旧包）→ %postun（旧包）。
 
-37. deb包和rpm包打包区别：
+39. deb包和rpm包打包区别：
 
     1. 相同点：都会用到pre post的四个脚本，只是deb显示指定、rpm会通过创建`/SPECS/jingyun.spec`文件里面指定
     2. rpm需要在spec文件中的`%file`字段显式的指定包管理文件、deb则自动根据打包目标路径下所有文件进行管理
 
-38. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
+40. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
 
     1. 在插件中定义一个宏(`PLUGIN_EXPORT`)，应用于`createPlugin` 函数的声明。
 
@@ -3853,19 +3878,19 @@ m_pPool->submit([this, pBundle]() {
        }
        ```
 
-39. 项目**工厂模式**：
+41. 项目**工厂模式**：
 
     1. 在safed下创建升级适配工具，根据参数705或者707来创建相应的处理程序(clipp)
     2. 该升级适配工具cmake打成可执行包(cmakelist中`add_executable`)
     3. 在安装脚本中调用该脚本并传入对应参数，开始执行该工具
 
-40. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
+42. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
 
-41. 项目中的**单例模板**：
+43. 项目中的**单例模板**：
 
     `ZySingleto.h`下存放了懒汉式的单例模板
 
-42. 项目的**生产者消费者模式**：
+44. 项目的**生产者消费者模式**：
 
     1. 将查杀过程中的上报进度放入独立的线程进行上报
     2. 将查杀过程(威胁清除)的上报空路径到中控放入到独立的线程
@@ -3880,7 +3905,7 @@ m_pPool->submit([this, pBundle]() {
     bool m_threatReportThreadRunning = true;			// 线程循环条件
     std::thread m_threatReportThread;					// 线程变量
     
-    // 生产者实现入队
+    // 生产者实现入队   查杀主线程入队
     void ScanFlowController::enqueueThreatReport(const std::string& path, const std::string& md5, vse::CleanAction action) {
         {
             std::lock_guard<std::mutex> lock(m_threatReportMutex);
@@ -3889,7 +3914,7 @@ m_pPool->submit([this, pBundle]() {
         m_threatReportCV.notify_one();
     }
     
-    // 消费者实现出队并上报
+    // 消费者实现出队并上报   副线程出队上报
     void ScanFlowController::reportRemoveThreatListThread()
     {
         while (true) {
@@ -4463,21 +4488,292 @@ m_pPool->submit([this, pBundle]() {
 
 41. epoll是什么
 
-42. C删除文件
+41. 进程通信的方式并详细讲管道。原理、总结
+
+    1. 管道
+
+       **描述**：管道是一种单向通信机制，允许数据从一个进程流向另一个进程，分为**匿名管道**（用于相关进程，如父子进程）和**命名管道**（用于不相关进程）。
+
+       特点
+
+       - **匿名管道**：简单，**单向**，**仅限父子进程**。
+       - **命名管道**（FIFO）：支持不相关进程，文件系统中的特殊文件
+
+       ```c++
+       #include <unistd.h>
+       #include <iostream>
+       #include <string>
+       
+       int main() {
+           int fd[2]; // fd[0] 读端，fd[1] 写端
+           pipe(fd);
+           pid_t pid = fork();
+           if (pid == 0) { // 子进程
+               close(fd[1]); // 关闭写端
+               char buf[128];
+               read(fd[0], buf, sizeof(buf));
+               std::cout << "子进程收到: " << buf << '\n';
+               close(fd[0]);
+           } else { // 父进程
+               close(fd[0]); // 关闭读端
+               std::string msg = "Hello from parent";
+               write(fd[1], msg.c_str(), msg.size() + 1);
+               close(fd[1]);
+               wait(nullptr);
+           }
+           return 0;
+       }
+       ```
+
+    2. 消息队列
+
+       **描述**：进程通过消息队列发送和接收消息，消息是结构化的数据块，支持优先级和异步通信。
+
+       **特点**：
+
+       - 由操作系统管理，支持不相关进程。
+       - 支持多种消息类型，灵活性高。
+
+       C++ 示例（使用 **POSIX 消息队列**，Linux）
+
+       ```c++
+       #include <mqueue.h>
+       #include <iostream>
+       #include <string>
+       
+       int main() {
+           mqd_t mq = mq_open("/myqueue", O_CREAT | O_RDWR, 0644, nullptr);
+           if (fork() == 0) { // 子进程
+               char buf[128];
+               mq_receive(mq, buf, sizeof(buf), nullptr);
+               std::cout << "子进程收到: " << buf << '\n';
+           } else { // 父进程
+               std::string msg = "Hello from parent";
+               mq_send(mq, msg.c_str(), msg.size() + 1, 0);
+               wait(nullptr);
+               mq_close(mq);
+               mq_unlink("/myqueue");
+           }
+           return 0;
+       }
+       ```
+
+    3. 共享内存
+
+       **描述**：多个进程映射同一块物理内存，实现高效的数据共享，需配合同步机制（如信号量）。
+
+       **特点**：
+
+       - 速度快，适合大数据量传递。
+       - 需手动同步（如使用 std::mutex 或信号量）。
+
+       C++ 示例（使用 POSIX 共享内存，Linux）
+
+    4. 信号量（Semaphores）
+
+       **描述**：用于进程间的同步或互斥，控制**对共享资源的访问（如共享内存）**。
+
+       **特点**：
+
+       - 可用于同步，不直接传递数据。
+       - 分为命名信号量（不相关进程）和匿名信号量（相关进程）。
+
+       C++ 示例（POSIX 命名信号量）
+
+    5. 套接字（Sockets）
+
+       **描述**：通过网络协议（如 TCP/UDP）或本地套接字（如 Unix 域套接字）实现通信。
+
+       **特点**：
+
+       - 通用性强，支持本地或跨机器进程。
+       - 适合分布式系统或复杂通信
+
+    6. 文件，需要文件锁
+
+       **描述**：进程通过读写同一文件交换数据，简单但效率低。
+
+       **特点**：
+
+       - 持久化存储，适合非实时场景。
+       - 需文件锁（如 flock）避免竞争。
+
+42. 管道的本质是一个由操作系统管理的缓冲区，数据从写端写入，读端读取。
+
+    分为匿名管道和命名管道，**匿名管道只能用来数据单向流动，父子进程通过管道交换数据**
+
+    **注意点**：
+
+    - 匿名管道由 `pipe()` 创建，生成两个文件描述符：`fd[0]`（读端）和 `fd[1]`（写端）。
+
+    - `fork()` 后，父子进程各持有一份管道描述符**副本**（即父进程和子进程都有 `fd[0]` 和 `fd[1]`）。
+    - 通常在 `fork()` 后使用，父进程和子进程各关闭不需要的管道端。
 
     ```c++
-    if (stat(m_ipcServiceName.toStdString().c_str(), &st) == 0) {
-            if (unlink(m_ipcServiceName.toStdString().c_str()) != 0) {
-                LOG(WARNING) << "Failed to remove existing IPC service socket: " << m_ipcServiceName.toStdString();
-            }
+    #include <iostream>
+    #include <unistd.h>
+    #include <string>
+    #include <cstring>
+    #include <sys/wait.h>
+    
+    int main() {
+        int fd[2]; // fd[0]: 读端, fd[1]: 写端
+        if (pipe(fd) == -1) { // 创建管道
+            std::cerr << "创建管道失败: " << strerror(errno) << '\n';
+            return 1;
         }
+    
+        pid_t pid = fork(); // 创建子进程
+        if (pid == -1) {
+            std::cerr << "fork 失败: " << strerror(errno) << '\n';
+            close(fd[0]);
+            close(fd[1]);
+            return 1;
+        }
+    
+        if (pid == 0) { // 子进程
+            close(fd[1]); // 关闭写端
+            char buffer[128];
+            ssize_t bytes = read(fd[0], buffer, sizeof(buffer) - 1);
+            if (bytes > 0) {
+                buffer[bytes] = '\0';
+                std::cout << "子进程收到: " << buffer << '\n';
+            } else {
+                std::cerr << "读取失败: " << strerror(errno) << '\n';
+            }
+            close(fd[0]);
+        } else { // 父进程
+            close(fd[0]); // 关闭读端
+            std::string msg = "Hello from parent";
+            if (write(fd[1], msg.c_str(), msg.size() + 1) == -1) {
+                std::cerr << "写入失败: " << strerror(errno) << '\n';
+            }
+            close(fd[1]);
+            wait(nullptr); // 等待子进程
+        }
+        return 0;
+    }
     ```
-    
-42. 在 C/C++ 中，**只要表达式中有无符号整数类型参与运算**（比如 `size_t`），整个表达式会提升为无符号类型，结果也是无符号类型。这叫做“整型提升”或“常规算术转换”。
 
-    这会导致负数结果变成一个很大的正数（溢出），如 `0 - sizeof(tmpBuf)`，如果 `sizeof(tmpBuf)` 是 `size_t`，结果是一个很大的无符号数。
+43. 线程通信方式，主要的是共享队列和条件变量、未来机制
+
+    1. 共享内存
+
+       **机制**：多个线程访问共享变量或数据结构（如全局变量、类成员）。
+
+       **同步工具**：使用 std::mutex（互斥锁）、std::lock_guard 或 std::atomic 保证线程安全。
+
+       ```
+       #include <iostream>
+       #include <thread>
+       #include <mutex>
+       
+       std::mutex mtx;
+       int shared_data = 0;
+       
+       void increment() {
+           std::lock_guard<std::mutex> lock(mtx);
+           shared_data++;
+       }
+       
+       int main() {
+           std::thread t1(increment);
+           std::thread t2(increment);
+           t1.join();
+           t2.join();
+           std::cout << "共享数据: " << shared_data << '\n'; // 输出 2
+           return 0;
+       }
+       ```
+
+    2. 条件变量
+
+       **机制**：通过 std::condition_variable 实现线程间的信号通知，配合 std::mutex 使用。
+
+       **用途**：一个线程等待某个条件，另一个线程通知条件满足。
+
+       ```c++
+       #include <iostream>
+       #include <thread>
+       #include <mutex>
+       #include <condition_variable>
+       
+       std::mutex mtx;
+       std::condition_variable cv;
+       bool ready = false;
+       
+       void consumer() {
+           std::unique_lock<std::mutex> lock(mtx);
+           cv.wait(lock, [] { return ready; });
+           std::cout << "收到通知\n";
+       }
+       
+       void producer() {
+           std::this_thread::sleep_for(std::chrono::seconds(1));
+           {
+               std::lock_guard<std::mutex> lock(mtx);
+               ready = true;
+           }
+           cv.notify_one();
+       }
+       
+       int main() {
+           std::thread t1(consumer);
+           std::thread t2(producer);
+           t1.join();
+           t2.join();
+           return 0;
+       }
+       ```
+
+    3. 消息队列
+
+       **机制**：线程通过共享队列（如 std::queue）传递数据，结合锁或无锁队列实现线程安全。
+
+       **用途**：**生产者-消费者**模型，适合连续数据流。
+
+    4. 承诺-未来机制
+
+       **机制**：通过 std::promise 和 std::future 传递单一结果或异常。
+
+       **用途**：适合一次性异步结果传递。
+
+44. 关于项目中<u>定时任务</u>使用到的**未来机制(std::future)**
+
+    **std::promise**：生产者设置结果（值或异常），通过 `set_value` 或 `set_exception`。
+
+    **std::future**：消费者等待并获取结果，通过 `get()`。
+
+    **用途**：适合单次异步结果传递，如从一个线程获取计算结果
+
+    **特点**：
+
+    - 一次性传递：`std::future` 的 `get()` 只能调用一次。
+    - 支持异常传递：生产者可通过 `set_exception` 传递错误。
+    - 阻塞等待：`get()` 或 `wait()` 等待结果就绪。
+    - 简单同步：无需手动管理锁或条件变量。
+
+    **举例**：
+
+    ```c++
+    #include <iostream>
+    #include <future>
+    #include <thread>
     
-43. 关于项目中<u>定时任务</u>使用到的**未来机制(std::future)**
+    void compute(std::promise<int> p) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        p.set_value(42); // 设置结果
+    }
+    
+    int main() {
+        std::promise<int> p;
+        std::future<int> f = p.get_future();
+        std::thread t(compute, std::move(p));
+        std::cout << "结果: " << f.get() << '\n'; // 等待并输出 42
+        t.join();
+        return 0;
+    }
+    ```
 
     ```c++
     // std::future<void> m_rutureTimedTask;
@@ -4496,269 +4792,16 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-44. 关于项目中<u>定时任务</u>使用到的**条件变量**
+45. 病毒库更新其实也就是查杀引擎更新
 
-    ```c++
-    std::condition_variable m_lockcv;
-    
-    
-    void CTimedTasks::run()
-    {
-        while (m_runningTimedTask) {
-            updateTimedTasks();
-            checkTimedTasksRunnable();
-            // 定时任务暂时是按照分钟设置的，不需要那么高的检查频率
-            std::unique_lock<std::mutex> ulock(m_lockMutex);
-            m_lockcv.wait_for(ulock, std::chrono::seconds(50), [this] { return this->m_isCheckTime == true; });
-        }
-    }
-    
-    void CTimedTasks::UpdateTimedTasks()
-    {
-        m_isCheckTime = true;
-        m_lockcv.notify_all();
-    }
-    ```
+46. 中控下发威胁清除实际上就是将威胁列表重新执行查杀，并且设置为自动清理
 
-    1. 条件变量的`wait_for`的三个参数
-       - `std::unique_lock<std::mutex>`: 在等待期间自动解锁和加锁互斥量，保证线程安全；必须先持有锁，wait_for 内部会在等待时释放锁，唤醒后重新加锁
-       - `std::chrono::duration`: 指定最多等待多长时间，如果在这段时间内没有被唤醒，wait_for 会超时返回
-       - `lambda` 表达式或函数，返回 `bool`： 判断是否满足唤醒条件。只有当返回 true 时，wait_for 才会结束等待；如果条件为 false，即使被 notify 也会继续等待，直到超时或条件为 true。
-       
-    2. 条件变量的`wait()`和`wait_for()`的区别：
-
-       - `wait()`:线程会一直阻塞，直到收到通知（notify_one/notify_all）并且条件满足（如果有条件谓词的话）。
-
-         ```c++
-         std::unique_lock<std::mutex> lock(mutex);
-         cv.wait(lock, []{ return 条件; });
-         ```
-
-       - **wait_for**：线程会阻塞**一段指定的时间**。如果在这段时间内收到通知并且条件满足，则提前返回；否则超时后返回
-
-         ```c++
-         std::unique_lock<std::mutex> lock(mutex);
-         cv.wait_for(lock, std::chrono::seconds(5), []{ return 条件; });
-         ```
-
-    3. 条件变量的通知函数`notify_all()`（或 `notify_one()`）
-
-       - 作用是唤醒正在 `wait_for` 上等待的线程，让它提前结束等待、立即继续执行
-       - 被唤醒后，`wait_for` 会再次检查(第三个参数) `[this] { return this->m_isCheckTime == true; }`；如果为 `true`，线程立即结束等待，继续执行后续逻辑（如刷新定时任务）。
-
-    4. 多个线程可以持有同一个 `std::condition_variable` 实例，并在不同的 `std::unique_lock` 上调用 `wait_for`，这在生产者-消费者、定时任务等场景非常常见。
-       - **每次 wait_for 都需要持有同一个 mutex（或 unique_lock）**，否则行为未定义。
-       - 如果有多个线程在同一个条件变量上等待，`notify_one` 只唤醒一个，`notify_all` 会唤醒所有等待线程。
-
-45. 关于C++的**互斥锁管理类**：`std::lock_guard<std::mutex>`和`std::unique_lock<std::mutex>`
-
-    1. `std::lock_guard<std::mutex>`：用法简单，只负责加锁和自动解锁（RAII），不能手动解锁或重新加锁。
-
-       > **RAII**（Resource Acquisition Is Initialization，资源获取即初始化）：对象的生命周期和资源的管理绑定在一起。在对象构造时**获取资源**（如锁、内存、文件句柄等），在对象析构时**自动释放资源**。
-
-    2. `std::unique_lock<std::mutex>`：不仅支持RAII，而且支持手动 `lock/unlock`、延迟加锁、**条件变量**等待等。
-
-       > **适合需要与条件变量配合使用的场景**
-
-46. 进程通信的方式并详细讲管道。原理、总结
-
-47. 信号量、互斥锁、条件变量之间的关系：
-
-    1. **互斥锁**：专注于**互斥**性，确保共享资源一次只被一个线程访问。常用于保护临界区
-
-    2. **条件变量**：
-
-       - **建立在互斥锁之上**，是一种**同步机制**，用于**线程间**的协作，允许线程等待某个条件成立，同时避免忙等待。
-
-       - 提供等待和通知机制，线程在**等待条件时释放锁，条件满足时被唤醒**。
-
-         ```
-         wait / wait_for
-         signal: notify_one / notify_all
-         ```
-
-       - 典型场景：生产者-消费者模型
-
-    3. **信号量**：信号量是一个计数器，操作系统提供的真实同步原语。
-
-       - 当计数器为1时可以模拟互斥锁
-
-       - 通过两个信号量（一个控制条件，一个控制互斥），可以模拟条件变量的等待/通知机制
-
-       - 但是其`P/V`操作与`wait/signal`有所不同
-
-         > 1. P/V为原语，不需要依赖互斥锁；而wait不仅阻塞线程，而且还释放互斥锁
-    
-48. 病毒库更新其实也就是查杀引擎更新
-
-49. 项目中配置相关流程：
-
-    safed中负责保存、分发配置。界面(终端)、中控负责下发、修改配置
-
-    1. 界面下发/请求配置：
-       - 由**配置组件(config)**处理修改/请求配置，相关字段为`TerminalConfigSession`和`TerminalTimerConfigSession`
-       - 每一项配置有其自己的`key`，不同的插件/组件需要该配置时，就在初始化的时候订阅(`subscrib`)这个`key`。当配置组件(config)初始化/收到修改配置消息时，会分发(publish)相关配置，此时所有订阅过这个`key`的组件/插件都会获取到相关配置
-    2. 中控下发配置：
-       - 由**配置组件(config)**处理修改配置，每一项配置有其自己的`key`及处理函数
-    
-50. 1. C++可以实现嵌套类、嵌套结构体、嵌套命名空间等。**并且嵌套的类/结构体可以在被嵌套的类中进行定义**
-
-       ```c++
-       class Outer {
-       public:
-           struct InnerStruct {
-               int x;
-           };
-           class InnerClass {
-           public:
-               void foo() {}
-           };
-       };
-       ```
-
-    2. 在C++中，**嵌套类型（类/结构体）定义在类内部和全局作用域的区别主要体现在作用域、访问权限和代码组织上**，而**不会影响对象的实际内存占用**。
-
-       - 作用域和访问方式
-
-         ```
-         // 类内嵌套类型：只能通过 外部类名::嵌套类型名 访问，作用域限定在外部类内。
-         
-         class A {
-         public:
-             struct B { int x; };
-         };
-         A::B b; // 这样访问
-         ```
-
-       - 访问权限
-
-         ```
-         嵌套类型可以是 public、protected、private，可以限制外部访问，比如private就不可以通过上面的方式去访问
-         ```
-
-    3. 如果**只是被嵌套类本身内部使用嵌套类/结构体**，那么“类内嵌套定义”和“全局定义”在功能和内存占用上**没有本质区别**。
-
-51. 关于git合并之后的合并日志
-
-    1. 使用`git rebase` 代替 `git merge`可以做到将当前分支的提交“摘下来”，**顺序应用到目标分支的最新提交之后**，**不会生成合并提交**，历史变成一条直线，**合并记录消失**。
-
-    2. 如果`git merge` 之后，再提交之前执行了 `git pull --rebase` ，合并记录仍然会消失。
-
-       > 因为`git pull --rebase`实际上就是先 `git fetch`，然后 `git rebase` 到远程分支
-    
-52. 关于VMware开启虚拟机失败的问题：
-
-    1. 提示无权限、未能将管道连接到虚拟机，系统找不到指定的文件：
-       - 切换为管理员模式启动Vmware，尝试启动
-       - 会提示缺少某个dll库，此时去[免费下载缺失的 DLL 文件 | DLL‑files.com](https://cn.dll-files.com/)去下载所需的dll文件，并移动到`c:windows/system32`下
-    2. 虚拟网络编辑器中缺少vmnet01，切换不了桥接模式
-       - 卸载Vmware，并使用cclean删除注册表
-       - 重新下载安装，使用普通用户打开Vmware，打开虚拟网络编辑器，点击使用管理员权限更改，此时VMware01就会出来
-    3. 避免出现问题，**虚拟机要选择挂起，避免关机**。因为如果出现虚拟机未完全关机就关闭VMware可能就会导致上述情况
-
-53. 关于VMware的虚拟网络编辑器：
-
-    1. 默认为三个网卡
-       - VMnet0： 默认桥接模式，即虚拟机和宿主机在同一个子网下，虚拟机加入工作单位局域网
-       - VMnet1：默认仅主机模式，即宿主机与虚拟机组成局域网，其他电脑不能访问该网络
-       - VMnet8：默认为NAT模式，虚拟机通过宿主机访问外部网络（此时**宿主机起到路由器作用**），但外部网络不能访问虚拟机
-    2. 当存在这几个虚拟网卡时，本地主机的网络连接里面就会显示这几个虚拟网卡
-    3. 点击虚拟机(镜像)设置，可以设置这台虚拟机的网络连接模式，选择哪个模式就会通过上述的那个网卡进行联网
-
-54. 中控下发威胁清除实际上就是将威胁列表重新执行查杀，并且设置为自动清理
-
-55. C++显示类型转换
-
-    1. `static_cast`
-
-       作用：用于**相关类型之间的转换**，如基本类型之间、类层次结构的上/下转型（无虚函数时）
-
-       > 编译期检查类型安全。
-
-       场景：在两个自定义枚举类型之间转换时使用，否则编译无法识别，会报错
-
-    2. `dynamic_cast`
-
-       作用：用于**多态类型（有虚函数的类）之间的安全转换**，主要用于**向下转型**（**父类指针/引用转子类**）。
-
-       ```
-       Base* b = new Derived();
-       Derived* d = dynamic_cast<Derived*>(b); 
-       // Derived继承于Base，如果b实际指向Derived，转换成功，否则返回nullptr
-       // 由于父指针可以指向不同的子类，所以使用动态转换可以辨别出父类指针指向的是哪个子类
-       ```
-
-       > 运行时检查类型安全，转换失败返回 `nullptr`（指针）或抛异常（引用）。
-
-       场景：多态基类指针/引用转子类指针/引用，判断实际类型。
-
-    3.  `const_cast`
-
-       作用：用于**去除或添加 const/volatile 限定符**，但不能改变对象的底层类型。
-
-       ```
-       const int* p = ...;
-       int* q = const_cast<int*>(p); // 去除const 
-       ```
-
-       > 只能去除常量对象的指针或引用
-
-       场景：需要调用只能接受非常量参数的函数，但你只有 const 对象时（需确保实际对象非const）。
-
-    4. `reinterpret_cast`
-
-       作用：用于**几乎任意类型之间的低级别转换**，如指针与整数、不同类型指针之间的转换。
-
-       > 这种转换不会进行类型检查，完全按照位模式(比特位)重新解释内存中的数据
-
-       ```c++
-       using CreatePluginFunc = std::unique_ptr<IPlugin>(); // 定义函数指针类型，接受动态库对外接口函数
-       CreatePluginFunc *createPlugin = reinterpret_cast<CreatePluginFunc *>(dlsym(handle, "createPlugin"));
-       ```
-
-       场景：比如获取动态库的函数指针，dlsym返回的是`void*`，此时需要把这个 `void*` 转换为 `CreatePluginFunc*`（函数指针类型），才能调用它。这种转换**只能用 `reinterpret_cast`**，因为它允许不同类型指针之间的转换（包括 `void*` 到函数指针）
-
-       > C++ 标准不允许直接把 `void*` 转换为函数指针,所以不能直接用 `static_cast`来转换
-
-56. 关于bash脚本中局部变量和全局变量
-
-    - `local` 用来声明局部变量的关键字
-
-    ```bash
-    foo() {
-        var=123   # 没有local
-    }
-    foo
-    echo $var    # 输出123，说明var是全局变量
-    
-    bar() {
-        local var=456
-    }
-    bar
-    echo $var    # 什么都不输出，var没有污染全局
-    ```
-
-57. 虚拟机挂起重新开启后，如果显示"有线未托管"，右上角丢失有线连接选项时，终端重启网络服务
-
-    ```shell
-    sudo systemctl restart NetworkManager
-    ```
-
-58. 学一下Qt的Model，数据模型。复盘Qt。完善简历。初心！(项目)
+47. 学一下Qt的Model，数据模型。复盘Qt。完善简历。初心！(项目)
 
     > QTableWidget、Model、
 
-59. 右键查杀
+48. 
 
-    ```c++
-    1. 右键查杀槽函数定义在FramelessWindow中
-    2. 连接MainWindow和FramelessWindow的信号槽
-    connect(this, SIGNAL(sigRightSelectScan(QString)), m_pWindowController, SLOT(slotRightSelectScan(QString)));
-    3. 在rjjh.main中连接ZySinGleApplication和FramelessWindow的信号槽
-    app.connect(&app, SIGNAL(messageRightSelectScan(QString)), &mainWindow, SLOT(rightSelectScan(QString)));
-    ```
-
-60. 
 
 
 ### 4. 末尾
