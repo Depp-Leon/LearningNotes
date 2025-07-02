@@ -119,13 +119,346 @@
 > 3. 信号量、条件变量、互斥锁
 > 4. 承诺-未来机制
 
-1. 信号量、互斥锁、条件变量之间的关系：
+1. 进程通信的方式主要有**管道、消息队列、共享内存、信号量、套接字、文件**等方式
 
-     1. **互斥锁**：专注于**互斥**性，确保共享资源一次只被一个线程访问。常用于保护临界区
+     1. 管道
+
+        **描述**：管道是一种单向通信机制，允许数据从一个进程流向另一个进程，分为**匿名管道**（用于相关进程，如父子进程）和**命名管道**（用于不相关进程）。
+
+        特点
+
+        - **匿名管道**：简单，**单向**，**仅限父子进程**。
+        - **命名管道**（FIFO）：支持不相关进程，文件系统中的特殊文件
+
+        ```c++
+        #include <unistd.h>
+        #include <iostream>
+        #include <string>
+        
+        int main() {
+            int fd[2]; // fd[0] 读端，fd[1] 写端
+            pipe(fd);
+            pid_t pid = fork();
+            if (pid == 0) { // 子进程
+                close(fd[1]); // 关闭写端
+                char buf[128];
+                read(fd[0], buf, sizeof(buf));
+                std::cout << "子进程收到: " << buf << '\n';
+                close(fd[0]);
+            } else { // 父进程
+                close(fd[0]); // 关闭读端
+                std::string msg = "Hello from parent";
+                write(fd[1], msg.c_str(), msg.size() + 1);
+                close(fd[1]);
+                wait(nullptr);
+            }
+            return 0;
+        }
+        ```
+
+     2. 消息队列
+
+        **描述**：进程通过消息队列发送和接收消息，消息是结构化的数据块，支持优先级和异步通信。
+
+        **特点**：
+
+        - 由操作系统管理，支持不相关进程。
+        - 支持多种消息类型，灵活性高。
+
+        C++ 示例（使用 **POSIX 消息队列**，Linux）
+
+        ```c++
+        #include <mqueue.h>
+        #include <iostream>
+        #include <string>
+        
+        int main() {
+            mqd_t mq = mq_open("/myqueue", O_CREAT | O_RDWR, 0644, nullptr);
+            if (fork() == 0) { // 子进程
+                char buf[128];
+                mq_receive(mq, buf, sizeof(buf), nullptr);
+                std::cout << "子进程收到: " << buf << '\n';
+            } else { // 父进程
+                std::string msg = "Hello from parent";
+                mq_send(mq, msg.c_str(), msg.size() + 1, 0);
+                wait(nullptr);
+                mq_close(mq);
+                mq_unlink("/myqueue");
+            }
+            return 0;
+        }
+        ```
+
+     3. 共享内存
+
+        **描述**：多个进程映射同一块物理内存，实现高效的数据共享，需配合同步机制（如信号量）。
+
+        **特点**：
+
+        - 速度快，适合大数据量传递。
+        - 需手动同步（如使用 std::mutex 或信号量）。
+
+        C++ 示例（使用 POSIX 共享内存，Linux）
+
+     4. 信号量（Semaphores）
+
+        **描述**：用于进程间的同步或互斥，控制**对共享资源的访问（如共享内存）**。
+
+        **特点**：
+
+        - 可用于同步，不直接传递数据。
+        - 分为命名信号量（不相关进程）和匿名信号量（相关进程）。
+
+        C++ 示例（POSIX 命名信号量）
+
+     5. 套接字（Sockets）
+
+        **描述**：通过网络协议（如 TCP/UDP）或本地套接字（如 Unix 域套接字）实现通信。
+
+        **特点**：
+
+        - 通用性强，支持本地或跨机器进程。
+        - 适合分布式系统或复杂通信
+
+     6. 文件，需要文件锁
+
+        **描述**：进程通过读写同一文件交换数据，简单但效率低。
+
+        **特点**：
+
+        - 持久化存储，适合非实时场景。
+        - 需文件锁（如 flock）避免竞争。
+
+2. 管道的本质是一个由操作系统管理的缓冲区，数据从写端写入，读端读取。
+
+   分为匿名管道和命名管道，**匿名管道只能用来数据单向流动，父子进程通过管道交换数据**
+
+   **注意点**：
+
+   - 匿名管道由 `pipe()` 创建，生成两个文件描述符：`fd[0]`（读端）和 `fd[1]`（写端）。
+
+   - `fork()` 后，父子进程各持有一份管道描述符**副本**（即父进程和子进程都有 `fd[0]` 和 `fd[1]`）。
+   - 通常在 `fork()` 后使用，父进程和子进程各关闭不需要的管道端。
+
+   ```c++
+   #include <iostream>
+   #include <unistd.h>
+   #include <string>
+   #include <cstring>
+   #include <sys/wait.h>
+   
+   int main() {
+       int fd[2]; // fd[0]: 读端, fd[1]: 写端
+       if (pipe(fd) == -1) { // 创建管道
+           std::cerr << "创建管道失败: " << strerror(errno) << '\n';
+           return 1;
+       }
+   
+       pid_t pid = fork(); // 创建子进程
+       if (pid == -1) {
+           std::cerr << "fork 失败: " << strerror(errno) << '\n';
+           close(fd[0]);
+           close(fd[1]);
+           return 1;
+       }
+   
+       if (pid == 0) { // 子进程
+           close(fd[1]); // 关闭写端
+           char buffer[128];
+           ssize_t bytes = read(fd[0], buffer, sizeof(buffer) - 1);
+           if (bytes > 0) {
+               buffer[bytes] = '\0';
+               std::cout << "子进程收到: " << buffer << '\n';
+           } else {
+               std::cerr << "读取失败: " << strerror(errno) << '\n';
+           }
+           close(fd[0]);
+       } else { // 父进程
+           close(fd[0]); // 关闭读端
+           std::string msg = "Hello from parent";
+           if (write(fd[1], msg.c_str(), msg.size() + 1) == -1) {
+               std::cerr << "写入失败: " << strerror(errno) << '\n';
+           }
+           close(fd[1]);
+           wait(nullptr); // 等待子进程
+       }
+       return 0;
+   }
+   ```
+
+3. 线程通信方式，主要的是**共享内存、条件变量、消息队列和未来机制**
+
+   1. 共享内存
+
+      **机制**：多个线程访问共享变量或数据结构（如全局变量、类成员）。
+
+      **同步工具**：使用 std::mutex（互斥锁）、std::lock_guard 或 std::atomic 保证线程安全。
+
+      ```
+      #include <iostream>
+      #include <thread>
+      #include <mutex>
+      
+      std::mutex mtx;
+      int shared_data = 0;
+      
+      void increment() {
+          std::lock_guard<std::mutex> lock(mtx);
+          shared_data++;
+      }
+      
+      int main() {
+          std::thread t1(increment);
+          std::thread t2(increment);
+          t1.join();
+          t2.join();
+          std::cout << "共享数据: " << shared_data << '\n'; // 输出 2
+          return 0;
+      }
+      ```
+
+   2. 条件变量
+
+      **机制**：通过 `std::condition_variable` 实现线程间的信号通知，**配合 (互斥锁)std::mutex 使用**。
+
+      **用途**：**一个线程等待某个条件，另一个线程通知条件满足**。
+
+      ```c++
+      #include <iostream>
+      #include <thread>
+      #include <mutex>
+      #include <condition_variable>
+      
+      std::mutex mtx;
+      std::condition_variable cv;
+      bool ready = false;
+      
+      void consumer() {
+          std::unique_lock<std::mutex> lock(mtx);
+          cv.wait(lock, [] { return ready; });
+          std::cout << "收到通知\n";
+      }
+      
+      void producer() {
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+          {
+              std::lock_guard<std::mutex> lock(mtx);
+              ready = true;
+          }
+          cv.notify_one();
+      }
+      
+      int main() {
+          std::thread t1(consumer);
+          std::thread t2(producer);
+          t1.join();
+          t2.join();
+          return 0;
+      }
+      ```
+
+   3. 消息队列
+
+      **机制**：线程通过共享队列（如 std::queue）传递数据，结合锁或无锁队列实现线程安全。
+
+      **用途**：**生产者-消费者**模型，适合**连续数据流**。
+
+   4. 承诺-未来机制
+
+      **机制**：通过 std::promise 和 std::future 传递单一结果或异常。
+
+      **用途**：适合**一次性异步结果传递**。
+
+4. 关于项目中<u>定时任务</u>使用到的C++标准库的**承诺-未来机制**`std::promise`和 `std::future`，用于在线程之间传递值或状态，尤其是在异步编程中协助传递结果。实现在两个线程间同步任务完成状态
+
+   **std::promise**：生产者设置结果（值或异常），通过 `set_value` 或 `set_exception`。
+
+   **std::future**：消费者等待并获取结果，通过 `get()`。
+
+   **用途**：适合单次异步结果传递，如从一个线程获取计算结果
+
+   **特点**：
+
+   - 一次性传递：`std::future` 的 `get()` 只能调用一次。
+   - 支持异常传递：生产者可通过 `set_exception` 传递错误。
+   - 阻塞等待：`get()` 或 `wait()` 等待结果就绪。
+   - 简单同步：无需手动管理锁或条件变量。
+
+   **举例**：
+
+   > 有点像Qt中的eventLoop，事件循环机制
+
+   ```
+     #使用方式，没有返回值的
+     std::promise<void> _terminationPromise;
+     std::future<void> _terminationFuture;
+   ```
+
+   ```c++
+     //案例：
+     #include <iostream>
+     #include <thread>
+     #include <future>
+     
+     void task(std::promise<void> taskPromise) {
+         std::cout << "Task is running..." << std::endl;
+         // 模拟一些工作
+         std::this_thread::sleep_for(std::chrono::seconds(2));
+         // 设置任务完成状态
+         taskPromise.set_value();
+         std::cout << "Task has completed." << std::endl;
+     }
+     
+     int main() {
+         // 创建一个 promise
+         std::promise<void> taskPromise;
+         // 从 promise 获得对应的 future
+         std::future<void> taskFuture = taskPromise.get_future();
+     
+         // 启动一个线程执行任务，并将 promise 传递进去
+         std::thread t(task, std::move(taskPromise));
+     
+         // 等待任务完成
+         taskFuture.get();  // 阻塞直到 taskPromise 设置了值
+         std::cout << "Main thread detected task completion." << std::endl;
+     
+         t.join();
+         return 0;
+     }
+     
+   ```
+
+   ```
+     #输出结果
+     Task is running...
+     Task has completed.
+     Main thread detected task completion.
+   ```
+
+   ```c++
+   // std::future<void> m_rutureTimedTask;
+   
+   
+   CTimedTasks::~CTimedTasks()
+   {
+       m_runningTimedTask = false;
+       if (m_runningTimedTask && JYThread::isRunning(m_rutureTimedTask))
+           JYThread::waitForFinished(m_rutureTimedTask);
+   }
+   
+   void CTimedTasks::start()
+   {
+       m_rutureTimedTask = JYThread::run(std::bind(&CTimedTasks::run, this));
+   }
+   ```
+
+5. 信号量、互斥锁、条件变量之间的关系：
+
+     1. **互斥锁**：专注于**互斥**性，确保共享资源一次只被一个**线程**访问。常用于保护临界区
 
      2. **条件变量**：
 
-        - **建立在互斥锁之上**，是一种**同步机制**，用于**线程间**的协作，允许线程等待某个条件成立，同时避免忙等待。
+        - **建立在互斥锁之上**，是一种**同步机制**，用于**线程/进程间**的协作，允许线程等待某个条件成立，同时避免忙等待。
 
         - 提供等待和通知机制，线程在**等待条件时释放锁，条件满足时被唤醒**。
 
@@ -136,17 +469,23 @@
 
         - 典型场景：生产者-消费者模型
 
-     3. **信号量**：信号量是一个计数器，操作系统提供的真实同步原语。
+     3. **信号量**：信号量是一个计数器，操作系统提供的真实同步原语
 
-        - 当计数器为1时可以模拟互斥锁
+        - 当计数器为1时可以**模拟互斥锁**
 
-        - 通过两个信号量（一个控制条件，一个控制互斥），可以模拟条件变量的等待/通知机制
+        - 通过两个信号量（一个控制条件，一个控制互斥），可以**模拟条件变量**的等待/通知机制
 
         - 但是其`P/V`操作与`wait/signal`有所不同
 
-          > 1. P/V为原语，不需要依赖互斥锁；而wait不仅阻塞线程，而且还释放互斥锁
+          > P/V为原语，不需要依赖互斥锁；而wait不仅阻塞线程，而且还释放互斥锁
 
-2. 关于C++的**互斥锁管理类(互斥锁)**：`std::lock_guard<std::mutex>`和`std::unique_lock<std::mutex>`
+     4. 三者关系：
+
+        - 互斥锁是基础，提供**互斥**访问
+        - 条件变依赖互斥锁，解决线程**同步**/协作问题
+        - 信号量更通用，既能实现互斥（计数 = 1），也能实现协作（计数控制资源）
+
+6. 关于C++的**互斥锁管理类(互斥锁)**：`std::lock_guard<std::mutex>`和`std::unique_lock<std::mutex>`
 
      1. `std::lock_guard<std::mutex>`：用法简单，只负责加锁和自动解锁（RAII），不能手动解锁或重新加锁。
 
@@ -156,7 +495,64 @@
 
         > **适合需要与条件变量配合使用的场景**
 
-3. 关于项目中<u>定时任务</u>使用到的**条件变量**，常搭配生产者消费者模式
+7. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
+
+        > 线程A调用 `wait` 并释放互斥量。
+        >
+        > 线程B调用 `notify_one` 来唤醒线程A，但线程B不释放互斥量，保持锁定。
+        >
+        > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
+        >
+        > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
+
+        1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
+
+           ```c++
+           std::mutex mtx;				//互斥变量
+           std::condition_variable cv;	//条件变量
+           bool ready = false;
+           
+           void print_id(int id) {
+               std::cout << "Thread " << id << " waiting...\n";
+               
+               // 使用 unique_lock 来锁住互斥量
+               std::unique_lock<std::mutex> lck(mtx);
+               
+               // 释放互斥量并等待条件满足
+               while (!ready) { 
+                   cv.wait(lck);  // 释放锁，等待被唤醒
+               }
+           
+               std::cout << "Thread " << id << " is executing\n";
+           }
+           ```
+
+        2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
+
+           ```c++
+           void go() {
+               std::this_thread::sleep_for(std::chrono::seconds(1));
+           
+               // 修改共享条件变量
+               std::lock_guard<std::mutex> lck(mtx);
+               ready = true;
+               cv.notify_one();  // 唤醒一个等待线程
+           }
+           ```
+
+           > - 当 `print_id` 线程在 `cv.wait(lck)` 处等待时，`mtx` 是**释放状态**，所以 `go()` 线程可以顺利加锁。
+           > - `go()` 线程加锁后，修改 `ready` 并 `notify_one()`，然后解锁。
+           > - 被唤醒的 `print_id` 线程会重新加锁 `mtx`，继续执行。
+
+        3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
+
+           1. **`std::unique_lock` 和 `wait`**：
+              - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
+              - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
+           2. **`std::lock_guard` 和 `notify_one`**：
+              - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
+
+8. 关于项目中**<u>定时任务</u>**使用到的**条件变量**
 
      > 同样的有：1、上报进度开启独立线程 2、威胁清除上报空字段开启独立线程
 
@@ -213,64 +609,152 @@
         - **每次 wait_for 都需要持有同一个 mutex（或 unique_lock）**，否则行为未定义。
         - 如果有多个线程在同一个条件变量上等待，`notify_one` 只唤醒一个，`notify_all` 会唤醒所有等待线程。
 
-4. 开启线程对日志进行实时检测，当停止时，不仅要停止外层的检查日志循环，也要停止行的检测，所以需要两个停止变量。
+9. **条件变量**应用场景之**生产者消费者模式**，项目中用到
 
-5. 线程里面对成员变量的访问/操作要使用原子操作(即使用原子类型)
+   1. 将查杀过程中的上报进度放入独立的线程进行上报(解决如果两个引擎最终查杀的都是费时的大文件则界面进度卡住的问题)
+   2. 将查杀过程(威胁清除)的上报空路径到中控放入到独立的线程(解决影响查杀效率/查杀后不可再查杀的问题)
+
+   使用`std::thread`+`std::queue`+`std::mutex`/`std::condition_variable`实现生产者-消费者模型。
 
    ```c++
-   std::atomic<bool> 
-   std::atomic<bool>
-   std::atomic<int>
+   std::queue<ThreatReportData> m_threatReportQueue;	// 共享队列
+   std::mutex m_threatReportMutex;						// 互斥锁
+   std::condition_variable m_threatReportCV;			// 条件变量
+   
+   bool m_threatReportThreadRunning = true;			// 线程循环条件
+   std::thread m_threatReportThread;					// 线程变量
+   
+   // 生产者实现入队   查杀主线程入队
+   void ScanFlowController::enqueueThreatReport(const std::string& path, const std::string& md5, vse::CleanAction action) {
+       {
+           std::lock_guard<std::mutex> lock(m_threatReportMutex);
+           m_threatReportQueue.push({path, md5, action});
+       }
+       m_threatReportCV.notify_one();
+   }
+   
+   // 消费者实现出队并上报   副线程出队上报
+   void ScanFlowController::reportRemoveThreatListThread()
+   {
+       while (true) {
+           std::vector<std::string> batch;
+           {
+               std::unique_lock<std::mutex> lock(m_reportRemoveThreatListMutex);
+               m_threatReportCV.wait(lock, [this] { return !m_threatReportQueue.empty() || !m_threatReportThreadRunning; });
+               while (!m_threatReportQueue.empty() && batch.size() < 100) {
+                   LOG(WARNING) << "reportRemoveThreatListThread: " << m_threatReportQueue.front();
+                   batch.push_back(m_threatReportQueue.front());
+                   m_threatReportQueue.pop();
+               }
+               if (!m_threatReportThreadRunning && m_threatReportQueue.empty())
+                   break;
+           }
+           for (auto &data : batch) {
+               threatClearanceExceptionPathHandling(data, std::string(""), vse::CleanAction::CLEAN_CLEAN);
+           }
+       }
+   }
    ```
 
-6. 开启线程时，把两个线程分开，要`detach`而不要加`join`，`join`会导致第二个线程开启不来
+10. 开启线程对日志进行实时检测，当停止时，不仅要停止外层的检查日志循环，也要停止行的检测，所以需要两个停止变量。
 
-7. C++开启多线程时，传递类的非静态函数，方法一使用`lambda`，方法二使用`bind`
+11. 线程里面对成员变量的访问/操作要使用原子操作(即使用原子类型)：`std::atomic` 是 C++11 引入的标准库模板类，位于`<atomic>`  头文件中，用于实现线程安全的原子操作。
 
-   > 原因：传递非静态函数需要指定对象指针
+    ```c++
+    // 1. 定义
+    std::atomic<bool> b1;
+    std::atomic<bool> b2;
+    std::atomic<int>  i1(4);
+    
+    // 2. 操作接口
+    std::cout << "Final counter: " <<  i1.load() << std::endl;	// load() 读取值
+    i1.store(6);	// store()写入值
+    std::cout << "Final counter: " <<  i1.load() << std::endl;
+    std::cout << "Final counter: " <<  i1.exchange(8) << std::endl;	// exchange()替换并返回旧值
+    ```
 
-8. 类开启线程方式一：线程使用`bind`绑定`this`指针
+12. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
 
-   ```
-   m_checkConnectStateThread = std::thread(std::bind(&CZDFYHandlerMassage::CheckUiConnectState, this));
-   ```
+    `store()` 是 `load()` 的对应存储函数，用于**原子地修改**（存储）`std::atomic` 变量的值。它们共同用于多线程环境中，保证数据访问的安全性。
 
-   > `std::bind` 是一个函数适配器，用于创建一个新的可调用对象（如函数、成员函数等），并绑定特定的参数。
-   >
-   > 在这里，`std::bind(&CZDFYHandlerMassage::CheckUiConnectState, this)` 的作用是创建一个绑定到当前对象 `this` 的 `CheckUiConnectState` 成员函数的可调用对象。
-   >
-   > `&CZDFYHandlerMassage::CheckUiConnectState` 指向成员函数的指针，`this` 是指向当前类实例的指针。
+    ```c++
+       #include <atomic>
+       #include <iostream>
+       #include <thread>
+       
+       std::atomic<bool> _shouldStop(false);
+       
+       void threadFunction() {
+           while (!_shouldStop.load()) {
+               // 执行任务
+               std::cout << "Thread is working...\n";
+           }
+           std::cout << "Thread is stopping.\n";
+       }
+       
+       void stopThread() {
+           _shouldStop.store(true);  // 设置标志为 true，通知线程停止
+       }
+       
+       int main() {
+           std::thread t(threadFunction);  // 创建线程
+       
+           std::this_thread::sleep_for(std::chrono::seconds(2));  // 让线程运行一段时间
+           stopThread();  // 设置标志为 true，要求线程停止
+       
+           t.join();  // 等待线程结束
+           return 0;
+       }
+    ```
 
-9. 如果在`std::bind`中使用实参，而不是占位符，那么在调用绑定的函数时，`std::bind`会将这些实参作为固定参数传递给成员函
+13. 开启线程时，把两个线程分开，要`detach`而不要加`join`，`join`会导致第二个线程开启不来
 
-       1. 传入实参
+14. C++开启多线程时，**传递类的非静态函数**，方法一使用`bind`，方法二使用`lambda`
 
-     ```c++
-     // 绑定printSum函数，并提供第一个参数为3，第二个参数为4
-     auto boundFunc = std::bind(&MyClass::printSum, &obj, 3, 4);
-         
-     // 调用时无需传递参数，已经被绑定
-     boundFunc();  // Output: Sum: 7
-     ```
+    > 原因：传递非静态函数需要指定对象指针
 
-       2. 使用占位符
+    1. 类开启线程方式一：线程使用`bind`绑定`this`指针
 
-     ```c++
-     // 绑定printSum函数，使用占位符
-     auto boundFunc = std::bind(&MyClass::printSum, &obj, std::placeholders::_1, std::placeholders::_2);
-     
-     // 调用时提供参数
-     boundFunc(3, 4);  // Output: Sum: 7
-     ```
+       ```c++
+       m_checkConnectStateThread = std::thread(std::bind(&CZDFYHandlerMassage::CheckUiConnectState, this));
+       ```
 
-10. 类开启线程方式二：上述使用lambda实现
+       > `std::bind` 是一个函数适配器，用于创建一个新的可调用对象（如函数、成员函数等），并绑定特定的参数。
+       >
+       > 在这里，`std::bind(&CZDFYHandlerMassage::CheckUiConnectState, this)` 的作用是创建一个绑定到当前对象 `this` 的 `CheckUiConnectState` 成员函数的可调用对象。
+       >
+       > `&CZDFYHandlerMassage::CheckUiConnectState` 指向成员函数的指针，`this` 是指向当前类实例的指针。
 
-     ```c++
-     m_checkConnectStateThread = std::thread([this]() { CheckUiConnectState(); });
-     // 如果有参数就在()中添加
-     ```
+    2. 类开启线程方式二：上述使用`lambda`实现
 
-11. 关于分离进程和守护进程：
+       ```c++
+        m_checkConnectStateThread = std::thread([this]() { CheckUiConnectState(); });
+        // 如果有参数就在()中添加
+       ```
+
+15. 如果在`std::bind`中使用实参，而不是占位符，那么在调用绑定的函数时，`std::bind`会将这些实参作为固定参数传递给成员函
+
+        1. 传入实参
+
+      ```c++
+      // 绑定printSum函数，并提供第一个参数为3，第二个参数为4
+      auto boundFunc = std::bind(&MyClass::printSum, &obj, 3, 4);
+          
+      // 调用时无需传递参数，已经被绑定
+      boundFunc();  // Output: Sum: 7
+      ```
+
+        2. 使用占位符
+
+      ```c++
+      // 绑定printSum函数，使用占位符
+      auto boundFunc = std::bind(&MyClass::printSum, &obj, std::placeholders::_1, std::placeholders::_2);
+      
+      // 调用时提供参数
+      boundFunc(3, 4);  // Output: Sum: 7
+      ```
+
+16. 关于分离进程和守护进程：
 
     **分离进程**：分离进程是指一个进程从其父进程中“分离”出来，不再受父进程的控制。父进程和子进程各自独立运行，父进程不必等待子进程结束。
 
@@ -331,14 +815,12 @@
     - 如果为 **1**，保持标准输入/输出/错误流不变。
     ```
 
-      
-
     **两者区别**：
 
     1. 分离进程作为子进程，会受到父类的**资源管理和生命周期**方面的影响。**不会自动管理资源**，也 **没有恢复机制**，通常用于那些希望在后台执行、但不需要长期稳定服务的进程。
     2. 守护进程 **脱离了父进程和终端的控制**，并且通过一系列的步骤（如 `setsid()`、`chdir()`、关闭文件描述符等）确保自己可以长期独立稳定地运行。它 **不受父进程结束的影响**，并且具有 **自我管理能力**，如资源回收、自动重启等。通常用于后台服务和长期运行的任务
 
-12. 分离进程的返回值问题
+17. 分离进程的返回值问题
 
       ```c++
       bool UpgradeProcess::installPackage() {
@@ -363,7 +845,7 @@
        }
       ```
 
-13. 分离进程(**fork**)、分离进程之后成为守护进程(**daemon**)的实际操作及资源回收 / **僵尸进程**的产生
+18. 分离进程(**fork**)、分离进程之后成为守护进程(**daemon**)的实际操作及资源回收 / **僵尸进程**的产生
 
        1. **fork**：分离子进程，父进程负责资源回收（需 wait，否则产生僵尸进程），父进程退出后由 `init` (系统)回收
        2. **daemon**：实际上**在其内部调用了fork**，**之后将父进程退出，子进程成为孤儿进程**，由`init`（或 systemd）负责资源回收
@@ -372,209 +854,62 @@
           - 这种情况下，主进程只需要 `waitpid` 第一个子进程即可，孙子进程会被 `init` 收养，不会有僵尸。
           - **注意**：如果你在主进程里看到 `<defunct>`，通常是**第一个子进程**还没被 waitpid 回收。
 
-14. 关于执行shell命令的库函数`system()`和`popen()`：**本质上都是通过 fork 一个子进程来执行 shell 命令**。
+19. 关于执行shell命令的库函数`system()`和`popen()`：**本质上都是通过 fork 一个子进程来执行 shell 命令**。
 
-        1. **system()**
+    1. **system()**
 
-           ```c++
-           system("your_command")
-           
-           // 实例
-           // 使用 system 执行命令
-           int status = system(strCmd.c_str());
-           if (status == -1) {
-               Logger::error() << "Software upgrade, system() call failed, error: " << strerror(errno);
-               return false;
-           }
-           
-           // 检查退出状态
-           if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-               Logger::info() << "Software upgrade, Command executed with exit code 0";
-               return true;
-           } else {
-               Logger::error() << "Software upgrade, Command failed, exit code: " << WEXITSTATUS(status);
-               return false;
-           }
-           ```
-
-           做了以下事情：
-
-           1. **fork** 一个子进程。
-           2. 在子进程中用 `/bin/sh -c "your_command"` 执行命令（即让 shell 解析并执行你的命令）。
-           3. 父进程会等待子进程结束（调用 `waitpid`），并返回子进程的退出状态。
-
-        2. **popen()**
-
-           ```c++
-           popen("your_command", "r")
-           
-           // 实例
-           FILE *pipe = popen(strCmd.c_str(), "r");	// 执行并建立管道
-           char buffer[1024] = {0};
-               while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {// 通过管道读取输入输出
-                   std::string line = buffer;
-                   Logger::info() << "Software upgrade: [" << line << "].";
-               }
-           pclose(pipe);	// 关闭管道
-           ```
-
-           也会：
-
-           1. **fork** 一个子进程。
-           2. 在子进程中用 `/bin/sh -c "your_command"` 执行命令。
-           3. 建立一个**管道**，父进程可以通过这个管道读取子进程的输出（或写入子进程的输入）。
-           4. 父进程通过 `pclose()`等待子进程结束并获取退出状态。
-
-15. C++中的`std::condition_variable` 提供了**线程间同步的机制：条件变量**
-
-       > 线程A调用 `wait` 并释放互斥量。
-       >
-       > 线程B调用 `notify_one` 来唤醒线程A，但线程B不释放互斥量，保持锁定。
-       >
-       > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
-       >
-       > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
-
-       1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
-
-          ```c++
-          std::mutex mtx;				//互斥变量
-          std::condition_variable cv;	//条件变量
-          bool ready = false;
-          
-          void print_id(int id) {
-              std::cout << "Thread " << id << " waiting...\n";
-              
-              // 使用 unique_lock 来锁住互斥量
-              std::unique_lock<std::mutex> lck(mtx);
-              
-              // 释放互斥量并等待条件满足
-              while (!ready) { 
-                  cv.wait(lck);  // 释放锁，等待被唤醒
-              }
-          
-              std::cout << "Thread " << id << " is executing\n";
-          }
-          ```
-
-       2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
-
-          ```c++
-          void go() {
-              std::this_thread::sleep_for(std::chrono::seconds(1));
-          
-              // 修改共享条件变量
-              std::lock_guard<std::mutex> lck(mtx);
-              ready = true;
-              cv.notify_one();  // 唤醒一个等待线程
-          }
-          ```
-
-          > - 当 `print_id` 线程在 `cv.wait(lck)` 处等待时，`mtx` 是**释放状态**，所以 `go()` 线程可以顺利加锁。
-          > - `go()` 线程加锁后，修改 `ready` 并 `notify_one()`，然后解锁。
-          > - 被唤醒的 `print_id` 线程会重新加锁 `mtx`，继续执行。
-
-       3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
-
-          1. **`std::unique_lock` 和 `wait`**：
-             - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
-             - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
-          2. **`std::lock_guard` 和 `notify_one`**：
-             - `std::lock_guard` 用于在临界区内执行 `notify_one` 或 `notify_all`，以确保条件变量状态修改时不会被中断或其他线程访问。
-
-16. 原子类型的`load()`函数：`load()` 函数的作用是**安全地读取**一个原子变量的值，确保读取操作是**原子操作**，并且在多线程环境下不会发生数据竞态（race condition）。它保证在读取过程中，不会被其他线程打断或改变该值。
-
-   `store()` 是 `load()` 的对应存储函数，用于**原子地修改**（存储）`std::atomic` 变量的值。它们共同用于多线程环境中，保证数据访问的安全性。
-
-   ```c++
-   #include <atomic>
-   #include <iostream>
-   #include <thread>
-   
-   std::atomic<bool> _shouldStop(false);
-   
-   void threadFunction() {
-       while (!_shouldStop.load()) {
-           // 执行任务
-           std::cout << "Thread is working...\n";
+       ```c++
+       system("your_command")
+       
+       // 实例
+       // 使用 system 执行命令
+       int status = system(strCmd.c_str());
+       if (status == -1) {
+           Logger::error() << "Software upgrade, system() call failed, error: " << strerror(errno);
+           return false;
        }
-       std::cout << "Thread is stopping.\n";
-   }
-   
-   void stopThread() {
-       _shouldStop.store(true);  // 设置标志为 true，通知线程停止
-   }
-   
-   int main() {
-       std::thread t(threadFunction);  // 创建线程
-   
-       std::this_thread::sleep_for(std::chrono::seconds(2));  // 让线程运行一段时间
-       stopThread();  // 设置标志为 true，要求线程停止
-   
-       t.join();  // 等待线程结束
-       return 0;
-   }
-   
-   ```
+       
+       // 检查退出状态
+       if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+           Logger::info() << "Software upgrade, Command executed with exit code 0";
+           return true;
+       } else {
+           Logger::error() << "Software upgrade, Command failed, exit code: " << WEXITSTATUS(status);
+           return false;
+       }
+       ```
 
-11. 对于原子类型，线程安全的方式读取该值使用`load()`函数;
+       做了以下事情：
 
-      `load()` 函数的作用是读取原子变量的当前值并返回。在多线程环境中，使用 `load()` 可以确保读取的值是线程安全的，即便其他线程可能同时在修改该变量。
+       1. **fork** 一个子进程。
+       2. 在子进程中用 `/bin/sh -c "your_command"` 执行命令（即让 shell 解析并执行你的命令）。
+       3. 父进程会等待子进程结束（调用 `waitpid`），并返回子进程的退出状态。
 
-12. C++标准库的**承诺-未来机制**`std::promise`和 `std::future`，用于在线程之间传递值或状态，尤其是在异步编程中协助传递结果。实现在两个线程间同步任务完成状态
+    2. **popen()**
 
-      > 有点像Qt中的eventLoop，事件循环机制
+       ```c++
+       popen("your_command", "r")
+       
+       // 实例
+       FILE *pipe = popen(strCmd.c_str(), "r");	// 执行并建立管道
+       char buffer[1024] = {0};
+           while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {// 通过管道读取输入输出
+               std::string line = buffer;
+               Logger::info() << "Software upgrade: [" << line << "].";
+           }
+       pclose(pipe);	// 关闭管道
+       ```
 
-      ```
-      #使用方式，没有返回值的
-      std::promise<void> _terminationPromise;
-      std::future<void> _terminationFuture;
-      ```
+       也会：
 
-      ```c++
-      //案例：
-      #include <iostream>
-      #include <thread>
-      #include <future>
-      
-      void task(std::promise<void> taskPromise) {
-          std::cout << "Task is running..." << std::endl;
-          // 模拟一些工作
-          std::this_thread::sleep_for(std::chrono::seconds(2));
-          // 设置任务完成状态
-          taskPromise.set_value();
-          std::cout << "Task has completed." << std::endl;
-      }
-      
-      int main() {
-          // 创建一个 promise
-          std::promise<void> taskPromise;
-          // 从 promise 获得对应的 future
-          std::future<void> taskFuture = taskPromise.get_future();
-      
-          // 启动一个线程执行任务，并将 promise 传递进去
-          std::thread t(task, std::move(taskPromise));
-      
-          // 等待任务完成
-          taskFuture.get();  // 阻塞直到 taskPromise 设置了值
-          std::cout << "Main thread detected task completion." << std::endl;
-      
-          t.join();
-          return 0;
-      }
-      
-      ```
+       1. **fork** 一个子进程。
+       2. 在子进程中用 `/bin/sh -c "your_command"` 执行命令。
+       3. 建立一个**管道**，父进程可以通过这个管道读取子进程的输出（或写入子进程的输入）。
+       4. 父进程通过 `pclose()`等待子进程结束并获取退出状态。
 
-      ```
-      #输出结果
-      Task is running...
-      Task has completed.
-      Main thread detected task completion.
-      ```
+19. IPC 是进程间通信的核心机制，帮助进程协调工作、交换数据。常见的 IPC 方式包括管道、消息队列、共享内存、信号、套接字等
 
-13. IPC 是进程间通信的核心机制，帮助进程协调工作、交换数据。常见的 IPC 方式包括管道、消息队列、共享内存、信号、套接字等
-
-14. `Popen()` 和 `pclose()` 是 C 和 C++ 标准库中的函数，通常用于执行外部命令，并通过**管道**（pipe）与这些命令进行交互，获取命令的输出或向命令传递输入
+20. `Popen()` 和 `pclose()` 是 C 和 C++ 标准库中的函数，通常用于执行外部命令，并通过**管道**（pipe）与这些命令进行交互，获取命令的输出或向命令传递输入
 
       > 通常用于在c++代码中获取linux命令执行后的控制台输出
 
@@ -599,7 +934,7 @@
          fp：通过 popen() 返回的文件指针（FILE*），指向进程的标准输出或输入
          ```
 
-15. 
+21. 
 
 ### 3. 文件操作
 
