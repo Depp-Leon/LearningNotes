@@ -4123,7 +4123,22 @@ m_pPool->submit([this, pBundle]() {
 
 46. 中控下发威胁清除实际上就是将威胁列表重新执行查杀，并且设置为自动清理
 
+47. 项目中的**单例模式**：zyiniConfig.h中的配置类，单一配置类确保全局配置统一
 
+    ```c++
+    static IniConfig& Instance()
+        {
+            static IniConfig obj;
+            return obj;
+        }
+    
+    // 实际使用
+    IniConfig::Instance().LoadConfig();
+    IniConfig::Instance().set_auto_update_onoff_cloud((bool)timed_task->m_enableTimerTask);
+    IniConfig::Instance().SaveConfig();
+    ```
+
+    
 
 ### 2. 工作部分
 
@@ -4217,6 +4232,26 @@ m_pPool->submit([this, pBundle]() {
      1. 目前是每一类，将其配置proto转为string存储到数据库中(**key,value格式**)
      2. 打算还是像705/707一样以文件的方式存储配置信息
 
+   分析：
+
+   1. IniConfiger.h和IniConfiger.cpp实现了INI配置文件的读写类，主要作用是读取、写入、管理INI格式的配置文件，并提供了类型安全的接口
+   2. 头文件zyConfigType.h中将需要定义的字段定义为宏
+   3. 头文件zyiniConfig.h中使用刚定义的宏以及INI配置读写类，集成一个专门读Config.ini的**单例配置类**，实现load()加载、save()保存，set\ger()等函数
+   4. 找到这个类放到哪里初始化：不需要初始化，直接使用单例对象
+   5. 是否只需要修改读和写呢？定义一个转化类
+
+   问题：
+
+   1. 数据防护-文件保险箱：以repeat字段存储不同的文件保险箱项目，如果以文件的形式如何写(改为sqlite3)
+
+   2. 系统防护-四个大项，每项都有多个选择，是否文件中每项都有配置， 是否摒弃之前数据偏移的格式，重新修改proto
+
+      > 这些跟主防相关的配置存放在xml文件中，待董岩看是否不需要存数据库
+
+   3. 修改成文件存储的话，RJJH和safed之间传输使用Proto，safed之间的数据传输由于有唯一单例可以直接访问，那么safed之间还需要使用proto传输吗
+
+      > 由于之前可能存在读/写配置不同步的问题，待董岩看是否还存在问题，若存在则在Config组件中新写一个读/写配置的类
+
 4. - [ ] 收到管理的配置下发，转换为本地结构，修改各个模块之间配置传输方式
 
      > tips: 由于中控收到配置下发使用的protobuffer使用的是serverEventV2里面的字段；
@@ -4224,9 +4259,28 @@ m_pPool->submit([this, pBundle]() {
      > 但是在本地使用的proto中(比如himitoHelper中也定义了一套类似的字段)，各个模块之间进行配置传输使用的proto字段混乱(正常来说不能使用serverEvent中的了)；所以需要重新将本地使用的proto单独拿出来使用。
 
      1. 单独将配置相关的字段(message)写到一个新的protobufer文件中，有些配置使用重复的子字段，将其转为共用字段
+     
      2. 在组件(config)中收到中控下发的各类配置，使用serverEvent来进行解析，然后再使用本地新的proto对数据进行封装转换，再publish和存储
+     
+        > 转换需要一个函数/类，收到中控的转为本地的，然后再使用本地插入到数据库
+        >
+        > 看705关于解析中控的代码，可以参考705的方式(src2.0/CtrlCenterPlugin/heartbeat)
+        >
+        > 1. CtrCenterPlugin/CtrlCenter中进行消息类型的注册
+     
      3. 在各个组件/插件中传递/解析配置也使用新建的proto格式
 
+5. bug修改：
+
+   - [x] 702升级到708后，白名单数据缺失
+   - [x] 信任区和黑名单中显示占用磁盘空间
+   - [x] 服务端下发恢复/删除隔离区数据，上报的日志方式为主动发起
+   
+   - [x] 大量数据恢复并信任所选文件时，没有加入到信任区中
+   - [x] 每次重启机器后，都上报两条白名单数据
+   - [x] 查杀结果页，点击病毒文件信任，病毒文件进入隔离区
+   - [x] 702升级到708之后，数据防护中文件保险箱和勒索诱捕没有开启
+   - [x] 702升级到708，不会自动更新病毒库
 #### 2.2 备忘录
 
 驱动开发
@@ -4529,9 +4583,121 @@ m_pPool->submit([this, pBundle]() {
 
     > QTableWidget、Model、
 
-48. 
+42. 学习python、rust
 
+43. **宏定义**(`#define`)本质上就是**文本替换**，在代码中将宏定义替换为事先准备好的代码
 
+    1. 理论上所有的C/C++代码都可以使用宏
+    2. 但是其不会做语法检查、不能做逻辑判断(只支持(`#ifdef`))、调试困难
+
+    举例：项目中读取Config.ini配置之后给每个配置项设置变量、get、set函数
+
+    ```c++
+    #define ATTRIBUTE_MEMBER_FUNC(argType, arg, defValue)\
+    	public:\
+    	void set_##arg(const argType& v) {\
+    	    arg = v;\
+            b_##arg = true;\
+    	}\
+    	argType get_##arg() {\
+    	    return b_##arg ? arg : defValue;\
+    	}\
+        bool has_##arg() {\
+    	    return b_##arg;\
+    	}\
+        void set_lock_##arg(bool b) {\
+            b_lock_##arg=b;\
+    	}\
+    	bool get_lock_##arg() {\
+    	    return b_lock_##arg;\
+    	}\
+        private:\
+        argType arg;\
+        bool b_##arg;\
+        bool b_lock_##arg;
+    
+    ```
+
+    作用：自动展开为私有的成员变量、公有的set、get函数
+
+    分析：
+
+    1.  `##` 是C/C++宏定义中的**连接符（token-pasting operator）**，用于把前后的标识符拼接成一个新的标识符
+    2. `\`用来换行
+    3. 宏定义**只做文本替换不会检查**，所以如果传来的参数是一个对象指针，在定义中使用该对象的函数也没有问题，可以正常编译和运行(只要该对象真的有这个成员函数)
+
+44. 一些宏的区别
+
+    1. `#ifndef`：判断某个宏是否**没有被定义**，如果没有被定义，则编译后面的代码
+
+       ```
+       #ifndef __ZY_CONFIG_TYPE_H__
+       #define __ZY_CONFIG_TYPE_H__
+       // ...头文件内容...
+       #endif
+       ```
+
+    2. `#ifdef`：判断某个宏是否**已经被定义**，如果定义了，则编译后面的代码。
+
+       ```
+       #ifdef DEBUG
+       // ...调试相关代码...
+       #endif
+       ```
+
+    3. `#if`：判断一个表达式（通常是常量表达式或宏）是否为真
+
+       ```
+       #define VERSION 3
+       
+       #if VERSION == 1
+           printf("版本1的功能\n");
+       #elif VERSION == 2
+           printf("版本2的功能\n");
+       #elif VERSION == 3
+           printf("版本3的功能\n");
+       #else
+           printf("未知版本\n");
+       #endif
+       ```
+
+45. protobuffer的字段，如果未给其赋值，那么其默认为`0/""/false`，定义时后面写的只是标识字段号
+
+46. 游泳、英语今年必须得学会
+
+47. Obsidian的教学
+
+48. 主线、看行情、风口，预测目标
+
+    > 公司盈利的流程？项目、公司如何运转的
+
+49. 通过这次西安见面，有眼色一点，动起来，不要怕麻烦和丢脸
+
+50. Linux下常用的**内存检测和调试工具**：Valgrind
+
+51. 想要使用cmake**重新**编译
+
+    1. 在build文件夹下执行`make clean`
+
+    2. 重新执行`make`
+
+       > make clean 会删除所有生成的二进制文件和目标文件，但保留 CMake 缓存和配置文件。
+
+52. 软件升级从之前的分离进程改为独立进程是如何实现的
+
+53. `argv.data()`返回 `char**`，指向 `std::vector<char*>` 的首元素
+
+    > 返回类型随容器类型而变（如 `std::vector<T>` 返回 `T*`，`std::string` 返回 `char*`）。
+
+    ```c++
+    std::vector<char*> argv;
+    // ...填充argv...
+    int result = execv(argv[0], argv.data());
+    ```
+
+54. 708之前有proc(进程)版本，即一个终端管理界面，输入1、2、3、4执行查杀、查看等功能
+
+55. 了解底层学习汇编语言、了解上层学习python语言
 
 ### 4. 末尾
 
