@@ -4250,32 +4250,60 @@ m_pPool->submit([this, pBundle]() {
 
    3. 修改成文件存储的话，RJJH和safed之间传输使用Proto，safed之间的数据传输由于有唯一单例可以直接访问，那么safed之间还需要使用proto传输吗
 
-      > 由于之前可能存在读/写配置不同步的问题，待董岩看是否还存在问题，若存在则在Config组件中新写一个读/写配置的类
+      > 在config配置中将那两块代码拉过来，在config中实现一个单例，方便从中控中获取到数据并保存 
 
 4. - [ ] 收到管理的配置下发，转换为本地结构，修改各个模块之间配置传输方式
 
-     > tips: 由于中控收到配置下发使用的protobuffer使用的是serverEventV2里面的字段；
-     >
-     > 但是在本地使用的proto中(比如himitoHelper中也定义了一套类似的字段)，各个模块之间进行配置传输使用的proto字段混乱(正常来说不能使用serverEvent中的了)；所以需要重新将本地使用的proto单独拿出来使用。
+     1. 转为本地结构：收到的中控下发的配置存放在不同的proto字段中，设置中单一功能/单一页的设置可能来自多个proto，需要根据功能来整合到一起，设计本地结构便于传输
+     2. 在组件(config)中收到中控下发的各类配置，使用serverEvent来进行解析，然后再使用本地新的proto对数据进行封装转换，再存储和进行转发(同步界面和同步插件)
 
-     1. 单独将配置相关的字段(message)写到一个新的protobufer文件中，有些配置使用重复的子字段，将其转为共用字段
-     
-     2. 在组件(config)中收到中控下发的各类配置，使用serverEvent来进行解析，然后再使用本地新的proto对数据进行封装转换，再publish和存储
-     
-        > 转换需要一个函数/类，收到中控的转为本地的，然后再使用本地插入到数据库
-        >
-        > 看705关于解析中控的代码，可以参考705的方式(src2.0/CtrlCenterPlugin/heartbeat)
-        >
-        > 1. CtrCenterPlugin/CtrlCenter中进行消息类型的注册
-     
-     3. 在各个组件/插件中传递/解析配置也使用新建的proto格式
+     3. 在各个组件/插件中传递/解析配置也使用新建的proto格式，**RJJH保存逻辑**和**版本适配工具**同样需要修改
 
-5. bug修改：
+5. 分析705CtrCenter插件，包含中控下发的所有操作+配置，与708的方式不同
+
+   > 关于与中控之间的通信交互的逻辑还是一样的，只是708使用了subscrib和publish，705使用的是多态注册
+
+   ```c++
+   // 1， CtrlCenter 初始化
+   heart_beat_.RegisterAction(ServerEventResponse_TaskType_NORMAL_SCAN, pScan);// 注册动作
+   heart_beat_.Start();	// 开启心跳，每隔一个时间间隔就请求一次中控。请求时绑定回调，收到消息会执行回调函数OnHeatBeatRespose
+   
+   // 2. HeartBeat中的Start()启动心跳
+   worker_.start_thread(2);	// 启动worker任务队列，负责调用建立心跳连接
+   slave_.start_thread(1);
+   OnHeartBeatTick()  // 心跳函数
+   HandleHeartBeatString()	// 心跳回复后的处理逻辑
+   
+   // 3. 处理逻辑，将每一个item传入DoAction中，查找type并根据之前的注册从mao中找到对应对象的Action()
+   for (int i = 0; i < serverResponse.items_size(); i++)
+   	{
+           ServerEventResponse_CmdItem item = serverResponse.items(i);
+           DoAction(item);
+       }
+   
+   void HeartBeat::DoAction(ServerEventResponse_CmdItem& msg)
+   {
+   	std::lock_guard<std::mutex> lck(mutex_);
+   	if (action_map_.find((unsigned int)msg.item_type()) != action_map_.end())
+   	{
+           action_map_[(unsigned int)msg.item_type()]->Action(msg);
+       }
+   }
+   
+   // 4. ScanConfig类即为配置处理函数
+   CScanConfig::CmdAction()  // 处理函数
+   
+   // Protobuffer的字段为TerminalConfig
+   ```
+
+   
+
+6. bug修改：
 
    - [x] 702升级到708后，白名单数据缺失
    - [x] 信任区和黑名单中显示占用磁盘空间
    - [x] 服务端下发恢复/删除隔离区数据，上报的日志方式为主动发起
-   
+
    - [x] 大量数据恢复并信任所选文件时，没有加入到信任区中
    - [x] 每次重启机器后，都上报两条白名单数据
    - [x] 查杀结果页，点击病毒文件信任，病毒文件进入隔离区
@@ -4698,6 +4726,187 @@ m_pPool->submit([this, pBundle]() {
 54. 708之前有proc(进程)版本，即一个终端管理界面，输入1、2、3、4执行查杀、查看等功能
 
 55. 了解底层学习汇编语言、了解上层学习python语言
+
+56. 我们决定登月，它并非轻而易举，而正因为困难重重
+
+57. 以需求导向，想要做什么事，去学这块相关的知识并实现。(比如想要下载，就学习爬虫等)
+
+58. 关于虚函数重写的问题
+
+    1. 子类实现父类的虚函数，这个函数还是虚函数吗？
+
+       > 只要父类的函数是 `virtual`，子类无论是否加 `virtual`，它实现（重写）这个函数后，这个函数依然是虚函数。这叫**虚函数的继承性**。
+
+    2. 子类的子类再实现这个函数，还是虚函数吗？
+
+       > **还是虚函数。**只要最上层的父类声明了 `virtual`，所有后代类实现的同名同参数函数，都是虚函数
+
+    3. 子类实现虚函数时还需要加 `virtual` 吗？
+
+       > **不需要加也可以。**加不加 `virtual` 都行，效果一样。加上只是为了代码可读性，提醒别人这是虚函数。原因是虚函数的继承性，只要父类的函数是虚函数，子类仍然是虚函数
+
+59. 708的心跳流程(与中控之间交互逻辑)：
+
+    ```
+    run()			// 继承线程类，循环执行
+     ├─> getRegisterConfig()（未注册时）
+     └─> syncHeartBeat()（已注册时）
+            └─> syncPost()（HTTP通信）
+                    └─> 中控服务器
+    ```
+
+    `syncPost()`的实现，使用了cpr库：
+
+    > 这是一个第三方 C++ HTTP 客户端库，常用于发起 HTTP/HTTPS 请求，支持 GET、POST、PUT、DELETE 等方法。
+
+    ```c++
+    bool CControlCenterAgent::syncPost(const std::string &url, const std::string &body, std::string &strResponse)
+    {
+        if (url.empty()) {
+            return false;
+        }
+        try {
+            cpr::Response r = cpr::Post(cpr::Url {url}, cpr::Header {{"Content-Type", "application/json"}}, cpr::Body {body});
+            if (r.error.code != cpr::ErrorCode::OK) {
+                for (auto const &header : r.header) {
+                    LOG(INFO) << header.first << ": " << header.second;
+                }
+                return false;
+            }
+            strResponse = r.text;
+        } catch (const std::exception &e) {
+            LOG(ERROR) << "Exception caught: " << e.what();
+            return false;
+        } catch (...) {
+            LOG(ERROR) << "Exception caught: unknown error.";
+            return false;
+        }
+        return true;
+    }
+    ```
+
+    ```
+    // cpr代码：
+    cpr::Response r = cpr::Post(
+        cpr::Url{url},
+        cpr::Header{{"Content-Type", "application/json"}},
+        cpr::Body{body}
+    );
+    
+    // cpr用法分析：
+    cpr::Post：发起 HTTP POST 请求。
+    cpr::Url{url}：目标 URL。
+    cpr::Header{{"Content-Type", "application/json"}}：设置 HTTP 头部，声明请求体为 JSON 格式。
+    cpr::Body{body}：请求体内容（你的 protobuf 序列化字符串）。
+    
+    // cpr返回值是一个 cpr::Response 对象，包含：
+    r.status_code：HTTP 状态码
+    r.text：响应内容
+    r.error：错误信息
+    r.header：响应头
+    ```
+
+60. 常用的关于http请求方法
+
+    1. GET
+
+       - **作用**：**获取资源**（读取数据）。
+       - **特点**：参数一般放在 URL 查询字符串中（如 `?id=123`），**不会有请求体**。
+       - **常见用途**：网页浏览、获取配置信息、下载文件等。
+
+       - cpr 用法
+
+         ```c++
+         cpr::Response r = cpr::Get(cpr::Url{"https://example.com/api/info"});
+         ```
+
+    2.  POST
+
+       - **作用**：**提交数据**（如表单、JSON、protobuf等）到服务器，**服务器处理后返回结果**。
+
+       - **特点**：参数通常放在请求体（body）中，可以是 JSON、表单、二进制等。
+
+       - **常见用途**：用户登录、上传数据、接口调用等。
+
+       - cpr 用法
+
+         ```c++
+         cpr::Response r = cpr::Post(
+           cpr::Url{"https://example.com/api/upload"},
+           cpr::Body{"your data"},
+           cpr::Header{{"Content-Type", "application/json"}}
+         );
+         ```
+
+    3.  PUT
+
+       - **作用**：**更新资源**（整体替换）。
+
+       - **特点**：和 POST 类似，但语义是“替换”而不是“创建”。
+
+       - **常见用途**：更新用户信息、替换文件等。
+
+       - cpr 用法
+
+         ```c++
+         cpr::Response r = cpr::Put(
+           cpr::Url{"https://example.com/api/user/123"},
+           cpr::Body{"new data"}
+         );
+         ```
+
+    4. DELETE
+
+       - **作用**：**删除资源**。
+
+       - **特点**：通常只需要 URL 指定要删除的资源。
+
+       - **常见用途**：删除用户、删除文件等。
+
+       - cpr 用法
+
+         ```c++
+         cpr::Response r = cpr::Delete(cpr::Url{"https://example.com/api/user/123"});
+         ```
+
+    5. PATCH
+
+       - **作用**：**部分更新资源**。
+
+       - **特点**：只修改部分字段，不是整体替换。
+
+       - **常见用途**：修改用户某个属性等。
+
+       - cpr 用法：
+
+         ```c++
+         cpr::Response r = cpr::Patch(
+             cpr::Url{"https://example.com/api/user/123"},
+             cpr::Body{"partial update"}
+         );
+         ```
+
+61. 英语：音标、自然拼读、单词、语法、短句/词组、音频、讲
+
+    > 发音：Whaddaya Say
+    >
+    > 单词、语法、词组：English in use
+    
+62. 将本地的分分支B彻底覆盖为分支A
+
+    ```
+    git checkout B
+    git reset --hard A
+    ```
+
+    本地分支A强制拉取远程分支覆盖本地
+
+    ```
+    git fetch
+    git reset --hard origin/A
+    ```
+
+    
 
 ### 4. 末尾
 
