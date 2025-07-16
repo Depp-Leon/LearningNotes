@@ -504,9 +504,9 @@
         > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
         >
         > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
-
+    
         1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
-
+    
            ```c++
            std::mutex mtx;				//互斥变量
            std::condition_variable cv;	//条件变量
@@ -526,9 +526,9 @@
                std::cout << "Thread " << id << " is executing\n";
            }
            ```
-
+    
         2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
-
+    
            ```c++
            void go() {
                std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -539,13 +539,13 @@
                cv.notify_one();  // 唤醒一个等待线程
            }
            ```
-
+    
            > - 当 `print_id` 线程在 `cv.wait(lck)` 处等待时，`mtx` 是**释放状态**，所以 `go()` 线程可以顺利加锁。
            > - `go()` 线程加锁后，修改 `ready` 并 `notify_one()`，然后解锁。
            > - 被唤醒的 `print_id` 线程会重新加锁 `mtx`，继续执行。
-
+    
         3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
-
+    
            1. **`std::unique_lock` 和 `wait`**：
               - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
               - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
@@ -2189,6 +2189,8 @@
    ```c++
    // 比如查杀将进度上报回调函数传递给引擎
    m_pVirusScanResponse = asyncScanTask(param, getEngineConfig(), vse::ProgressCallback {std::bind(&ScanFlowController::virusResult, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
+   
+   // 这个ProgressCallback是对象，后面的是构造函数用到的参数
    ```
 
    > 类似于在类中开启线程，需要使用bind或者lambda传递this指针

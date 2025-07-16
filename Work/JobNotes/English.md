@@ -26,6 +26,8 @@
 
 **dictionary** n.词典
 
+**axiomatic** adj. 公理的，自明的
+
 ### 二、语法
 
 1. vi是不及物动词(intransitive verb)，vt是及物动词(transitive verb)

@@ -4580,12 +4580,14 @@ m_pPool->submit([this, pBundle]() {
     IBundle *pPublishBundle = CBundle::createInstance();
     ```
     
-58. 汇报逻辑： 
+34. **汇报逻辑**： 
 
-    1. 问题的现象
-    2. 问题的原因(查看日志/gdb 哪一块执行错误/没有执行)
-    3. 具体的代码分析
-    4. 个人推测、结果
+    1. 问题的**现象**(**what**)
+    2. 问题的**原因**(查看日志/gdb 哪一块执行错误/没有执行)(**why**)
+    3. **具体**的代码分析
+    4. **个人推测、结果**
+
+    > 总分总叙事，先说明是什么事，再围绕这个事展开说，最后若要总结就给出推测总结
 
 36. 提升C++能力
 
@@ -4745,7 +4747,7 @@ m_pPool->submit([this, pBundle]() {
 
        > **不需要加也可以。**加不加 `virtual` 都行，效果一样。加上只是为了代码可读性，提醒别人这是虚函数。原因是虚函数的继承性，只要父类的函数是虚函数，子类仍然是虚函数
 
-59. 708的心跳流程(与中控之间交互逻辑)：
+59. 708的**心跳流程**(与中控之间交互逻辑)(**ctrl_center组件**)：
 
     ```
     run()			// 继承线程类，循环执行
@@ -4753,6 +4755,7 @@ m_pPool->submit([this, pBundle]() {
      └─> syncHeartBeat()（已注册时）
             └─> syncPost()（HTTP通信）
                     └─> 中控服务器
+            └─> serverEventResponseAnalysis(response) 解析中控消息，并publish
     ```
 
     `syncPost()`的实现，使用了cpr库：
@@ -4783,6 +4786,9 @@ m_pPool->submit([this, pBundle]() {
         }
         return true;
     }
+    
+    
+    
     ```
 
     ```
@@ -4906,7 +4912,72 @@ m_pPool->submit([this, pBundle]() {
     git reset --hard origin/A
     ```
 
+63. 关于`std::function`:C++11 标准库中的一个**函数对象包装器**，定义在 `<functional>` 头文件中
+
+    - 它可以保存、复制和调用任何可调用对象（**普通函数、lambda、成员函数指针、仿函数**等）。
+
+    ```c++
+    #include <functional>
+    #include <iostream>
     
+    std::function<int(int, int)> add = [](int a, int b) { return a + b; };
+    std::cout << add(2, 3) << std::endl; // 输出 5
+    ```
+
+64. **当 lambda 只有一种/一条 return 语句时，编译器可以自动推断返回类型**，所以可以省略 `-> 返回类型`。
+    如果 lambda 有多条 return 或返回类型不明确，建议显式写 `-> 返回类型`，否则可能推断错误或编译失败。
+
+    ```c++
+    auto f1 = [](int a, int b) { return a + b; };         // 自动推断为 int
+    auto f2 = [](int a, int b) -> int { return a + b; };  // 显式指定为 int
+    
+    auto f = [](bool flag) {
+        if (flag) return 1;
+        else return 2.0; // int 和 double 混用，需写 -> double
+    };
+    ```
+
+65. 关于类的初始化使用`()`还是`{}`的问题
+
+    1. 普通类的初始化
+
+       ```c++
+       MyClass obj1();   // 声明了一个函数，不是对象！（最容易误用）
+       MyClass obj2{};   // 正确，使用大括号初始化
+       MyClass obj3;     // 默认构造
+       MyClass obj4 = MyClass(); // 正确，调用默认构造
+       MyClass obj5 = MyClass{}; // 正确，调用默认构造
+       ```
+
+    2. 对于带参数的类的构造函数，两种都可以
+
+       ```
+       MyClass obj6(1, 2);
+       MyClass obj7{1, 2};
+       ```
+
+       > 推荐用大括号 `{}`，可以避免“最令人困惑的解析”（Most Vexing Parse）问题。
+
+    3. 注意事项
+
+       - 对于内置类型或聚合类型，`{}` 可以防止窄化（如 int 赋值给 char 会报错）。
+       - 对于 `std::vector<int> v{1, 2, 3};`，大括号是列表初始化。
+
+    4. 两种初始化的区别
+
+       1. `MyClass obj2{};`
+
+          - 直接用大括号初始化，叫**直接列表初始化**。
+
+          - 编译器会直接调用 `MyClass` 的构造函数。
+
+       2. `MyClass obj5 = MyClass{};`
+
+          - 这是**拷贝列表初始化**，先用 `MyClass{}` 创建一个<u>临时对象</u>，再用它初始化 `obj5`(**拷贝构造**)。
+
+          - 但对于大多数现代编译器（C++11 及以后），会做**返回值优化（RVO）**，临时对象不会真的多分配一次内存，最终和 `obj2{}` 效果一样。
+
+            > 但是如果你的类禁止拷贝/移动，只能用 `MyClass obj2{};`。
 
 ### 4. 末尾
 
