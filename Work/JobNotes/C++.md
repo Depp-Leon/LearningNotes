@@ -504,9 +504,9 @@
         > 线程A被唤醒后，线程A尝试重新获取互斥量。如果线程B还在持有锁，线程A会一直等待直到线程B释放互斥量。
         >
         > 当线程B退出临界区并释放锁后，线程A能够成功获得锁并继续执行
-    
+        
         1. 使用同一个互斥量，执行`wait`(P)操作；线程通过 `std::unique_lock<std::mutex> lck(mtx)` 锁住互斥量 `mtx`
-    
+        
            ```c++
            std::mutex mtx;				//互斥变量
            std::condition_variable cv;	//条件变量
@@ -526,9 +526,9 @@
                std::cout << "Thread " << id << " is executing\n";
            }
            ```
-    
+        
         2. 使用同一个互斥量，执行`notify`(V)操作；`std::condition_variable::notify_one` 用于唤醒一个等待条件变量的线程。使用`std::lock_guard`锁住互斥量
-    
+        
            ```c++
            void go() {
                std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -539,13 +539,13 @@
                cv.notify_one();  // 唤醒一个等待线程
            }
            ```
-    
+        
            > - 当 `print_id` 线程在 `cv.wait(lck)` 处等待时，`mtx` 是**释放状态**，所以 `go()` 线程可以顺利加锁。
            > - `go()` 线程加锁后，修改 `ready` 并 `notify_one()`，然后解锁。
            > - 被唤醒的 `print_id` 线程会重新加锁 `mtx`，继续执行。
-    
+        
         3. 为什么需要 `std::unique_lock` 和 `std::lock_guard`？
-    
+        
            1. **`std::unique_lock` 和 `wait`**：
               - `wait` 需要一个 `std::unique_lock`（而不是 `std::lock_guard`）来保证它可以在释放锁后重新获取锁。`std::unique_lock` 支持锁的显式解锁和重新锁定。
               - `std::lock_guard` 是一个更简洁的锁类型，它会自动在作用域结束时释放锁，但它**不支持手动释放锁**，因此不能和 `wait` 一起使用。
@@ -1990,37 +1990,34 @@
              return false;
       }
       
-      ```
-   
-   // 插件中定义返回函数，用于获取插件指针
-      PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()
-   {
-          return std::unique_ptr<CJYVirusScanPluginImpl>(new CJYVirusScanPluginImpl());
-      }
+      // 插件中定义返回函数，用于获取插件指针
+         PLUGIN_EXPORT std::unique_ptr<IPlugin> createPlugin()
+      {
+             return std::unique_ptr<CJYVirusScanPluginImpl>(new CJYVirusScanPluginImpl());
+         }
       ```
    
    3. `dlclose`：关闭动态库，并释放相关资源
    
-      ```
-   int dlclose(void *handle);
-   
-   #返回值：
-      成功：返回 0。
-      失败：返回非零值
+      ```c++
+      int dlclose(void *handle);
+      
+      #返回值：
+         成功：返回 0。
+         失败：返回非零值
       ```
    
    4. `dlerror`：返回最近一次 `dlopen`、`dlsym` 或 `dlclose` 调用的错误信息。
    
-      ```
+      ```c++
       const char *dlerror(void);
-   
+      
       #效果：
       成功调用 dlopen、dlsym 或 dlclose 后，会清除错误状态。
       返回值是一个描述错误的字符串，或 NULL 表示没有错误。
-   
       ```
    
-      ```
+      
 
 
 

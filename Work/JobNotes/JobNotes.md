@@ -3788,6 +3788,10 @@ m_pPool->submit([this, pBundle]() {
          ![image-20250529104240578](source/images/JobNotes/image-20250529104240578.png)
 
        - 关于插件中的消息分发：通过读取plugin.conf获取每个插件要注册的message的type，在插件管理器依次启动插件时就将其注册消息队列。(组件是需要调用messager手动注册，插件由配置文件在初始化时就已经完成注册)
+       
+         ![image-20250718134127088](source/images/JobNotes/image-20250718134127088.png)
+       
+         ![image-20250718134024983](source/images/JobNotes/image-20250718134024983.png)
 
 18. 关于**项目中的日志**
 
@@ -3965,7 +3969,7 @@ m_pPool->submit([this, pBundle]() {
     3. 在rjjh.main中连接ZySinGleApplication和FramelessWindow的信号槽
        app.connect(&app, SIGNAL(messageRightSelectScan(QString)), &mainWindow, SLOT(rightSelectScan(QString)));
     ```
-    
+
 34. 项目中配置相关流程：
 
     safed中负责保存、分发配置。界面(终端)、中控负责下发、修改配置
@@ -4958,25 +4962,42 @@ m_pPool->submit([this, pBundle]() {
 
        > 推荐用大括号 `{}`，可以避免“最令人困惑的解析”（Most Vexing Parse）问题。
 
-    3. 注意事项
+    3. 如果是类的聚合，类B为类A的成员，则类A在初始化的时候自动调用类B的构造函数
 
+       > 所以推荐使用类的指针，这样成员只是一个指针，而不需要构造初始化
+    
+   ```c++
+       class MyClass {
+   public:
+           MyClass(int x) { /* ... */ }
+   };
+       
+   class AnotherClass {
+           MyClass memberObj; // 编译错误：MyClass没有默认构造函数
+   public:
+           AnotherClass() : memberObj(5) {} // 正确，显式初始化
+   };
+   ```
+
+    4. 注意事项
+    
        - 对于内置类型或聚合类型，`{}` 可以防止窄化（如 int 赋值给 char 会报错）。
        - 对于 `std::vector<int> v{1, 2, 3};`，大括号是列表初始化。
-
-    4. 两种初始化的区别
-
+    
+    5. 两种初始化的区别
+    
        1. `MyClass obj2{};`
-
+    
           - 直接用大括号初始化，叫**直接列表初始化**。
-
+    
           - 编译器会直接调用 `MyClass` 的构造函数。
-
+    
        2. `MyClass obj5 = MyClass{};`
-
+    
           - 这是**拷贝列表初始化**，先用 `MyClass{}` 创建一个<u>临时对象</u>，再用它初始化 `obj5`(**拷贝构造**)。
-
+    
           - 但对于大多数现代编译器（C++11 及以后），会做**返回值优化（RVO）**，临时对象不会真的多分配一次内存，最终和 `obj2{}` 效果一样。
-
+    
             > 但是如果你的类禁止拷贝/移动，只能用 `MyClass obj2{};`。
 
 ### 4. 末尾

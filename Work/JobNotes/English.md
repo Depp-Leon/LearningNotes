@@ -28,6 +28,10 @@
 
 **axiomatic** adj. 公理的，自明的
 
+**awesome**	adj. 令人惊叹的，令人敬畏的，极好的
+
+**kindle** v.点燃，开始燃烧
+
 ### 二、语法
 
 1. vi是不及物动词(intransitive verb)，vt是及物动词(transitive verb)

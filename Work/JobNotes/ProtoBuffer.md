@@ -33,19 +33,29 @@
 
 5. 获取重复字段
 
-   ```c++
-   #遍历
-   #获取重复次数：字段名_size()
-   #获取第i个：processData.infolist(i)
-   HmiToScan::VirusDataProcess processData {};
-   if (!processData.ParseFromString(msgData)) {
-        return false;
-   }
-   for (int i = 0; i < processData.infolist_size(); i++) {	 
-       const HmiToScan::VirusDataProcess::VirusInfo &info = processData.infolist(i);
-       if (info.action() == HmiToScan::VirusDataProcess_ProcessAction_TRUST_ADD) {
-       m_pScan->virusScanProcessTrustAdd(info.data());
-   ```
+   1. 方式一：下标访问
+
+      ```c++
+      #遍历
+      #获取重复次数：字段名_size()
+      #获取第i个：processData.infolist(i)
+      HmiToScan::VirusDataProcess processData {};
+      if (!processData.ParseFromString(msgData)) {
+           return false;
+      }
+      for (int i = 0; i < processData.infolist_size(); i++) {	 
+          const HmiToScan::VirusDataProcess::VirusInfo &info = processData.infolist(i);
+          if (info.action() == HmiToScan::VirusDataProcess_ProcessAction_TRUST_ADD) {
+          m_pScan->virusScanProcessTrustAdd(info.data());
+      ```
+
+   2. 方式二：C++11新特性,范围for循环
+
+      ```
+      for (const auto& item : message.infolist()) {
+          // 使用 item，这个item类型即HmiToScan::VirusDataProcess::VirusInfo
+      }
+      ```
 
 6. 获取非重复嵌套字段
 
