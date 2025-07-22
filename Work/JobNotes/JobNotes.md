@@ -4307,12 +4307,17 @@ m_pPool->submit([this, pBundle]() {
    - [x] 702升级到708后，白名单数据缺失
    - [x] 信任区和黑名单中显示占用磁盘空间
    - [x] 服务端下发恢复/删除隔离区数据，上报的日志方式为主动发起
-
-   - [x] 大量数据恢复并信任所选文件时，没有加入到信任区中
+- [x] 大量数据恢复并信任所选文件时，没有加入到信任区中
    - [x] 每次重启机器后，都上报两条白名单数据
    - [x] 查杀结果页，点击病毒文件信任，病毒文件进入隔离区
    - [x] 702升级到708之后，数据防护中文件保险箱和勒索诱捕没有开启
    - [x] 702升级到708，不会自动更新病毒库
+   
+7. 配置组件的完善
+
+   1. 配置ini提供接口并集成到transform中(初始化)，方便其他组件/插件分发
+   2. 定时任务在任务分发的时候，增加来源参数，如果是本地且界面禁用定时任务时(这项需要config组件解析界面配置之后订阅分发给scan插件/upgrade插件)，则不启动该任务
+   3. zdfy配置项的完善
 #### 2.2 备忘录
 
 驱动开发
@@ -4965,20 +4970,20 @@ m_pPool->submit([this, pBundle]() {
     3. 如果是类的聚合，类B为类A的成员，则类A在初始化的时候自动调用类B的构造函数
 
        > 所以推荐使用类的指针，这样成员只是一个指针，而不需要构造初始化
-    
-   ```c++
-       class MyClass {
-   public:
-           MyClass(int x) { /* ... */ }
-   };
        
-   class AnotherClass {
-           MyClass memberObj; // 编译错误：MyClass没有默认构造函数
-   public:
-           AnotherClass() : memberObj(5) {} // 正确，显式初始化
-   };
-   ```
-
+       ```c++
+       class MyClass {
+       public:
+          MyClass(int x) { /* ... */ }
+       };
+       
+       class AnotherClass {
+          MyClass memberObj; // 编译错误：MyClass没有默认构造函数
+       public:
+          AnotherClass() : memberObj(5) {} // 正确，显式初始化
+       };
+       ```
+       
     4. 注意事项
     
        - 对于内置类型或聚合类型，`{}` 可以防止窄化（如 int 赋值给 char 会报错）。
@@ -4999,6 +5004,88 @@ m_pPool->submit([this, pBundle]() {
           - 但对于大多数现代编译器（C++11 及以后），会做**返回值优化（RVO）**，临时对象不会真的多分配一次内存，最终和 `obj2{}` 效果一样。
     
             > 但是如果你的类禁止拷贝/移动，只能用 `MyClass obj2{};`。
+    
+66. 对于类的成员初始化两种不同实现的区别
+
+    1. 类内赋初值（成员变量初始化器）
+
+       ```c++
+       class Foo {
+           bool scanSwitch = false;
+       public:
+           Foo() {} // scanSwitch 已经被初始化为 false
+       };
+       ```
+
+       > - **优先级高**：如果构造函数没有在初始化列表中指定该成员，使用类内初值。
+       > - **更简洁**，推荐用于简单类型和默认值
+
+    2.  构造函数赋值
+
+       ```c++
+       class Foo {
+           bool scanSwitch;
+       public:
+           Foo() : scanSwitch(false) {} // 这里赋值覆盖类内初值
+       };
+       ```
+
+       > - **如果构造函数初始化列表指定了成员变量，则覆盖类内初值**。
+       > - 适合需要根据构造参数动态初始化成员。
+    
+67. Protobuffer使用枚举类型时，建议使用`::`来获取，只有 C++ 支持 `::` 作用域限定，使用`_`是C语言的用法
+
+68. protobuffer中定义了`package`就相当于定义了`namespace`
+
+    ```
+    package HmiToSafed;
+    enum DataOrigin {
+        INIT = 0;
+        LOCAL = 1;
+        CENTER = 2;
+    }
+    ```
+
+    那么，生成的C++代码将会是：
+
+    ```c++
+    namespace HmiToSafed {
+        enum DataOrigin {
+            INIT = 0,
+            LOCAL = 1,
+            CENTER = 2
+        };
+    }
+    ```
+
+69. 当你的 proto 文件结构比较深（多层 message 嵌套、enum 嵌套），protoc 会生成类似
+    `外层_中层_内层_枚举类型_枚举值`
+
+    ```
+    message TerminalConfig {
+      message ZDFYConfig {
+        message DataProtectConfig {
+          message FileVault {
+            enum Type {
+              EXT = 0;
+              DIR = 1;
+            }
+          }
+        }
+      }
+    }
+    ```
+
+    proto生成的枚举值会是：
+
+    ```
+    HmiToSafed::TerminalConfig::ZDFYConfig::DataProtectConfig::FileVault::Type::TerminalConfig_ZDFYConfig_DataProtectConfig_FileVault_Type_EXT
+    ```
+
+    - 这是为了保证全局唯一性，防止不同作用域下的枚举值重名。
+    - 这是 protobuf 官方 C++ 生成器的标准行为（尤其是多层嵌套时）。
+
+    > 如果你的枚举不是嵌套的，或者用了 `option allow_alias = true;` 或 `option c++_namespace`，有时可以直接用 `Type::EXT`。但多层嵌套时，protoc 默认就是下划线拼接全路径。
 
 ### 4. 末尾
 
