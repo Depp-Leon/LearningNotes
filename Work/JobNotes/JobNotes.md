@@ -1901,7 +1901,7 @@ m_pPool->submit([this, pBundle]() {
    
    sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libSysMonManage.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so  /opt/apps/chenxinsd/lib/modules/
    
-   sudo cp libJYFileShred.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/chenxinsd/lib/plugins/system/
+   sudo cp libJYFileShred.so libJYFileMonitor.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/chenxinsd/lib/plugins/system/
    ```
 
 3. 什么时候需要重新执行cmake和make
@@ -4142,7 +4142,19 @@ m_pPool->submit([this, pBundle]() {
     IniConfig::Instance().SaveConfig();
     ```
 
-    
+48. **项目中使用到的心跳**(与中控通信)
+
+    1. 继承线程类，启动线程
+    2. 如果初始状态/超时，重新注册
+    3. 注册成功，则进入syncHartBeat中获取中控发来的消息，并解析该消息、分发给其他组件
+
+    ![image-20250723151618325](source/images/JobNotes/image-20250723151618325.png)
+
+    ![image-20250723151647080](source/images/JobNotes/image-20250723151647080.png)
+
+<img src="source/images/JobNotes/image-20250723151717220.png" alt="image-20250723151717220" style="zoom: 80%;" />
+
+![image-20250723151845098](source/images/JobNotes/image-20250723151845098.png)
 
 ### 2. 工作部分
 
@@ -4227,41 +4239,29 @@ m_pPool->submit([this, pBundle]() {
 
 2. - [ ] protobuf反序列化时需要加报错日志，捕获异常
 
-3. - [ ] 各种配置存储修改，去掉protobuf入库(待细化)
-
-    > tips: 目前是将设置中心的配置通过存储protobuffer转为密文，存储到设置数据库中；
-    >
-    > 计划是打算将配置数据按照字段存储到文件中像705/707一样以文件的方式进行存储
-
-     1. 目前是每一类，将其配置proto转为string存储到数据库中(**key,value格式**)
-     2. 打算还是像705/707一样以文件的方式存储配置信息
-
-   分析：
-
-   1. IniConfiger.h和IniConfiger.cpp实现了INI配置文件的读写类，主要作用是读取、写入、管理INI格式的配置文件，并提供了类型安全的接口
-   2. 头文件zyConfigType.h中将需要定义的字段定义为宏
-   3. 头文件zyiniConfig.h中使用刚定义的宏以及INI配置读写类，集成一个专门读Config.ini的**单例配置类**，实现load()加载、save()保存，set\ger()等函数
-   4. 找到这个类放到哪里初始化：不需要初始化，直接使用单例对象
-   5. 是否只需要修改读和写呢？定义一个转化类
-
-   问题：
-
-   1. 数据防护-文件保险箱：以repeat字段存储不同的文件保险箱项目，如果以文件的形式如何写(改为sqlite3)
-
-   2. 系统防护-四个大项，每项都有多个选择，是否文件中每项都有配置， 是否摒弃之前数据偏移的格式，重新修改proto
-
-      > 这些跟主防相关的配置存放在xml文件中，待董岩看是否不需要存数据库
-
-   3. 修改成文件存储的话，RJJH和safed之间传输使用Proto，safed之间的数据传输由于有唯一单例可以直接访问，那么safed之间还需要使用proto传输吗
-
-      > 在config配置中将那两块代码拉过来，在config中实现一个单例，方便从中控中获取到数据并保存 
+3. - [x] 各种配置存储修改，去掉protobuf入库(待细化)
+     1. 使用705的方式，设置ini类，每个配置项都为成员
+     2. 提供设置配置和获取全量配置的接口
 
 4. - [ ] 收到管理的配置下发，转换为本地结构，修改各个模块之间配置传输方式
 
-     1. 转为本地结构：收到的中控下发的配置存放在不同的proto字段中，设置中单一功能/单一页的设置可能来自多个proto，需要根据功能来整合到一起，设计本地结构便于传输
-     2. 在组件(config)中收到中控下发的各类配置，使用serverEvent来进行解析，然后再使用本地新的proto对数据进行封装转换，再存储和进行转发(同步界面和同步插件)
+     1. 配置分为三块，重新整理设计配置的protobuffer
 
-     3. 在各个组件/插件中传递/解析配置也使用新建的proto格式，**RJJH保存逻辑**和**版本适配工具**同样需要修改
+        - ini配置：存储在config.ini配置文件中，以key，value格式存储
+        - zdfy配置：存储在xml文件中
+        - 定时任务配置：存储在sqlite数据库
+
+     2. 界面、中控下发的配置都修改为**全量下发**，即发送一整个配置
+
+     3. 所有界面、中控发来safed的配置全部在**config组件**中**接收并存储**(定时任务比较特殊)，然后**分发**到各组件/插件
+
+        > 同时，界面初始请求配置也是全量发送
+
+     4. 各组件/配置修改订阅的处理逻辑，根据新的protobuffer进行解析
+
+        - [x] 查杀组件相关配置
+        - [x] 升级组件相关配置
+        - [x] 定时任务相关配置
 
 5. 分析705CtrCenter插件，包含中控下发的所有操作+配置，与708的方式不同
 
@@ -4300,24 +4300,19 @@ m_pPool->submit([this, pBundle]() {
    // Protobuffer的字段为TerminalConfig
    ```
 
-   
-
 6. bug修改：
 
    - [x] 702升级到708后，白名单数据缺失
    - [x] 信任区和黑名单中显示占用磁盘空间
    - [x] 服务端下发恢复/删除隔离区数据，上报的日志方式为主动发起
-- [x] 大量数据恢复并信任所选文件时，没有加入到信任区中
+   - [x] 大量数据恢复并信任所选文件时，没有加入到信任区中
    - [x] 每次重启机器后，都上报两条白名单数据
    - [x] 查杀结果页，点击病毒文件信任，病毒文件进入隔离区
    - [x] 702升级到708之后，数据防护中文件保险箱和勒索诱捕没有开启
    - [x] 702升级到708，不会自动更新病毒库
    
-7. 配置组件的完善
-
-   1. 配置ini提供接口并集成到transform中(初始化)，方便其他组件/插件分发
-   2. 定时任务在任务分发的时候，增加来源参数，如果是本地且界面禁用定时任务时(这项需要config组件解析界面配置之后订阅分发给scan插件/upgrade插件)，则不启动该任务
-   3. zdfy配置项的完善
+   
+   
 #### 2.2 备忘录
 
 驱动开发
@@ -5086,6 +5081,18 @@ m_pPool->submit([this, pBundle]() {
     - 这是 protobuf 官方 C++ 生成器的标准行为（尤其是多层嵌套时）。
 
     > 如果你的枚举不是嵌套的，或者用了 `option allow_alias = true;` 或 `option c++_namespace`，有时可以直接用 `Type::EXT`。但多层嵌套时，protoc 默认就是下划线拼接全路径。
+    
+70. 对xml配置文件加密解密
+
+    ```
+    // 在bin目录下
+    // 1. 加密
+    ./JYToolBox --encrypt ../etc/ZyHips.xml ./ZyHips.xml
+    // 2. 解密
+    ./JYToolBox --decrypt ZyHips.xml ZyHips.xml
+    ```
+
+    
 
 ### 4. 末尾
 

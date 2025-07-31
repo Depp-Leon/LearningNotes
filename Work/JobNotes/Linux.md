@@ -65,11 +65,24 @@
    apt-get install  gdb	// 如果杀毒软件运行中将会报错
    ```
    
-2. 虚拟机挂起重新开启后，如果显示"有线未托管"，右上角丢失有线连接选项时，终端重启网络服务
+2. 虚拟机挂起重新开启后，如果显示"有线未托管"，右上角丢失有线连接选项时，解决办法：
 
-   ```shell
-   sudo systemctl restart NetworkManager
-   ```
+   1. 终端重启网络服务
+
+      ```bash
+      sudo systemctl restart NetworkManager
+      ```
+
+   2. 如果方法1无效，可能是NetworkManager出现问题，使用方法二
+
+      ```bash
+      # 1. 进入下面文件，将第五行 managed=False 改为 managed=True
+      sudo vim /etc/NetworkManager/NetworkManager.conf
+      # 2. 删除NetworkManager配置
+      sudo service NetworkManager stop
+      sudo rm /var/lib/NetworkManager/NetworkManager.state 
+      sudo service NetworkManager start 
+      ```
 
 3. kali开启ssh服务
 
