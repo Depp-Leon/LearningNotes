@@ -1,3 +1,9 @@
+
+
+学习三个
+
+![image-20250731231831249](C:\Users\Leslie\AppData\Roaming\Typora\typora-user-images\image-20250731231831249.png)
+
 1. 找到/总结学习English vocabulary in use 的学习方法
 
    > 以及总结学习英语的路线
