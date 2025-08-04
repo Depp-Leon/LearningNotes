@@ -93,8 +93,8 @@
 ##### 2. 介词的区别
 
 	1. 	**For**：强调目的、利益或原因（“**为了**”）
- 	2. 	**To**：强调方向、目标或接收者（“**朝向**”）。
- 	3. 	**Of**：强调所属、部分或关联（“**属于**”）。	
+	2. 	**To**：强调方向、目标或接收者（“**朝向**”）。
+	3. 	**Of**：强调所属、部分或关联（“**属于**”）。	
 
 
 
@@ -116,7 +116,23 @@
 
 使用pronunciation in  use来学习英式发音和发音技巧，共三本。先学习**英语兔**的音标课有个大致的了解
 
+![image-20250804214752320](D:\Document\GitHub\LearningNotes\Work\JobNotes\source\images\English\image-20250804214752320.png)
 
+![image-20250804214821538](D:\Document\GitHub\LearningNotes\Work\JobNotes\source\images\English\image-20250804214821538.png)
+
+![image-20250804215341284](D:\Document\GitHub\LearningNotes\Work\JobNotes\source\images\English\image-20250804215341284.png)
+
+清音：气流经过喉咙，声带不震动
+
+浊音：气流经过喉咙，声带振动
+
+元音：气流经过口腔不阻碍
+
+辅音：气流经过口腔收到阻碍发出的声音
+
+
+
+影响元音：圆唇度、舌位高低、舌位前后
 
 ---
 
