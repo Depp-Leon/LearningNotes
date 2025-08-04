@@ -19,81 +19,320 @@
      QStringList qstringList(qlist);  // 直接转换
      ```
 
-4. 
 
-### 2. 控件
+### 2. MVC模型
+
+Qt的MVC（Model-View-Controller）模型是一种用于组织用户界面应用程序的设计模式，广泛应用于Qt框架中，尤其是通过`QAbstractItemModel`及其派生类实现数据和视图的分离。
+
+1. MVC模式将应用程序逻辑分为三个核心组件：
+
+   - **Model（模型）**：负责管理数据和业务逻辑，提供数据的存储、查询和更新功能。它是数据的核心，独立于用户界面。
+   - **View（视图）**：负责显示数据给用户，从模型获取数据并以可视化方式呈现（如表格、树形视图或列表）。
+   - **Controller（控制器）**：在传统MVC中，控制器处理用户输入并协调模型和视图的交互。在Qt中，控制器通常由视图本身或应用程序逻辑实现，简化了设计。
+
+2. 在Qt中，MVC模式更倾向于Model/View架构，控制器功能通常由视图类或外部逻辑承担，Qt的视图组件直接处理用户输入并与模型交互。
+
+3. MVC的优点：
+
+   - **数据与显示分离**：模型独立于视图，修改数据不影响显示逻辑。
+   - **复用性**：同一模型可被多个视图使用（如列表视图和树视图同时显示同一数据）。
+   - **灵活性**：通过自定义模型、视图和代理，可以实现复杂的数据展示和交互。
+   - **动态性**：支持动态数据更新，视图自动反映变化。
+   - **模块化**：便于维护和扩展，适合大型应用程序。
+
+4. **Model**：
+
+   核心类：`QAbstractItemModel`（抽象基类，适用于树形、表格和列表数据）。
+
+   派生类：
+
+   - `QAbstractListModel`：用于一维列表数据。
+   - `QAbstractTableModel`：用于二维表格数据。
+   - `QStringListModel`：简单字符串列表模型。
+   - `QStandardItemModel`：通用的树形/表格模型。
+
+   > **自定义模型**：开发者可以通过继承QAbstractItemModel实现自定义数据结构。
+
+   功能：
+
+   - 存储和操作数据。
+   - 提供数据访问接口（如`data()`和`setData()`）。
+   - 通过信号（如`dataChanged()`）通知视图数据变化。
+   - 支持动态数据操作（如插入、删除行或列）。
+
+5. **View**:
+
+   核心类：`QAbstractItemView`（抽象基类）。
+
+   派生类：
+
+   - `QListView`：显示列表数据。
+   - `QTableView`：显示表格数据。
+   - `QTreeView`：显示树形数据。
+   - `QColumnView`：分栏显示。
+
+   > 自定义视图：开发者可以继承QAbstractItemView实现特定显示需求。
+
+   功能：
+
+   - 从模型获取数据并显示。
+   - 处理用户交互（如选择、编辑、滚动）。
+   - 支持多种显示方式（如图标视图、表格视图）。
+
+6. **Delegate**（代理）
+
+   核心类：`QAbstractItemDelegate`。
+
+   派生类：`QStyledItemDelegate`（默认代理，支持样式表）。
+
+   > 自定义代理：通过继承`QAbstractItemDelegate`，可以自定义渲染逻辑（如显示进度条、复选框等）。
+
+   功能：
+
+   - 负责渲染和编辑模型中的数据项。
+   - 控制视图中每个单元格的显示方式（如自定义控件、格式化数据）。
+   - 处理用户输入（如编辑单元格内容）。
+
+7. **Controller**
+
+   Qt中没有显式的控制器类，控制逻辑通常嵌入在视图或应用程序代码中。
+
+   视图通过**信号和槽机制**响应用户操作（如点击、双击、键盘输入），并调用模型的接口更新数据。
+
+   开发者可以通过连接信号和槽自定义交互逻辑。
+
+   > 比如点击翻页、切换页码时，调用信号槽通知model层向助手层发送信号请求获取信息
+
+8. `QModelIndex` 是 Qt 中的一个类，用来表示 **模型中的索引**。它是与 `QAbstractItemModel`（及其子类）结合使用的，允许你在模型中定位和操作特定的数据项。
+
+   `QModelIndex` 对象不仅代表了数据在模型中的位置，还可以包含关于该位置的额外信息（如行、列、父项等），使得它能够在视图与模型之间传递数据。
+
+9. 目前项目中（未重构界面前的708）使用了自定义的Model(即继承了`QAbstractItemModel`，如`LogDataModel`)。但是其并没有使用MVC模型，其没有使用view来展示数据，只是收到新的数据后，调用model的setData函数修改model的数据，随后将目标单元格样式和内容重新设置
+
+   > 详见：ProtectlogDialog.cpp中`setCellContent()`函数
+
+10. `QTableWidget`和`QTableView`的区别：
+
+    1. `QTableWidget`基于项（Item-based）的表格控件，适合简单的表格数据展示，当数据量较大时，性能不如 `QTableView`
+
+       ```c++
+       #include <QApplication>
+       #include <QTableWidget>
+       #include <QTableWidgetItem>
+       
+       int main(int argc, char *argv[]) {
+           QApplication app(argc, argv);
+       
+           QTableWidget table(3, 3); // 3行3列
+           table.setWindowTitle("QTableWidget Example");
+       
+           // 添加数据
+           for (int row = 0; row < 3; ++row) {
+               for (int col = 0; col < 3; ++col) {
+                   QTableWidgetItem *item = new QTableWidgetItem(QString("Item %1,%2").arg(row).arg(col));
+                   table.setItem(row, col, item);
+               }
+           }
+       
+           table.show();
+           return app.exec();
+       }
+       ```
+
+    2. `QTableView`基于模型（Model-based）的表格控件，`QTableView` 是 `QAbstractItemView` 的子类，必须配合数据模型（`QAbstractTableModel` 或 `QStandardItemModel`）使用。符合MVC框架的支持。适合展示大量数据，性能较高，并可以自定义数据模型，支持动态数据更新。
+
+       ```c++
+       #include <QApplication>
+       #include <QTableView>
+       #include <QStandardItemModel>
+       #include <QMainWindow>
+       
+       int main(int argc, char *argv[]) {
+           QApplication app(argc, argv);
+       
+           // 创建主窗口
+           QMainWindow window;
+       
+           // 创建模型
+           QStandardItemModel model(4, 3); // 4行3列的表格
+           model.setHorizontalHeaderLabels({"Name", "Age", "City"}); // 设置表头
+       
+           // 填充数据
+           for (int row = 0; row < 4; ++row) {
+               for (int col = 0; col < 3; ++col) {
+                   QStandardItem *item = new QStandardItem;
+                   if (col == 0) {
+                       item->setText(QString("Person %1").arg(row + 1));
+                   } else if (col == 1) {
+                       item->setText(QString::number(20 + row * 5));
+                   } else {
+                       item->setText(QString("City %1").arg(row + 1));
+                   }
+                   model.setItem(row, col, item); // 设置数据项
+               }
+           }
+       
+           // 创建表格视图
+           QTableView *tableView = new QTableView(&window);
+           tableView->setModel(&model); // 关联模型
+           tableView->setWindowTitle("TableView Example");
+           tableView->resize(400, 300);
+       
+           // 设置表格属性
+           tableView->setAlternatingRowColors(true); // 交替行颜色
+           tableView->setSelectionMode(QAbstractItemView::SingleSelection); // 单选模式
+           tableView->setEditTriggers(QAbstractItemView::DoubleClicked); // 双击编辑
+       
+           // 动态添加一行数据
+           model.insertRow(model.rowCount());
+           model.setData(model.index(model.rowCount() - 1, 0), "New Person");
+           model.setData(model.index(model.rowCount() - 1, 1), "30");
+           model.setData(model.index(model.rowCount() - 1, 2), "New City");
+       
+           return app.exec();
+       }
+       ```
+
+    3. 也就是TableWidget对数据的修改需要重新通过表格(TableWidget)来设置数据/样式，而TableView只需要设置一次样式后，设置了model，对数据的修改只需要通过model来操作，数据可以动态更新，数据动态更新后，视图会自动刷新。
+
+11. 自定义代理：比如防护日志界面，根据其有无detail来改变其样式且如果不为空还要绑定信号槽。如果使用MVC模型，则不能使用静态的样式表，需要使用自定义代理，不同的数据来展示不同的样式
+
+    自定义代理的使用步骤：
+
+    1. 继承`QStyledItemDelegate`
+
+       - 创建一个自定义类，继承`QStyledItemDelegate`。
+
+       - **重写`paint()`**方法实现自定义渲染。
+
+         > `paint()`方法是`QStyledItemDelegate`的虚函数，视图（如`QTableView`）在需要绘制单元格时会自动调用它。
+         >
+         > 每次视图需要重绘（例如窗口刷新、数据变更、滚动、调整大小等），Qt会遍历可见单元格，调用代理的`paint()`方法来渲染每个单元格。
+         >
+         > ```
+         > // paint()的三个参数
+         > QPainter *painter：用于绘制单元格内容的画笔。
+         > QStyleOptionViewItem &option：包含单元格的样式信息（如字体、背景、状态）。
+         > QModelIndex &index：标识当前单元格的模型索引，提供数据访问。
+         > ```
+
+       - （可选）重写`createEditor()`、`setEditorData()`、`setModelData()`实现自定义编辑。
+
+    2. 设置代理
+
+       - 将自定义代理对象应用到视图（如`QTableView`）的特定列或整个视图。
+
+    3. 处理数据
+
+       - 在`paint()`中使用`index.data()`获取模型数据，根据数据动态调整样式。
+
+    4. 绘制单元格
+
+       - 使用`QPainter`和`QStyleOptionViewItem`绘制自定义内容。
+
+    示例：
+
+    ```c++
+    #include <QApplication>
+    #include <QTableView>
+    #include <QStandardItemModel>
+    #include <QMainWindow>
+    #include <QStyledItemDelegate>
+    #include <QPainter>
+    
+    // 自定义代理类
+    class CustomDelegate : public QStyledItemDelegate {
+    public:
+        using QStyledItemDelegate::QStyledItemDelegate;
+    
+        // 重写paint方法，自定义渲染逻辑
+        void paint(QPainter *painter, const QStyleOptionViewItem &option,
+                   const QModelIndex &index) const override {
+            QStyleOptionViewItem opt = option;
+            initStyleOption(&opt, index); // 初始化样式选项
+    
+            // 根据Age列的值设置不同背景颜色
+            if (index.column() == 1) { // Age列
+                bool ok;
+                int age = index.data(Qt::DisplayRole).toInt(&ok);
+                if (ok) {
+                    if (age < 25) {
+                        opt.backgroundBrush = QBrush(Qt::green); // 年龄<25，绿色背景
+                    } else if (age >= 25 && age < 35) {
+                        opt.backgroundBrush = QBrush(Qt::yellow); // 年龄25-34，黄色背景
+                    } else {
+                        opt.backgroundBrush = QBrush(Qt::red); // 年龄≥35，红色背景
+                    }
+                }
+            }
+    
+            // 自定义字体样式（例如：Name列斜体）
+            if (index.column() == 0) { // Name列
+                QFont font = opt.font;
+                font.setItalic(true);
+                opt.font = font;
+            }
+    
+            // 使用Qt的样式系统绘制单元格
+            painter->save();
+            opt.widget->style()->drawControl(QStyle::CE_ItemViewItem, &opt, painter, opt.widget);
+            painter->restore();
+        }
+    };
+    
+    int main(int argc, char *argv[]) {
+        QApplication app(argc, argv);
+    
+        // 创建主窗口
+        QMainWindow window;
+    
+        // 创建模型
+        QStandardItemModel model(4, 3); // 4行3列
+        model.setHorizontalHeaderLabels({"Name", "Age", "City"});
+    
+        // 填充数据
+        QStringList names = {"Alice", "Bob", "Charlie", "David"};
+        QList<int> ages = {20, 25, 30, 40};
+        QStringList cities = {"New York", "London", "Tokyo", "Paris"};
+        for (int row = 0; row < 4; ++row) {
+            model.setItem(row, 0, new QStandardItem(names[row]));
+            model.setItem(row, 1, new QStandardItem(QString::number(ages[row])));
+            model.setItem(row, 2, new QStandardItem(cities[row]));
+        }
+    
+        // 创建表格视图
+        QTableView *tableView = new QTableView(&window);
+        tableView->setModel(&model);
+        tableView->setWindowTitle("CustomDelegate Example");
+        tableView->resize(400, 300);
+    
+        // 设置自定义代理
+        tableView->setItemDelegate(new CustomDelegate(tableView));
+    
+        // 设置表格属性
+        tableView->setAlternatingRowColors(true);
+        tableView->setSelectionMode(QAbstractItemView::SingleSelection);
+        tableView->setEditTriggers(QAbstractItemView::DoubleClicked);
+    
+        // 设置主窗口
+        window.setCentralWidget(tableView);
+        window.resize(400, 300);
+        window.show();
+    
+        return app.exec();
+    }
+    ```
+
+    
+
+### 3.  控件
 
 1. QFrame部件：
 
    1. 主要用于提供一个框架或容器，通常用于组织和装饰其他控件。它是许多其他部件（如 QLabel、QPushButton 等）的基类，提供了绘制边框和背景的功能。
    2. QFrame 可以作为一个容器，承载其他控件。比如创建一个带有背景色的区域，里面放置按钮、标签等控件
 
-2. `QAbstractListModel` 是 Qt 框架中的一个抽象基类，用于实现基于列表的数据模型。它继承自 `QAbstractItemModel`，并简化了仅需要一维数据结构（如列表或数组）的模型实现。
-
-3. `QAbstractListModel` 继承自 `QAbstractItemModel`，主要用来处理一维数据（如列表）。Qt的数据模型
-
-   `QModelIndex` 是 Qt 中的一个类，用来表示 **模型中的索引**。它是与 `QAbstractItemModel`（及其子类）结合使用的，允许你在模型中定位和操作特定的数据项。
-
-   `QModelIndex` 对象不仅代表了数据在模型中的位置，还可以包含关于该位置的额外信息（如行、列、父项等），使得它能够在视图与模型之间传递数据。
-
-4. `QTableWidget`和`QTableView`的区别：
-
-   1. `QTableWidget`基于项（Item-based）的表格控件，适合简单的表格数据展示，当数据量较大时，性能不如 `QTableView`
-
-      ```c++
-      #include <QApplication>
-      #include <QTableWidget>
-      #include <QTableWidgetItem>
-      
-      int main(int argc, char *argv[]) {
-          QApplication app(argc, argv);
-      
-          QTableWidget table(3, 3); // 3行3列
-          table.setWindowTitle("QTableWidget Example");
-      
-          // 添加数据
-          for (int row = 0; row < 3; ++row) {
-              for (int col = 0; col < 3; ++col) {
-                  QTableWidgetItem *item = new QTableWidgetItem(QString("Item %1,%2").arg(row).arg(col));
-                  table.setItem(row, col, item);
-              }
-          }
-      
-          table.show();
-          return app.exec();
-      }
-      ```
-
-   2. `QTableView`基于模型（Model-based）的表格控件，`QTableView` 是 `QAbstractItemView` 的子类，必须配合数据模型（`QAbstractTableModel` 或 `QStandardItemModel`）使用。符合MVC框架的支持。适合展示大量数据，性能较高，并可以自定义数据模型，支持动态数据更新。
-
-      ```c++
-      #include <QApplication>
-      #include <QTableView>
-      #include <QStandardItemModel>
-      
-      int main(int argc, char *argv[]) {
-          QApplication app(argc, argv);
-      
-          QTableView tableView;
-          tableView.setWindowTitle("QTableView Example");
-      
-          // 创建数据模型
-          QStandardItemModel model(3, 3); // 3行3列
-          for (int row = 0; row < 3; ++row) {
-              for (int col = 0; col < 3; ++col) {
-                  QStandardItem *item = new QStandardItem(QString("Item %1,%2").arg(row).arg(col));
-                  model.setItem(row, col, item);
-              }
-          }
-      
-          tableView.setModel(&model);
-          tableView.show();
-      
-          return app.exec();
-      }
-      ```
-
-5. 全选/取消全选操作：`CheckBoxHeaderView` 通常是指一个自定义的 **表格头部** 组件（例如，继承自 `QHeaderView`），它可以包含一个 **复选框（CheckBox）**，通常用于全选或取消全选的功能。
+4. 全选/取消全选操作：`CheckBoxHeaderView` 通常是指一个自定义的 **表格头部** 组件（例如，继承自 `QHeaderView`），它可以包含一个 **复选框（CheckBox）**，通常用于全选或取消全选的功能。
 
 6. `CheckBoxHeaderView` 是 Qt 中用于在 `QHeaderView` 上显示一个复选框（`QCheckBox`）的自定义视图类，通常用于表格（`QTableView`）或列表（`QListView`）等视图的头部。复选框可以用于执行某种全选/全不选的操作。例如，在表格的头部添加一个复选框来控制所有行的复选框状态。
 
@@ -176,7 +415,7 @@
 
 19. 
 
-### 3. 布局
+### 4. 布局
 
 1. 将布局(垂直、水平等)提升为widget的好处：
 
@@ -209,7 +448,7 @@
 
 
 
-### 4. 界面
+### 5. 界面
 
 1. QApplication类：
 
@@ -327,7 +566,7 @@
    }
    ```
 
-### 5. 事件
+### 6. 事件
 
 1. 绘图事件(`paintEvent`):
 
@@ -663,7 +902,7 @@
 
    **信号槽的执行与窗口的可见状态无关，只与对象的生命周期和事件循环的状态有关**
 
-### 6. 信号槽
+### 7. 信号槽
 
 1. 在 Qt 中，信号在 **定义** 和信号和槽在**建立信号槽连接(connect)** 时，可以只写 **数据类型** 而省略形参名称。
 
@@ -875,7 +1114,7 @@
 
 
 
-### 7. 样式表
+### 8. 样式表
 
 1. 单次点击的按钮(添加、删除)QPushButton样式表示例，需设置禁用后的状态
 
@@ -936,7 +1175,7 @@
 
    
 
-### 8. 线程进程
+### 9. 线程进程
 
 1. `QAtomicInt` 是 Qt 提供的一个 **原子整数类型**，主要用于在多线程环境下进行线程安全的整数操作。
 
@@ -947,7 +1186,7 @@
    
    
 
-### 9. 时间
+### 10. 时间
 
 1. Qt时间相关函数
 
@@ -960,7 +1199,7 @@
 
    
 
-### 10. 项目构建
+### 11. 项目构建
 
 1. Qt图片路径：使用了 `:/` 前缀，表示这是一个 Qt 资源路径；资源文件必须在项目的资源文件（`.qrc` 文件）中声明。
 
