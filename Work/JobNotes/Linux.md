@@ -615,7 +615,7 @@
    1. 重启 VS Code (`Ctrl + Shift + P -> Reload Window`)
    2. 重新安装 C/C++ 插件
    3. 手动刷新 IntelliSense (`Ctrl+Shift+P -> Rescan Workspace` 、`Reset IntelliSense Database`)
-   4. 检查 `c_cpp_properties.json` 是否正确
+   4. 检查 `c_cpp_properties.json` 是否正确，同时检查cmakelist中导入头文件是否正确
    5. 删除 `.vscode` 目录并重建
 
 3. VScode快捷键：

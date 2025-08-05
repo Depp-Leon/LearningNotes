@@ -116,11 +116,11 @@
 
 使用pronunciation in  use来学习英式发音和发音技巧，共三本。先学习**英语兔**的音标课有个大致的了解
 
-![image-20250804214752320](D:\Document\GitHub\LearningNotes\Work\JobNotes\source\images\English\image-20250804214752320.png)
+![image-20250804214752320](.\source\images\English\image-20250804214752320.png)
 
-![image-20250804214821538](D:\Document\GitHub\LearningNotes\Work\JobNotes\source\images\English\image-20250804214821538.png)
+![image-20250804214821538](.\source\images\English\image-20250804214821538.png)
 
-![image-20250804215341284](D:\Document\GitHub\LearningNotes\Work\JobNotes\source\images\English\image-20250804215341284.png)
+![image-20250804215341284](.\source\images\English\image-20250804215341284.png)
 
 清音：气流经过喉咙，声带不震动
 

@@ -3643,6 +3643,92 @@ m_pPool->submit([this, pBundle]() {
 
     - [ ] 老版本和705没有RJJHetc路径，此路径在${HOME}中的Jingyunxxxx目录中，没有对这个目录进行适配。如果测试未提出此问题，暂时先搁置不关注
 
+#### 2.13.8 七月
+
+| 七月任务                                            | 截至时间 | 完成 |
+| :-------------------------------------------------- | :------: | :--: |
+| 1. 708bug修改                                       |          |      |
+| 2. 配置存储修改，去掉protobuffer入库                |          |      |
+| 3. 配置转为本地结构，修改各个模块之间配置的传输方式 |          |      |
+
+1. - [x] 日志时间排序问题：日志记录的是开始时间，若查杀耗时较大会导致日志记录顺序问题
+
+2. - [x] 各种配置存储修改，去掉protobuf入库(待细化)
+     1. 使用705的方式，设置ini类，每个配置项都为成员
+     2. 提供设置配置和获取全量配置的接口
+
+3. - [x] 收到管理的配置下发，转换为本地结构，修改各个模块之间配置传输方式
+
+     1. 配置分为三块，重新整理设计配置的protobuffer
+
+        - ini配置：存储在config.ini配置文件中，以key，value格式存储
+        - zdfy配置：存储在xml文件中
+        - 定时任务配置：存储在sqlite数据库
+
+     2. 界面、中控下发的配置都修改为**全量下发**，即发送一整个配置
+
+     3. 所有界面、中控发来safed的配置全部在**config组件**中**接收并存储**(定时任务比较特殊)，然后**分发**到各组件/插件
+
+        > 同时，界面初始请求配置也是全量发送
+
+     4. 各组件/配置修改订阅的处理逻辑，根据新的protobuffer进行解析
+
+        - [x] 查杀组件相关配置
+        - [x] 升级组件相关配置
+        - [x] 定时任务相关配置
+
+4. 分析705CtrCenter插件，包含中控下发的所有操作+配置，与708的方式不同
+
+   > 关于与中控之间的通信交互的逻辑还是一样的，只是708使用了subscrib和publish，705使用的是多态注册
+
+   ```c++
+   // 1， CtrlCenter 初始化
+   heart_beat_.RegisterAction(ServerEventResponse_TaskType_NORMAL_SCAN, pScan);// 注册动作
+   heart_beat_.Start();	// 开启心跳，每隔一个时间间隔就请求一次中控。请求时绑定回调，收到消息会执行回调函数OnHeatBeatRespose
+   
+   // 2. HeartBeat中的Start()启动心跳
+   worker_.start_thread(2);	// 启动worker任务队列，负责调用建立心跳连接
+   slave_.start_thread(1);
+   OnHeartBeatTick()  // 心跳函数
+   HandleHeartBeatString()	// 心跳回复后的处理逻辑
+   
+   // 3. 处理逻辑，将每一个item传入DoAction中，查找type并根据之前的注册从mao中找到对应对象的Action()
+   for (int i = 0; i < serverResponse.items_size(); i++)
+   	{
+           ServerEventResponse_CmdItem item = serverResponse.items(i);
+           DoAction(item);
+       }
+   
+   void HeartBeat::DoAction(ServerEventResponse_CmdItem& msg)
+   {
+   	std::lock_guard<std::mutex> lck(mutex_);
+   	if (action_map_.find((unsigned int)msg.item_type()) != action_map_.end())
+   	{
+           action_map_[(unsigned int)msg.item_type()]->Action(msg);
+       }
+   }
+   
+   // 4. ScanConfig类即为配置处理函数
+   CScanConfig::CmdAction()  // 处理函数
+   
+   // Protobuffer的字段为TerminalConfig
+   ```
+
+5. bug修改：
+
+   - [x] 702升级到708后，白名单数据缺失
+   - [x] 信任区和黑名单中显示占用磁盘空间
+   - [x] 服务端下发恢复/删除隔离区数据，上报的日志方式为主动发起
+   - [x] 大量数据恢复并信任所选文件时，没有加入到信任区中
+   - [x] 每次重启机器后，都上报两条白名单数据
+   - [x] 查杀结果页，点击病毒文件信任，病毒文件进入隔离区
+   - [x] 702升级到708之后，数据防护中文件保险箱和勒索诱捕没有开启
+   - [x] 702升级到708，不会自动更新病毒库
+
+   
+
+
+
 ## 三、技术问题
 
 
@@ -4227,92 +4313,26 @@ m_pPool->submit([this, pBundle]() {
    2. 重新生成vrv.rcc文件
    3. 打包的时候指定-n vrvsd，会根据-n来生成对应的版本号。RJJH通过版本号选择对应的rcc文件
 
-##### 2.1.2 六月任务
+##### 2.1.2 八月任务
 
-| 七月任务 | 截至时间 | 完成 |
-| :------- | :------: | :--: |
-|          |          |      |
-|          |          |      |
-|          |          |      |
+|               八月任务               | 截至时间 | 完成 |
+| :----------------------------------: | :------: | :--: |
+|              1. bug修改              |          |      |
+| 2. 软件升级，适配最新版708的存储结构 |          |      |
+|   3. Linux客户端界面使用新版UI重构   |          |      |
 
-1. - [x] 日志时间排序问题：日志记录的是开始时间，若查杀耗时较大会导致日志记录顺序问题
+1. - [x] 软件升级，适配最新版708的存储结构
 
-2. - [ ] protobuf反序列化时需要加报错日志，捕获异常
+2. 新版UI界面重构
 
-3. - [x] 各种配置存储修改，去掉protobuf入库(待细化)
-     1. 使用705的方式，设置ini类，每个配置项都为成员
-     2. 提供设置配置和获取全量配置的接口
-
-4. - [ ] 收到管理的配置下发，转换为本地结构，修改各个模块之间配置传输方式
-
-     1. 配置分为三块，重新整理设计配置的protobuffer
-
-        - ini配置：存储在config.ini配置文件中，以key，value格式存储
-        - zdfy配置：存储在xml文件中
-        - 定时任务配置：存储在sqlite数据库
-
-     2. 界面、中控下发的配置都修改为**全量下发**，即发送一整个配置
-
-     3. 所有界面、中控发来safed的配置全部在**config组件**中**接收并存储**(定时任务比较特殊)，然后**分发**到各组件/插件
-
-        > 同时，界面初始请求配置也是全量发送
-
-     4. 各组件/配置修改订阅的处理逻辑，根据新的protobuffer进行解析
-
-        - [x] 查杀组件相关配置
-        - [x] 升级组件相关配置
-        - [x] 定时任务相关配置
-
-5. 分析705CtrCenter插件，包含中控下发的所有操作+配置，与708的方式不同
-
-   > 关于与中控之间的通信交互的逻辑还是一样的，只是708使用了subscrib和publish，705使用的是多态注册
-
-   ```c++
-   // 1， CtrlCenter 初始化
-   heart_beat_.RegisterAction(ServerEventResponse_TaskType_NORMAL_SCAN, pScan);// 注册动作
-   heart_beat_.Start();	// 开启心跳，每隔一个时间间隔就请求一次中控。请求时绑定回调，收到消息会执行回调函数OnHeatBeatRespose
    
-   // 2. HeartBeat中的Start()启动心跳
-   worker_.start_thread(2);	// 启动worker任务队列，负责调用建立心跳连接
-   slave_.start_thread(1);
-   OnHeartBeatTick()  // 心跳函数
-   HandleHeartBeatString()	// 心跳回复后的处理逻辑
-   
-   // 3. 处理逻辑，将每一个item传入DoAction中，查找type并根据之前的注册从mao中找到对应对象的Action()
-   for (int i = 0; i < serverResponse.items_size(); i++)
-   	{
-           ServerEventResponse_CmdItem item = serverResponse.items(i);
-           DoAction(item);
-       }
-   
-   void HeartBeat::DoAction(ServerEventResponse_CmdItem& msg)
-   {
-   	std::lock_guard<std::mutex> lck(mutex_);
-   	if (action_map_.find((unsigned int)msg.item_type()) != action_map_.end())
-   	{
-           action_map_[(unsigned int)msg.item_type()]->Action(msg);
-       }
-   }
-   
-   // 4. ScanConfig类即为配置处理函数
-   CScanConfig::CmdAction()  // 处理函数
-   
-   // Protobuffer的字段为TerminalConfig
-   ```
 
-6. bug修改：
 
-   - [x] 702升级到708后，白名单数据缺失
-   - [x] 信任区和黑名单中显示占用磁盘空间
-   - [x] 服务端下发恢复/删除隔离区数据，上报的日志方式为主动发起
-   - [x] 大量数据恢复并信任所选文件时，没有加入到信任区中
-   - [x] 每次重启机器后，都上报两条白名单数据
-   - [x] 查杀结果页，点击病毒文件信任，病毒文件进入隔离区
-   - [x] 702升级到708之后，数据防护中文件保险箱和勒索诱捕没有开启
-   - [x] 702升级到708，不会自动更新病毒库
-   
-   
-   
+
+
+
+
+
 #### 2.2 备忘录
 
 驱动开发
@@ -5092,7 +5112,13 @@ m_pPool->submit([this, pBundle]() {
     ./JYToolBox --decrypt ZyHips.xml ZyHips.xml
     ```
 
-    
+71. vscode中添加头文件识别不出来，从两个方向找：
+
+    1. .vscode/c_cpp_properties.json中看导入的头文件路径是否包含
+
+    2. 看最近的那个cmakelist中的导入头文件路径是否包含
+
+       > 确保这两个地方有一个存在，然后就可以省略掉包含的前面部分路径
 
 ### 4. 末尾
 
