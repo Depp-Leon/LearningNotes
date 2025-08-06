@@ -4325,8 +4325,16 @@ m_pPool->submit([this, pBundle]() {
 
 2. 新版UI界面重构
 
-   
-
+   1. OEM贴牌适配
+      1. OEM下分几个需要套牌的文件夹(里面只有需要替换的图片)
+      2. 全部的图片放到外面，创建一个skin文件夹
+      3. 添加qrc文件
+      4. 写gen_rcc.sh脚本
+      5. .pro/cmakelist中添加resource资源
+   2. QSS样式表
+   3. MVC开发模型
+   4. Qt中英切换(tr())
+   5. 自适应大小(在不同分辨率下如何自适应显示)
 
 
 
@@ -5119,6 +5127,214 @@ m_pPool->submit([this, pBundle]() {
     2. 看最近的那个cmakelist中的导入头文件路径是否包含
 
        > 确保这两个地方有一个存在，然后就可以省略掉包含的前面部分路径
+    
+72. Qt新界面实现前的一些准备工作：
+
+73. **pro**文件：`.pro`文件是Qt项目的配置文件，用于qmake（Qt的构建工具）来生成**Makefile**或其他构建系统文件，定义项目的结构、源文件、资源、依赖和编译选项。
+
+    1. qmake基于`.pro`文件，Cmake基于`CMakelists.txt`。它们两个都是生成构建系统(`Makefile`)的工具，两个文件用于定义项目结构、源文件、资源和依赖。
+
+    2. QtCreator内置支持qmake，可以直接在应用中构建
+
+    3. qmake的使用：
+
+       > **目前项目中并没有使用qmake，而是使用了cmake。.pro文件并没有被使用，全部使用的是CMakelist。可以详见RJJH目录下的CMakelist看如何构建的**
+
+       ```
+       qmake MyProject.pro // 在项目根目录（包含 .pro 文件的目录）运行 qmake 命令，生成 Makefile
+       
+       make	// 已有Makefile，运行make(和cmake的步骤相同)
+       ```
+
+    4. .pro文件的功能/使用：
+
+       ```
+       // 1. 指定源文件、头文件、UI文件
+       SOURCES += main.cpp \
+                  mainwindow.cpp
+       HEADERS += mainwindow.h
+       FORMS += mainwindow.ui
+       
+       // 2. 指定头文件路径：当头文件不在默认路径下时，需要指定
+       //    如果 HEADERS 中的头文件不在当前目录或子目录，INCLUDEPATH 必须包含其路径，否则编译会报“文件未找到”错误。
+       INCLUDEPATH += $$PWD/include
+       
+       // 2. 管理资源文件：包含QSS、图片、翻译文件(.qm)等
+       RESOURCES += resources.qrc
+       
+       // 3. 国际化，指定翻译文件
+       TRANSLATIONS += translations/your_app_en.ts \
+                       translations/your_app_zh.ts
+                       
+       // 4. 匹配库和依赖：指定Qt模块（如core、gui、widgets）和其他外部库
+       QT += core gui widgets
+       LIBS += -L/usr/local/lib -lmylib
+       
+       // 5. 设置编译选项：是可执行程序(app)，还是库
+       TARGET = MyApp
+       TEMPLATE = app	
+       CONFIG += c++17
+       // 如果是lib 则表示编译为库(可以是静态也可以是动态库)
+       TEMPLATE = lib
+       // CONFIG += staticlib  静态库需要格外配置
+       
+       // 6. 配置项
+       CONFIG += debug	// 调试模式， release为发布模式
+       CONFIG += qt	// qt：表示项目使用 Qt 框架（通常自动添加，但可显式指定）
+       CONFIG += thread// thread：启用 Qt 的线程支持（默认启用）。
+       CONFIG += console// console：为应用程序启用控制台输出（适合命令行程序）。
+       ```
+
+74. OEM贴牌（**RCC**）：RCC 是 Qt Resource Compiler（Qt资源编译器）的缩写。它是Qt提供的一个工具，用于将资源文件（如**图片**、**QSS文件**、**翻译文件.qm**、**图标**等）编译为**二进制格式**，并嵌入到应用程序的可执行文件中，以便在运行时通过**资源路径**访问这些文件。
+
+    1. 定义`.qrc`文件： `.qrc`文件，一个**XML格式**的文件，列出需要嵌入的资源路径和别名
+
+       ```
+       <RCC>
+           <qresource prefix="/images">
+               <file>images/icon.png</file>
+           </qresource>
+           <qresource prefix="/qss">
+               <file>qss/styles.qss</file>
+           </qresource>
+           <qresource prefix="/translations">
+               <file>translations/your_app_en.qm</file>
+               <file>translations/your_app_zh.qm</file>
+           </qresource>
+       </RCC>
+       ```
+
+       - `<qresource>`：定义资源的前缀（如/images、/qss），用于在代码中通过路径访问资源
+       - `<file>`：指定资源文件的路径（相对路径或绝对路径）。
+       - `prefix`：资源在程序中的虚拟路径前缀，方便组织和管理。
+
+    2. 将`.qrc`文件添加到项目配置文件(`.pro`)中：
+
+       ```
+       RESOURCES += resources.qrc
+       ```
+
+    3. 编译`.qrc`文件生成`.rcc`文件(使用`rcc`工具)：
+
+       ```
+       // 比如实现一个脚本，使用oem贴牌，详见gen_rcc.sh
+       #生成景云资源
+       cd - 
+       cp ./jyn/default/* $IMG_DIR/default/
+       cp ./jyn/icon/* $IMG_DIR/icon/
+       cp ./jyn/icon/logo_64_grey.png ${IMG_DIR}/
+       cd ../qt_ui/RJJH
+       $rcc -binary widget.qrc -o skin_jyn.rcc
+       cp skin_jyn.rcc ../../../Output/bin2.0/JingyunSd_linux_2/BUILD_ROOT/opt/apps/chenxinsd/etc/oem/
+       ```
+
+       ```
+       // rcc命令详解：
+       $rcc -binary widget.qrc -o skin_jyn.rcc
+       $rcc：调用 Qt 资源编译器（RCC），用于处理 .qrc 文件。
+       -binary：指定输出为二进制 .rcc 文件，而不是默认的 C++ 源代码文件。
+       widget.qrc：输入的 .qrc 文件，这是一个 XML 格式的文件，列出了需要嵌入的资源（如 QSS 文件、图片、.qm 翻译文件等）。
+       -o skin_vrv.rcc：指定输出文件名（skin_vrv.rcc），这是一个二进制资源文件，可在运行时由 Qt 应用程序加载。
+       ```
+
+    4. 将rcc文件注册到Qt的资源系统中，使其资源（如 QSS 文件、图片、`.qm` 翻译文件）可在程序运行时通过 `:/` 路径访问
+
+       ```
+       // 在启动的时候执行这句代码就会注册到资源系统中
+       QResource::registerResource(rcc_path.c_str())
+       ```
+
+    5. rcc资源的使用：
+
+       > 后续访问资源的访问路径由 :/ + prefix + file 的文件名部分组成
+
+       - 图片/图标资源
+
+         ```c++
+         setWindowIcon(QIcon(":/images/icon.png"));
+         ```
+
+       - qss资源
+
+         ```c++
+         QFile qssFile(":/qss/styles.qss");
+         if (qssFile.open(QFile::ReadOnly)) {
+             qApp->setStyleSheet(QLatin1String(qssFile.readAll()));
+             qssFile.close();
+         }
+         ```
+
+         > 1. qApp 是 Qt 提供的全局指针，指当前应用程序的唯一实例，其定义为：
+         >
+         >    ```
+         >    #define qApp QCoreApplication::instance()
+         >    ```
+         >
+         > 2. `QLatin1String` 是 Qt 提供的一个轻量级字符串类，用于表示 Latin-1（ISO-8859-1）编码的字符串。通常用于将 `const char*` 或 `QByteArray` 转换为 `QString` 兼容的类型，优化内存和性能
+
+       - qm资源
+
+         ```c++
+         QTranslator translator;
+         if (translator.load(":/translations/your_app_zh.qm")) {
+             qApp->installTranslator(&translator);
+         }
+         ```
+
+75. 中英文切换(语言家(**linguist**))：Qt Linguist 是 Qt 框架提供的一款用于国际化和本地化的工具，专门用于管理 Qt 应用程序中的文本翻译
+
+    > lupdate 和 lrelease 是用于支持国际化（i18n）和本地化的关键工具，专门用于处理翻译文件（.ts 和 .qm 文件），以实现多语言支持（如你的中英文切换需求）。
+
+    1. 在源代码中使用 `tr()` 函数标记需要翻译的字符串：
+
+       ```c++
+       QPushButton *button = new QPushButton(tr("Click Me"));
+       ```
+
+    2. 在`.pro`文件中指定翻译文件：
+
+       ```
+       TRANSLATIONS += translations/your_app_en.ts \
+                       translations/your_app_zh.ts
+       ```
+
+    3. 运行 `lupdate` 扫描源代码（.cpp、.h、.ui 文件等），提取 `tr()` 标记的字符串，生成或更新 .ts 文件
+
+       ```
+       lupdate MyProject.pro
+       ```
+
+       > 输出：translations/your_app_zh.ts 和 your_app_en.ts，包含源文本但无翻译
+
+    4. 使用Qt Linguist进行翻译
+
+       ```
+       linguist				// 终端直接执行，会弹出Qt Linguist工具,然后选择ts文件
+       linguist translations/your_app_zh.ts // 也可以直接打开目标ts文件
+       ```
+
+    5. 运行 `lrelease` 将 `.ts` 文件编译为二进制 `.qm` 文件（如 `your_app_zh.qm`），供运行时使用：
+
+       ```
+       lrelease MyProject.pro
+       ```
+
+       > 输出：translations/your_app_zh.qm
+
+    6. 将`qm`文件添加到系统资源(rcc)中，程序加载翻译
+
+       ```c++
+       QTranslator translator;
+       if (translator.load(":/translations/your_app_zh.qm")) {
+           qApp->installTranslator(&translator);
+       }
+       ```
+
+76. QSS样式表
+
+77. MVC开发模型
+
+78. 自适应大小(在不同分辨率下如何自适应显示)
 
 ### 4. 末尾
 
