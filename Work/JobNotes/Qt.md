@@ -357,13 +357,12 @@ Qt的MVC（Model-View-Controller）模型是一种用于组织用户界面应用
    1. `QStackedWidget`不提供直接的页面切换界面（没有标签栏）。`QTabWidget`提供带标签的界面，每个标签对应一个页面。
    2. `QStackedWidget`必须通过代码手动切换页面 (`setCurrentIndex()` 或 `setCurrentWidget()`)。`QTabWidget`用户可以通过点击标签页直接切换页面。
 
-11. 自定义控件：例`title_bar`
+10. 自定义控件：例`title_bar`
 
-   12. 创建类继承于`QWidget`(所有窗口的父类)
+       1. 创建类继承于`QWidget`(所有窗口的父类)
+       2. 在需要使用的UI设计中，拖入一个`Widget`组件
 
-   13. 在需要使用的UI设计中，拖入一个`Widget`组件
-
-   14. 对该组件选择“提升为”，填入刚写的自定义控件类名
+       3. 对该组件选择“提升为”，填入刚写的自定义控件类名
 
 15. Qt的自定义控件、自定义事件、事件过滤器。
 

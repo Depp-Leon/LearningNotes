@@ -5128,9 +5128,37 @@ m_pPool->submit([this, pBundle]() {
 
        > 确保这两个地方有一个存在，然后就可以省略掉包含的前面部分路径
     
-72. Qt新界面实现前的一些准备工作：
+73. QSS样式表
 
-73. **pro**文件：`.pro`文件是Qt项目的配置文件，用于qmake（Qt的构建工具）来生成**Makefile**或其他构建系统文件，定义项目的结构、源文件、资源、依赖和编译选项。
+77. MVC开发模型
+
+74. 自适应大小(在不同分辨率下如何自适应显示)
+
+75. qt开发的问题
+
+    1. UI文件的本质
+    2. 继承类不带ui，只能通过两种方式来实现多态
+    3. 实现自定义控件的两种方式
+    4. Qt Creator 锤子(build)和执行(run)分别做了什么
+    5. QMetaObject的原理
+
+76. 唱歌：气息稳定->喉位控制->声带闭合->腔体共鸣
+
+77. 关于Qt Creator
+
+    1. Qt Creatore是一个用于编写、调试、部署Qt应用程序的集成开发环境(IDE),并可以调用Qt Designer来设计UI界面
+    2. Qt Designer则是一个图形化的界面设计器，‌专注于GUI设计，‌通过拖放方式创建UI界面，‌并生成对应的代码
+    3. Qt Creator的**build**执行过程
+       1. 使用**qmake**处理`.pro`文件，或者**cmake**处理`CMakelist`生成Makefile
+       2. **uic**处理`.ui`文件,将其编译为 C++ 头文件（例如 `ui_mywidget.h`）。
+       3. **rcc**处理`.qrc`文件,将其编译为 C++ 源文件（例如 `qrc_资源名.cpp`）
+       4. **moc**处理包含`Q_OBJECT`宏的头文件,生成对应的 `moc_类名.cpp 文件`
+       5. 调用c++编译器(**g++**、clang或msvc)进行代码编译、链接，生成输出文件
+    4. Qt Creatord的**Run**执行过程
+       1. 检查构建状态，若成功则启动可执行程序
+       2. 若以(**Debug**)模式运行，则会启动**gdb**进行调试
+
+78. **pro**文件：`.pro`文件是Qt项目的配置文件，用于qmake（Qt的构建工具）来生成**Makefile**或其他构建系统文件，定义项目的结构、源文件、资源、依赖和编译选项。
 
     1. qmake基于`.pro`文件，Cmake基于`CMakelists.txt`。它们两个都是生成构建系统(`Makefile`)的工具，两个文件用于定义项目结构、源文件、资源和依赖。
 
@@ -5185,7 +5213,170 @@ m_pPool->submit([this, pBundle]() {
        CONFIG += console// console：为应用程序启用控制台输出（适合命令行程序）。
        ```
 
-74. OEM贴牌（**RCC**）：RCC 是 Qt Resource Compiler（Qt资源编译器）的缩写。它是Qt提供的一个工具，用于将资源文件（如**图片**、**QSS文件**、**翻译文件.qm**、**图标**等）编译为**二进制格式**，并嵌入到应用程序的可执行文件中，以便在运行时通过**资源路径**访问这些文件。
+79. Qt中的Ui文件
+
+    1. `.ui`文件是什么：
+
+       1.  `.ui`通常是指Qt设计师设计出来的界面文件的后缀，它本质上是一个标准**XML格式**的文本文件，描述了用户界面的结构、控件、布局、属性以及信号槽连接等。
+
+       2. Qt 的用户界面编译器（User Interface Compiler）(**uic工具**)，负责将 `.ui` 文件转换为 C++ 头文件（`ui_类名.h`）。
+
+       3. 比如在Qt Creator中创建qt的设计师类(`QMyWidget`)，生成`.h、.cpp、.ui`，当我们使用qmake/cmake进行项目构建时，(比如`.pro`文件中添加了这个`.ui`文件)，自会自动使用uic工具生成`ui_QMyWidget.h`头文件，并导入该头文件到cpp中
+
+          > 这个工具会将xml中包含的控件、布局等，转为public的指针，并会在setupUi中初始化界面
+
+    2. 构建之后生成的`ui_QMyWidget.h`头文件：
+
+       ```c++
+       #ifndef UI_QMYWIDGET_H
+       #define UI_QMYWIDGET_H
+        
+       #include <QtCore/QVariant>
+       #include <QtGui/QAction>
+       #include <QtGui/QApplication>
+       #include <QtGui/QButtonGroup>
+       #include <QtGui/QHeaderView>
+       #include <QtGui/QPushButton>
+       #include <QtGui/QWidget>
+        
+       QT_BEGIN_NAMESPACE
+        
+       class Ui_QMyWidget
+       {
+       public:
+           QPushButton *pushButton;
+        
+           void setupUi(QWidget *QMyWidget)
+           {
+               if (QMyWidget->objectName().isEmpty())
+                   QMyWidget->setObjectName(QString::fromUtf8("QMyWidget"));
+               QMyWidget->resize(400, 300);
+               pushButton = new QPushButton(QMyWidget);
+               pushButton->setObjectName(QString::fromUtf8("pushButton"));
+               pushButton->setGeometry(QRect(130, 120, 91, 61));
+        
+               retranslateUi(QMyWidget);
+        
+               QMetaObject::connectSlotsByName(QMyWidget);
+           } // setupUi
+        
+           void retranslateUi(QWidget *QMyWidget)
+           {
+               QMyWidget->setWindowTitle(QApplication::translate("QMyWidget", "QMyWidget", 0, QApplication::UnicodeUTF8));
+               pushButton->setText(QApplication::translate("QMyWidget", "PushButton", 0, QApplication::UnicodeUTF8));
+           } // retranslateUi
+        
+       };
+        
+       namespace Ui {
+           class QMyWidget: public Ui_QMyWidget {};
+       } // namespace Ui
+        
+       QT_END_NAMESPACE
+        
+       #endif // UI_QMYWIDGET_H
+       ```
+
+    3. 主要生成的函数和作用：
+
+       1. **初始化** `.ui` 文件中定义的所有控件、布局和其他界面元素，并将它们附加到传入的 QWidget 参数（`QMyWidget`）上。
+
+          ```
+          void setupUi(QWidget *widget)
+          ```
+
+       2. **处理界面中的可翻译字符串**（例如控件文本、工具提示等）,将 `.ui` 文件中定义的字符串（`tr()`标记为可翻译）重新应用到控件上，通常用于**动态切换语言**。
+
+          ```c++
+          void Ui_MyWidget::retranslateUi(QWidget *MyWidget) {
+              MyWidget->setWindowTitle(QCoreApplication::translate("MyWidget", "My Widget", nullptr));
+              pushButton->setText(QCoreApplication::translate("MyWidget", "Click Me", nullptr));
+          }
+          ```
+
+          如果使用了语言家(Linguist)，加载了翻译（例如中文 `.qm` 文件），`"My Widget"` 可能被翻译为 `"我的窗口"`，`"Click Me"` 可能被翻译为 `"点击我"`
+
+          ```c++
+          // 程序切换qm文件时，需要调用该函数来更新界面
+          QTranslator translator;
+          translator.load("mywidget_zh_CN.qm"); // 加载中文翻译
+          QCoreApplication::installTranslator(&translator);
+          ui->retranslateUi(this); // 更新界面文本
+          ```
+
+       3. **处理信号槽连接**，如果 .ui 文件中定义了信号槽连接（例如通过 Qt Designer 的“信号/槽编辑器”），`setupUi` 函数会包含 `QMetaObject::connectSlotsByName` 或显式的 `QObject::connect` 调用。
+
+          ```
+          QMetaObject::connectSlotsByName(QMyWidget);
+          ```
+
+          `QMetaObject::connectSlotsByName` 是 Qt 元对象编译器（**moc**）提供的一个静态函数，用于自动连接 `.ui` 文件中定义的信号和槽。扫描指定对象（`QMyWidget`）及其子对象（控件）的对象名称（objectName)，并根据特定的命名规则自动连接信号和槽 (槽函数的名称必须遵循格式：`on_对象名_信号名`)
+
+          > 也就是说**无需手动去定义**`connect`函数，简化了信号槽连接，自动生成了下面代码
+
+          ```
+          QObject::connect(pushButton, &QPushButton::clicked, MyWidget, &MyWidget::on_pushButton_clicked);
+          ```
+
+       4. **成员变量**：每个控件和布局都会生成一个`public`的指针成员变量，指向对应的 Qt 对象，所以在主类使用时可以直接`ui->控件名`
+
+       5. 类定义在 `Ui` 命名空间中，**防止命名冲突**，通常还会生成一个空类（例如 `class MyWidget : public Ui_MyWidget {};`），方便在代码中直接使用 `Ui::MyWidget`。
+
+    4. 使用时机
+
+       1. Qt 的构建系统（基于 qmake 或 CMake）会检测项目中的 .ui 文件，并调用 uic.exe 生成对应的头文件
+
+          ```
+          // 比如在.pro文件中配置
+          FORMS += mywidget.ui
+          ```
+
+       2. 生成的 `ui_类名.h` 文件被包含在你的代码(.cpp)中（通过 `#include "ui_mywidget.h"`）。
+
+          ```c++
+          // .h文件
+          #ifndef QMYWIDGET_H
+          #define QMYWIDGET_H
+           
+          #include <QWidget>
+           
+          namespace Ui {
+          class QMyWidget;					// 类的向前声明
+          }
+          
+          class QMyWidget : public QWidget
+          {
+          	Q_OBJECT				
+           
+          public:
+          	QMyWidget(QWidget *parent = 0);
+          	~QMyWidget();
+           
+          private:
+          	Ui::QMyWidget ui;			  // 定义ui类
+          };
+           
+          #endif // QMYWIDGET_H
+          ```
+
+          ```c++
+          // .cpp文件
+          #include "qmywidget.h"
+          #include "ui_qmywidget.h"			// 自动导入ui头文件
+           
+          QMyWidget::QMyWidget(QWidget *parent)
+          	: QWidget(parent)
+          {
+          	ui.setupUi(this);		// 构造函数时构造界面
+          }
+           
+          QMyWidget::~QMyWidget()
+          {
+           
+          }
+          ```
+
+80. OEM贴牌（**RCC**）：RCC 是 Qt Resource Compiler（Qt资源编译器）的缩写。它是Qt提供的一个工具，用于将资源文件（如**图片**、**QSS文件**、**翻译文件.qm**、**图标**等）编译为**二进制格式**，并嵌入到应用程序的可执行文件中，以便在运行时通过**资源路径**访问这些文件。
 
     1. 定义`.qrc`文件： `.qrc`文件，一个**XML格式**的文件，列出需要嵌入的资源路径和别名
 
@@ -5208,13 +5399,17 @@ m_pPool->submit([this, pBundle]() {
        - `<file>`：指定资源文件的路径（相对路径或绝对路径）。
        - `prefix`：资源在程序中的虚拟路径前缀，方便组织和管理。
 
-    2. 将`.qrc`文件添加到项目配置文件(`.pro`)中：
+    2. 使用方式一：将`.qrc`文件添加到项目配置文件(`.pro`)中，当qmake构建项目时会调用rcc.exe生成`qrc_资源名.cpp 文件`，该cpp会被链接到程序中直接使用，无需后面的注册。
 
        ```
        RESOURCES += resources.qrc
        ```
 
-    3. 编译`.qrc`文件生成`.rcc`文件(使用`rcc`工具)：
+       > 1. qrc文件被加载到RESOURCES中时，在qmake构建时就会调用rcc来处理qrc文件
+       > 2. 但是项目全部使用cmake来构建，那么下面的rcc文件需要手动调用脚本来执行生成
+       > 3. `.rcc` 文件是预编译的二进制文件，独立于可执行文件。它需要在运行时通过代码手动加载
+
+    3. 使用方式二：手动编译`.qrc`文件生成`.rcc`文件(使用`rcc`工具)，再手动注册。好处是资源可以独立更新，适合贴牌功能
 
        ```
        // 比如实现一个脚本，使用oem贴牌，详见gen_rcc.sh
@@ -5237,21 +5432,31 @@ m_pPool->submit([this, pBundle]() {
        -o skin_vrv.rcc：指定输出文件名（skin_vrv.rcc），这是一个二进制资源文件，可在运行时由 Qt 应用程序加载。
        ```
 
-    4. 将rcc文件注册到Qt的资源系统中，使其资源（如 QSS 文件、图片、`.qm` 翻译文件）可在程序运行时通过 `:/` 路径访问
+       将rcc文件**注册**到Qt的资源系统中，使其资源（如 QSS 文件、图片、`.qm` 翻译文件）可在程序运行时通过 `:/` 路径访问
 
        ```
        // 在启动的时候执行这句代码就会注册到资源系统中
        QResource::registerResource(rcc_path.c_str())
        ```
 
-    5. rcc资源的使用：
+    4. 代码中对资源的使用：
 
-       > 后续访问资源的访问路径由 :/ + prefix + file 的文件名部分组成
+       > 后续访问资源的访问路径由 :/ + prefix + file声明的部分组成
+       >
+       > 如果指定别名(alias),则可以直接prefix+别名，否则要加file全部路径
+       >
+       > ```
+       > <RCC>
+       >  <qresource prefix="/images">
+       >      <file alias="my_image.png">path/to/my_image.png</file>
+       >  </qresource>
+       > </RCC>
+       > ```
 
        - 图片/图标资源
 
          ```c++
-         setWindowIcon(QIcon(":/images/icon.png"));
+         setWindowIcon(QIcon(":/images/images/icon.png"));
          ```
 
        - qss资源
@@ -5281,7 +5486,7 @@ m_pPool->submit([this, pBundle]() {
          }
          ```
 
-75. 中英文切换(语言家(**linguist**))：Qt Linguist 是 Qt 框架提供的一款用于国际化和本地化的工具，专门用于管理 Qt 应用程序中的文本翻译
+81. 中英文切换(语言家(**linguist**))：Qt Linguist 是 Qt 框架提供的一款用于国际化和本地化的工具，专门用于管理 Qt 应用程序中的文本翻译
 
     > lupdate 和 lrelease 是用于支持国际化（i18n）和本地化的关键工具，专门用于处理翻译文件（.ts 和 .qm 文件），以实现多语言支持（如你的中英文切换需求）。
 
@@ -5330,11 +5535,123 @@ m_pPool->submit([this, pBundle]() {
        }
        ```
 
-76. QSS样式表
+82. 关于`Q_OBJECT`和**moc**
 
-77. MVC开发模型
+    1. Q_OBJECT 是一个由 Qt 提供的预处理器宏，通常放在类的定义中，紧跟在类名之后，位于类的开头。
 
-78. 自适应大小(在不同分辨率下如何自适应显示)
+       Q_OBJECT 宏会被 Qt 的元对象编译器（moc，Meta-Object Compiler）识别，moc 会为包含 Q_OBJECT 的类生成一个额外的 C++ 源文件（通常命名为 `moc_类名.cpp`）。
+
+       > 这个生成的文件包含了支持信号、槽、属性系统和其他元对象功能所需的代码，在编译时被链接到你的程序中，确保 Qt 的动态特性（如信号槽机制）能够正常工作。
+
+    2. 任何需要定义信号或槽的类都必须包含 Q_OBJECT 宏
+
+    3. Q_OBJECT 宏使类支持 Qt 的国际化机制，允许使用 `tr()` 函数（或 `QObject::tr`）来标记可翻译字符串。
+
+    4. Q_OBJECT 宏生成元数据，允许 `QMetaObject::connectSlotsByName` 自动连接信号和槽（基于命名规则 `on_对象名_信号名`）。
+
+    5. 动态属性系统，通过 QObject 类的 setProperty 和 property 方法实现的，允许在运行时为 QObject 派生类动态添加、修改或查询属性。Q_OBJECT 宏为类生成必要的**元数据**，使得动态属性可以通过 `QMetaObject` 访问和操作
+
+    6. Q_OBJECT 的实现细节:
+
+       ```
+       // qobjectdefs.h Qt的头文件中
+       
+       #define Q_OBJECT \
+       public: \
+           Q_OBJECT_CHECK \
+           QT_ANNOTATE_CLASS(qt_signal_slot, ) \
+           static const QMetaObject staticMetaObject; \
+           virtual const QMetaObject *metaObject() const; \
+           virtual void *qt_metacast(const char *); \
+           virtual int qt_metacall(QMetaObject::Call, int, void **); \
+           QT_TR_FUNCTIONS \
+       private:
+       ```
+
+       - 定义 `staticMetaObject` 静态变量，存储类的元数据。
+       - 声明 `metaObject()`、`qt_metacast` 和 `qt_metacall` 虚函数，用于运行时**类型信息**和**信号槽调用**
+       - `QT_TR_FUNCTIONS` 提供 `tr()` 函数支持国际化。
+
+83. 实现**自定义控件**的两种方式：
+
+    > 在Qt Designer中无法直接拖放自定义控件，默认只支持Qt的内置控件（如 QPushButton、QLabel 等）。
+
+    1. 提升方式(提升为)：
+
+       1. 创建一个**继承**自 `QWidget` 或其他 Qt 控件的类（例如 TitleBar），并在代码中实现其功能
+
+       2. 在 Qt Designer 中，拖放一个 QWidget（或其他基类控件）到 `.ui` 文件中
+
+       3. 右键单击该控件，选择“提升为...”（Promote to...）。
+
+       4. 输入自定义控件的类名（例如 TitleBar）和头文件路径（例如 TitleBar.h）。
+
+       5. 保存后，**uic** 会在生成的代码中将该控件实例化为 TitleBar 类型，而不是 QWidget。
+
+          ```
+          // 提升后，ui_basewidget.h 会包含类似以下代码：
+          titleBar = new TitleBar(this);
+          ```
+
+    2. 插件方式：将自定义控件注册为 Qt Designer 的插件，使其作为独立控件出现在 Qt Designer 的控件面板中（与 QPushButton 等内置控件一样）。
+
+       1. 创建一个 Qt Designer 插件项目（在 Qt Creator 中选择“Qt 自定义设计器控件”模板）
+       2. 定义插件类，继承自 `QDesignerCustomWidgetInterface`
+       3. 编译插件生成共享库（例如 titlebarplugin.dll）
+       4. 将插件放入 Qt Designer 的插件目录（通常是 Qt 安装目录下的 plugins/designer 文件夹）
+       5. 重启 Qt Designer，TitleBar 控件会出现在控件面板中，可以直接拖放使用
+
+84. 继承类不带`ui`，只能通过两种方式来实现**多态**
+
+    在Qt Creator创建继承类时(C ++类)，只有`.h`和`.cpp`文件，没有`.ui`界面，所以如果想要实现多态的效果：基类widget中带有`titlbar`和`contentWidget`，想要每个子类实现各自的`contentWidget`，可以有如下两种方式
+
+    1. 通过代码来实现子类的界面：
+
+       1. 创建继承类(没有ui界面)
+
+       2. 在子类中对`contentWidget`进行设计
+
+          ```c++
+          // MyWidget.cpp
+          #include "MyWidget.h"
+          
+          MyWidget::MyWidget(QWidget *parent) : BaseWidget(parent) {
+              // 为 contentWidget 添加内容
+              QVBoxLayout *contentLayout = new QVBoxLayout(contentWidget);
+              button = new QPushButton("Click Me", contentWidget);
+              contentLayout->addWidget(button);
+              contentWidget->setLayout(contentLayout);
+              
+              // 这是父类也没有.ui文件的情况，如果父类是通过.ui来创建的，那么此处需要使用ui->contentWidget
+          
+              // 连接信号和槽（可选）
+              connect(button, &QPushButton::clicked, this, []() {
+                  qDebug() << "Button clicked!";
+              });
+          }
+          ```
+
+    2. 通过Qt Designer创建子类的UI界面
+
+       1. 创建Qt设计师窗口类，在“基类”选项中，选择 QWidget（因为 Qt Creator 不直接支持自定义基类如 BaseWidget）。在此类中使用`.ui`文件来进行设计界面
+
+       2. 创建继承父类的子类(C++类没有ui文件)，将上面的ui文件集成到contentWidget中
+
+          ```c++
+          // MyWidget.cpp，子类
+          #include "MyWidget.h"
+          
+          MyWidget::MyWidget(QWidget *parent) : BaseWidget(parent) {
+              ui = new Ui::MyWidgetContent;
+              ui->setupUi(contentWidget); // 将 UI 应用到 contentWidget
+          }
+          ```
+
+          
+
+
+
+
 
 ### 4. 末尾
 
