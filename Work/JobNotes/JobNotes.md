@@ -5647,11 +5647,89 @@ m_pPool->submit([this, pBundle]() {
           }
           ```
 
-          
+85. Delegate的实际运用，他们三者(mvc)是如何调用的，delegate中实现重写的函数是如何被使用的
 
+86. Qt使用动图，控件使用`label`，代码中使用`movie`类
 
+    ```
+    // 加载 GIF 文件
+    QMovie *movie = new QMovie(":/images/animation.gif"); // 假设 GIF 在资源文件中
+    ui.gifLabel->setMovie(movie);
+    movie->start(); // 开始播放动画
+    ```
 
+87. 布局的`layoutStretch`为伸缩因子，可以对该布局中要伸缩的第几个控件设置为1来让其随控件进行伸缩
 
+    > 伸缩因子一旦设置，如果该方向的控件未设置最小值(minimunSize)，那么该控件将会被挤压
+
+88. 关于Qt Creator中遇到的一些设置问题
+
+    1. QWidget中的`sizePolicy`：决定**控件**占用多少空间（扩展、固定或压缩），如果设置为fix(比如设置图片的label)，使用`fixed`就会固定为设置的最大/最小值
+
+    2. 控件的`alignment`：决定**控件内容**在其边界框内的位置，比如label中的文字偏左还是偏右还是居中
+
+       > 对于图片来说，如果设置了`scaledContents`为true，那么将会填充整个区域，上面的设置就没有太大影响
+
+89. 对于控件布局，使用拉伸控件的情况下，是否设置最大size即可？
+
+90. 关于布局：
+
+    1. 我只需要按行或者列控制布局？那就用弹性盒子
+
+    2. 我需要同时按行和列控制布局？那就用网格
+
+       > [网格布局和其他布局方法的联系 - CSS：层叠样式表 | MDN](https://developer.mozilla.org/zh-CN/docs/Web/CSS/CSS_grid_layout/Relationship_of_grid_layout_with_other_layout_methods)
+
+91. 关于为什么不直接在垂直布局中直接添加水平布局，而是先拉一个widget后应用为水平布局
+
+    1. 布局灵活性：直接使用 QHBoxLayout 作为子项时，它只能作为其他布局的子布局，而无法独立携带其他属性（如背景色、边框或自定义样式）。通过先拖入 QWidget，可以为该区域设置特定的样式或行为（如背景渐变、阴影），并在 QWidget 上应用 QHBoxLayout，增强自定义能力。
+
+    2. QWidget 提供了一个可视化容器，允许你为其应用布局并管理子控件。**如果布局直接添加到非 QWidget 容器（例如主窗口的根布局）**，右键 QWidget 时，Qt Designer 可能认为该 QWidget 未被正确嵌入布局体系，进而限制“布局”选项的显示。
+
+       > 所以建议使用布局前先拉取widget后转化布局，否则在这个布局中再拉取widget时导致右键功能缺失
+
+92. **pushButton 和 toolButton 的区别**
+
+    - **QPushButton** 是一个标准的按钮控件，通常用于触发主要操作（如“闪电查杀”），支持文本、图标和自定义样式，占用较大空间，适合需要明显交互的场景。
+    - **QToolButton** 是一个工具按钮，设计更紧凑，常用于工具栏或图标化的操作（如菜单、设置），默认不显示文字（需手动设置），更适合小尺寸和图标主导的界面。
+
+93. **什么时候使用 Spacer，如何使用**
+
+    - **使用场景**：Spacer 用于在布局中填充空白空间，调整控件间距或对齐（如居中）。在 Qt Designer 中，常用 Horizontal Spacer 或 Vertical Spacer。
+    - **使用方法**：在布局中拖入 Spacer 控件，选择 Horizontal Spacer（水平填充）或 Vertical Spacer（垂直填充），调整其大小策略（如 Expanding）以动态占用空间。例如，在底部工具按钮行两端添加 Horizontal Spacer 可实现居中效果。
+
+    1. Spacer的Size Hint设置的是这个Spacer的最小占用空间
+    2. 使用Spacer时，其他控件设置Size Policy 为是 Fixed或者设置最大最小值为相同固定值，防止拉伸
+
+94. QSS使用方式：选择器分类、子控件、为状态
+
+95. 发现控件没有对齐：
+
+    1. 使用widget后提升布局
+    2. 计算一下布局中所有控件宽度之和，设置这个widget的宽度即可让控件刚好在最左侧
+    3. 不同控件之间固定的间隔可以对布局设置layoutSpacing，如果不同的间隔可以使用水平/垂直Spcer
+    4. 对于spacer，设置expending则可以自动扩展，此时其他控件需要设置最小大小否则会被压缩(设置的SizeHint为最小值)。设置fixed即设置为SizeHint大小固定值，不会扩展或压缩
+
+96. 为什么`ui->setupUi(this);`需要放在widget.cpp最开始的位置？
+
+    1. 必须在构造函数**最前面**调用，因为它负责初始化界面上的所有控件。所有控件为指针类型指向**this**这个`widget`，所以后续才可以使用`ui`指针直接访问控件
+    2. 只有执行了这个函数，才可以使用`ui->`访问控件
+
+97. 关于在主分支和子分支B合并记录的三个选项(**默认在主分支，合并子分支新的提交**)
+
+    1. `git merge` : 将子分支B提交合并到当前分支，会产生合并记录日志
+
+    2. `git rebase`：将当主分支重新基底到子分支 B 上，即B的新提交会放到主分支未push之前的末尾日志中
+
+    3. `git cherry-pick`：选择性地将分支 B 上的某个或多个提交（通过提交哈希）应用到主分支，生成新的提交，不会引入合并记录。
+
+       ```
+       git checkout main
+       git log B	// 找到分支 B 的目标提交哈希
+       git cherry-pick <commit-hash>
+       ```
+
+       
 
 ### 4. 末尾
 
