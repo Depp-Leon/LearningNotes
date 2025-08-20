@@ -5729,7 +5729,100 @@ m_pPool->submit([this, pBundle]() {
        git cherry-pick <commit-hash>
        ```
 
+98. QLabel使用动态图片（导入头文件QMovie）：
+
+    ```c++
+    QMovie *movie = new QMovie(":/path/to/your/animation.gif"); // 替换为实际 GIF 文件路径
+    if (!movie->isValid()) {
+        qDebug() << "Failed to load GIF file";
+        return -1;
+    }
+    
+    // 将 QMovie 绑定到 QLabel
+    label->setMovie(movie);
+    
+    // 启动动画
+    movie->start();
+    
+    // 可选：设置播放属性
+    movie->setSpeed(100); // 100% 速度 (50 为减半，200 为加倍)
+    movie->setCacheMode(QMovie::CacheAll); // 缓存所有帧
+    movie->setScaledSize(QSize(200, 200)); // 调整显示大小
+    ```
+
+99. 设置样式表的方式：
+
+    1. 给全局设背景
+
+       ```
+       this->setStyleSheet("background-image: url()")
+       ```
+
+       > 这个this指的是类的实例也就是当前整个窗口本身、
+
+    2. 可以使用this指定子控件的样式，里面指定类似QSS样式表的内容
+
+       ```
+       this->setStyleSheet("QPushButton{"
+                             " color : red;"
+                             " }"
+                            "QLabel {"
+                             " color : orange;"
+                             "}");
+       ```
+
+    3. 使用样式表设置，读取qss文件为QString格式，调用`setStyleSheet`
+
+       > 使用样式表，这个函数是全局的。所以样式表中必须**指定控件类型或 objectName**
+
+       ```
+       QString styleSheet = getStyleSheet(QVector<QString>{":Style/BaseDialog.qss", ":Style/TitleBar.qss", ":Style/Common.qss"});
        
+       setStyleSheet(styleSheet);
+       ```
+
+    4. 对特定单个控件（objectName）设置样式
+
+       ```
+       ui->label->setStyleSheet("background-color:greeb;color: yellow;");
+       ```
+
+100. `border-image`和 `background-image`的区别
+
+     1. `border-image`：
+        - 用于设置控件的**边框和背景**图片
+        - 支持九宫格拉伸（可以指定切割参数，灵活控制图片如何填充和拉伸）。
+        - 会**覆盖** `background` 和 `background-image` 的效果
+        - 常用于窗口、按钮等需要自定义整体外观的控件
+     2. `background-image`：
+        - 只用于设置控件的**背景图片**，不会影响边框。
+        - 不支持九宫格拉伸，只是简单地在控件背景显示图片。
+        - 边框样式（如 `border`、`border-radius`）仍然可以单独设置。
+        - 常用于需要背景图片但不影响边框的控件
+     3. `background` ：
+        - 与`background-image`类似，区别在于只设置纯色背景
+
+101. 当声明了Q_OBJECT宏之后，构建提示**vtable 类名**的错误：
+
+     1. 你的类继承了 Qt 的 QObject（通过 BaseDialog），并且有 `Q_OBJECT`宏，编译器会为其生成虚表（vtable）。如果头文件或源文件有问题，可能导致 vtable 生成失败。
+
+     2. 加了 Q_OBJECT宏后，Qt 的元对象编译器（moc）会为你的类生成元对象代码，并**要求类有完整的虚表（vtable）**，所以需要实现所有的虚函数(比如析构函数)
+
+        > **在 Qt 里，通常基类（如 QWidget、QDialog）的析构函数是虚的**
+        >
+        > > **QObject的析构函数是虚函数！所以Qt中所有的析构函数都是虚的！**
+
+     3. 没有 Q_OBJECT 宏时，类不需要 Qt 的元对象系统，不会强制生成虚表，所以即使没实现析构函数也不会报错
+
+102. 自定义控件提升后，为什么不能直接用`ui->widgetTitle->控件名`来访问呢？
+
+     1. 自定义控件提升后，`ui->widgetTitle`就是你提升的控件类型的指针，**可以直接访问其公开成员函数和属性**。
+
+     2. **不能**用 `ui->widgetTitle->空间名`这种方式访问子控件，因为 Qt 的 UI 文件只会把提升控件本身暴露为成员变量，**不会自动把提升控件里的子控件也暴露到 ui结构里**。
+
+        > 原因是在`ui_BaseDialog.h`中是将自定义控件`TitleBar`作为了它的成员，所以可以用`ui->`来访问`TitleBar`。但是在`TitleBar`类中，它的`UI::TitleBar`(也就是`ui_titleBar`类)是私有成员，导致并不能直接获取到它的子控件，只能从`TitleBar`类中访问公有成员/函数
+
+        <img src="source/images/JobNotes/image-20250820181709461.png" alt="image-20250820181709461" style="zoom: 80%;" /><img src="source/images/JobNotes/image-20250820181820785.png" alt="image-20250820181820785" style="zoom: 67%;" />
 
 ### 4. 末尾
 
