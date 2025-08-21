@@ -4322,7 +4322,6 @@ m_pPool->submit([this, pBundle]() {
 |   3. Linux客户端界面使用新版UI重构   |          |      |
 
 1. - [x] 软件升级，适配最新版708的存储结构
-
 2. 新版UI界面重构
 
    1. OEM贴牌适配
@@ -4335,8 +4334,9 @@ m_pPool->submit([this, pBundle]() {
    3. MVC开发模型
    4. Qt中英切换(tr())
    5. 自适应大小(在不同分辨率下如何自适应显示)
-
-
+   
+3. 画界面遇到的问题：
+   1. 实时防护界面titlebar无法更换qss
 
 
 
@@ -5792,7 +5792,7 @@ m_pPool->submit([this, pBundle]() {
      1. `border-image`：
         - 用于设置控件的**边框和背景**图片
         - 支持九宫格拉伸（可以指定切割参数，灵活控制图片如何填充和拉伸）。
-        - 会**覆盖** `background` 和 `background-image` 的效果
+        - 会**覆盖** `background` 和 `background-image` 的效果(包括子类)
         - 常用于窗口、按钮等需要自定义整体外观的控件
      2. `background-image`：
         - 只用于设置控件的**背景图片**，不会影响边框。
@@ -5802,7 +5802,48 @@ m_pPool->submit([this, pBundle]() {
      3. `background` ：
         - 与`background-image`类似，区别在于只设置纯色背景
 
-101. 当声明了Q_OBJECT宏之后，构建提示**vtable 类名**的错误：
+101.  `background`、`background-image` 和 `border-image` 的区别及其对子控件的影响：
+
+     1. background 和 background-image
+
+        - **作用范围**：只影响当前控件的内容区（不包括边框）。
+
+        - **继承性**：如果父控件设置了 `background` 或 `background-image`，子控件可以通过再次设置这两个属性来覆盖父控件的背景，显示自己的背景。
+
+        - **优先级**：子控件的 `background` 或 `background-image` 会覆盖父控件的同名属性，互不干扰。
+
+          > 父类和子类都可以设置自己的 `background` 或 `background-image`，子类的设置会生效。
+
+     2. . border-image
+
+        - **作用范围**：会覆盖整个控件的内容区和边框，甚至影响子控件的显示区域（尤其是自定义 QWidget）。
+
+        - **继承性**：如果父控件设置了 `border-image`，它会把整个父控件（包括子控件的显示区域）都用图片覆盖，导致子控件的 `border-image`、`background`、`background-image` 很难显示出来，除非子控件是独立的控件（如 QLabel、QPushButton）。
+
+        - **优先级**：父控件的 `border-image` 优先级极高，会“盖住”子控件的显示区域。只有独立控件（如 QLabel、QPushButton）自己的 `border-image` 能生效。
+
+          > 父控件用了 `border-image` 后，子控件（尤其是自定义 QWidget）很难再显示自己的 `border-image`，但 QLabel、QPushButton 这类控件可以。
+
+102. **重绘事件**，如果即使父控件设置为background或者background-image，子类的渐变背景仍然不生效的情况下需要使用重绘事件。**重绘事件（paintEvent）的绘制内容优先级最高**，它会在 Qt 样式表（QSS）渲染之后执行。
+
+     - Qt 会先根据样式表（QSS）渲染控件的背景、边框等样式。
+     - 然后调用控件的 paintEvent，你在 paintEvent里用 QPainter 绘制的内容会直接覆盖 QSS 渲染的结果。
+
+     ```c++
+     void TitleBar::paintEvent(QPaintEvent *event)
+     {
+         QPainter painter(this);
+         if (m_isGradientEnabled) {
+             QLinearGradient gradient(width(), height() / 2, 0, height() / 2);
+             gradient.setColorAt(0, QColor(235, 243, 255, 0)); // stop: 0
+             gradient.setColorAt(1, QColor(210, 235, 255));    // stop: 1 #D2EBFF
+             painter.fillRect(rect(), gradient);
+         }
+         QWidget::paintEvent(event);
+     }
+     ```
+
+103. 当声明了Q_OBJECT宏之后，构建提示**vtable 类名**的错误：
 
      1. 你的类继承了 Qt 的 QObject（通过 BaseDialog），并且有 `Q_OBJECT`宏，编译器会为其生成虚表（vtable）。如果头文件或源文件有问题，可能导致 vtable 生成失败。
 
@@ -5814,7 +5855,7 @@ m_pPool->submit([this, pBundle]() {
 
      3. 没有 Q_OBJECT 宏时，类不需要 Qt 的元对象系统，不会强制生成虚表，所以即使没实现析构函数也不会报错
 
-102. 自定义控件提升后，为什么不能直接用`ui->widgetTitle->控件名`来访问呢？
+104. 自定义控件提升后，为什么不能直接用`ui->widgetTitle->控件名`来访问呢？
 
      1. 自定义控件提升后，`ui->widgetTitle`就是你提升的控件类型的指针，**可以直接访问其公开成员函数和属性**。
 
@@ -5823,6 +5864,108 @@ m_pPool->submit([this, pBundle]() {
         > 原因是在`ui_BaseDialog.h`中是将自定义控件`TitleBar`作为了它的成员，所以可以用`ui->`来访问`TitleBar`。但是在`TitleBar`类中，它的`UI::TitleBar`(也就是`ui_titleBar`类)是私有成员，导致并不能直接获取到它的子控件，只能从`TitleBar`类中访问公有成员/函数
 
         <img src="source/images/JobNotes/image-20250820181709461.png" alt="image-20250820181709461" style="zoom: 80%;" /><img src="source/images/JobNotes/image-20250820181820785.png" alt="image-20250820181820785" style="zoom: 67%;" />
+
+105. **自定义控件**之btnFrame，实现多个组件联合一体的按钮。
+
+     1. 在界面拉一个Frame，在Frame中实现样式(拉取子控件)
+     2. 创建一个继承于QFrame类(无需ui界面)，实现点击、按压等事件
+     3. 在.ui界面对Frame右键提升为该自定义控件
+     4. 在uic执行的时候，在该类的ui_xxx.h中，Frame成员变为butnFrame，然后在setUpUI函数中将界面的组件加载到btnFrame中。这样就实现了界面和事件分离的自定义控件
+
+106. **自定义控件**的三种形式，
+
+     1. 自定义控件的子控件全部由该类的 .ui 文件构建
+
+        ```c++
+        // 自定义控件的ui_xxx.h
+        class Ui_CustomWidget
+        {
+        public:
+            QLabel *label1;
+            QPushButton *button1;
+        
+            void setupUi(QWidget *CustomWidget)
+            {
+                label1 = new QLabel(CustomWidget);
+                label1->setObjectName("label1");
+                button1 = new QPushButton(CustomWidget);
+                button1->setObjectName("button1");
+                // 布局和属性设置
+            }
+        };
+        
+        
+        // 主类的ui_xxx.h
+        class Ui_MainWindow
+        {
+        public:
+            QWidget *centralWidget;
+            CustomWidget *customWidget;  // 提升后的自定义控件
+        
+            void setupUi(QMainWindow *MainWindow)
+            {
+                centralWidget = new QWidget(MainWindow);
+                customWidget = new CustomWidget(centralWidget);
+                customWidget->setObjectName("customWidget");
+                // 布局和属性设置
+                MainWindow->setCentralWidget(centralWidget);
+            }
+        };
+        ```
+
+     2. 自定义控件不实现子控件，由主类的 .ui 文件实现
+
+        ```c++
+        // 自定义控件没有ui_xxx.h，只有.cpp和.h文件实现自定义事件
+        
+        // 主类的ui_xxx.h
+        class Ui_MainWindow
+        {
+        public:
+            QWidget *centralWidget;
+            BtnFrame *frame;  // 提升后的自定义控件
+            QLabel *label1;
+            QPushButton *button1;
+            QVBoxLayout *verticalLayout;
+        
+            void setupUi(QMainWindow *MainWindow)
+            {
+                centralWidget = new QWidget(MainWindow);
+                frame = new BtnFrame(centralWidget);
+                frame->setObjectName("frame");
+                verticalLayout = new QVBoxLayout(frame);
+                verticalLayout->setObjectName("verticalLayout");
+                label1 = new QLabel(frame);
+                label1->setObjectName("label1");
+                verticalLayout->addWidget(label1);
+                button1 = new QPushButton(frame);
+                button1->setObjectName("button1");
+                verticalLayout->addWidget(button1);
+                MainWindow->setCentralWidget(centralWidget);
+            }
+        };
+        ```
+
+        > 可以看到自定义控件的子控件在主类中可以直接通过ui->子控件名来访问，但是第一种情况就不可以，因为其ui类为private
+
+     3. 自定义控件实现一半子控件，主类实现另一半子控件。这种情况比较少见，需要主类和自定义类的控件之间协调一致，具体实现为前两种的混合
+
+107. QFrame和QWidget的区别和联系
+
+     1. QFrame 是 Qt 提供的一个轻量级容器控件，继承自 QWidget，主要用于**绘制边框**或作为**可视化的框架**；
+        - 显示不同的**边框**样式
+        - 可以作为**容器**，包含子控件(和widget一样)
+        - **用途**：在表单中用作分组框，显示边框和标题
+     2. QWidge 是 Qt 的基本 UI 构建块，所有的可视控件（如 QPushButton、QLabel）都直接或间接继承自它
+        - 所有控件的父类，可以用来创建**自定义控件**
+        - 可以通过QWidget来**扩展布局**，这样可以设定大小、背景、样式等
+
+108. stackedWidget分页容器，对于每一个页来说，拖入一个控件之后，调整布局，要么在ui界面相关部分直接右键选择布局，要么在右面的stackedWidget右键布局。如果在page右键则不能选择布局。
+
+     > 注意：
+     >
+     > 1. widget相关容器都可以调整布局，但是需要容器种必须有一个组件才可以选择布局
+     > 2. 是否可以为控件选择布局取决于控件是否是一个容器（container），Qt 的布局系统设计为容器控件（如 QWidget、QFrame）使用，非容器控件（如 QPushButton）不支持直接添加布局。
 
 ### 4. 末尾
 
