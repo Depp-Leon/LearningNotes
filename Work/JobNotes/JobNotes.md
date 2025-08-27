@@ -5802,7 +5802,7 @@ m_pPool->submit([this, pBundle]() {
      3. `background` ：
         - 与`background-image`类似，区别在于只设置纯色背景
 
-101.  `background`、`background-image` 和 `border-image` 的区别及其对子控件的影响：
+101. `background`、`background-image` 和 `border-image` 的区别及其对子控件的影响：
 
      1. background 和 background-image
 
@@ -5813,6 +5813,8 @@ m_pPool->submit([this, pBundle]() {
         - **优先级**：子控件的 `background` 或 `background-image` 会覆盖父控件的同名属性，互不干扰。
 
           > 父类和子类都可以设置自己的 `background` 或 `background-image`，子类的设置会生效。
+          
+        - **图片裁剪**：**不支持**像标准 CSS 的 clip 或 border-image-slice 那样的精确裁剪，只能调整图片的偏移或缩放，无法直接指定裁剪区域（如 0 40 0 0）。
 
      2. . border-image
 
@@ -5823,6 +5825,8 @@ m_pPool->submit([this, pBundle]() {
         - **优先级**：父控件的 `border-image` 优先级极高，会“盖住”子控件的显示区域。只有独立控件（如 QLabel、QPushButton）自己的 `border-image` 能生效。
 
           > 父控件用了 `border-image` 后，子控件（尤其是自定义 QWidget）很难再显示自己的 `border-image`，但 QLabel、QPushButton 这类控件可以。
+          
+        - **图片裁剪**：定图片的裁剪区域（例如 border-image-slice: 0 40 0 0）和应用区域，用于边框或背景的九宫格拉伸。
 
 102. **重绘事件**，如果即使父控件设置为background或者background-image，子类的渐变背景仍然不生效的情况下需要使用重绘事件。**重绘事件（paintEvent）的绘制内容优先级最高**，它会在 Qt 样式表（QSS）渲染之后执行。
 
@@ -5998,6 +6002,168 @@ m_pPool->submit([this, pBundle]() {
         3. Minimum/Maximum：控件可以拉伸，但最小/大尺寸为 `sizeHint()`，压缩时不会小/大于此值。
 
      2. 水平/垂直伸展：表示控件在水平/垂直方向上的相对拉伸因子（stretch），值越大，控件在水平方向上分配的额外空间越多（默认 0，表示不特别伸展）。
+     
+112. 开关控件(switch)的实现：在pushbutton上内嵌一个label子控件，将label的背景覆盖到pushbutton上即可
+
+     1. 但是不能直接在Qt Desinger中直接拖拽Label到button上，因为QPushButton 是一个功能性控件，主要用于触发点击事件，并显示文本或图标。它不像 QWidget、QFrame 或 QGroupBox 这样设计为容器的控件，Qt Designer 的界面不允许将其他控件直接拖放到 QPushButton 上作为子控件。
+
+        > 只有设计为容器的控件才可以在Qt Desinger中内嵌
+
+     2. 可以使用自定义控件，在widget中内嵌pushbutton和label(widget无布局，可以拖拽重叠)，label的宽度与button一致，在qss中设置将label图片显示最左/最右
+
+     3. 使用radioButoon，通过样式表中设置其子部件(伪元素)样式即可(**最优解**)
+
+        > `::indicator` 是专门用于 `QCheckBox` 和 `QRadioButton` 的子控件，表示复选框或单选按钮的指示器部分（通常是方框或圆点）。
+
+        ```c++
+        /*外面的框框*/
+        #swtich_btn_download_PS {
+            border-image: url(:/skin/btn/switch_off.png) 0 40 0 0;
+            outline: none;
+        }
+        /*里面的点*/
+        #swtich_btn_download_PS::indicator {
+            image: url(:/skin/btn/switch_off_thumb.png) no-repeat;
+        }
+        /*点击状态下的框框*/
+        #swtich_btn_download_PS:checked {
+            border-image: url(:/skin/btn/switch_on.png) 0 40 0 0;
+            outline: none;
+        }
+        /*点击状态下的点*/
+        #swtich_btn_download_PS::indicator:checked {
+            width: 18px;
+            height: 18px;
+            image :url(:/skin/btn/switch_thumb.png) no-repeat;
+            margin-left: 22px;
+        }
+        ```
+
+        >  **注意子部件加伪状态的情况下子部件在前！**
+
+113. qss中可以实现的伪状态：悬浮(hover)、按压(pressed)、禁用(disable)、点击(button中设置为checkable)、点击后的悬浮按压等
+
+114. 一些控件没有的伪状态，可以通过设置**动态属性**，对其动态属性来做相关的样式设置，比如：
+
+     BtnFrame中继承的是Frame，所以不能通过伪状态`:checked`来动态改变样式表，通过增加动态属性方案来达到同样效果
+
+     > Qt 的 :checked 伪状态仅适用于继承自 QAbstractButton 的控件（例如 QCheckBox、QRadioButton、QPushButton），并且这些控件必须具有内置的 checkable 和 checked 属性。
+
+     ```c++
+     BtnFrame::BtnFrame(QWidget *parent) : QFrame(parent) {
+         setProperty("checkable", true);
+         setProperty("checked", false);
+         setStyleSheet(R"(
+             BtnFrame {
+                 border: 1px solid transparent;
+             }
+             //BtnFrame:checked { /* 尝试使用 :checked失败 */
+             //    border: 2px solid #2196f3;
+             //}
+             BtnFrame[checked=true] {
+                 border: 2px solid #2196f3;
+             }
+         )");
+     }
+     
+     // 实际使用时就通过手动设置这个属性为true/false并刷新样式表来更换样式
+     // 1. 如果为true，就为上面qss展示的样式
+     // 2. 如果为false，那么上面qss样式不展示
+     void BtnFrame::setChecked(bool checked) {
+         setProperty("checked", checked);
+         style()->unpolish(this);
+         style()->polish(this);
+         update();   // 刷新样式表
+     }
+     ```
+
+115. 当Button控件的`checkable` 属性被设置为 true 时，按钮变为可选中状态（类似于复选框或单选按钮的行为）。此时
+
+     1. 用户点击按钮时，Qt 会先更新按钮的 `checked` 状态（切换 true/false）。
+
+        > 所以不需要用户手动在槽函数切换状态
+
+     2. 然后，Qt 会发出与按钮相关的信号，包括 `clicked()` 和 `toggled(bool)`。然后触发对应槽函数
+
+     对于Button的两个信号`clicked()`和`toggled(bool)`
+
+     1. `clicked()`：用户通过鼠标点击按钮、按下键盘的回车/空格键，或者程序调用 `click()` 方法时候触发
+     2. `toggled(bool)`：只有当按钮的 `checked` 状态发生变化时触发，前提是仅当按钮的 `checkable` 属性为 `true` 时才会发出此信号
+
+116. 关于**动态属性**：Qt 的动态属性机制（通过 `QObject::setProperty` 和 `QObject::property`）是为了提供一种灵活的方式，让开发者可以在运行时为**任何 QObject 派生对象**添加自定义属性，而无需修改类的定义。
+
+     1. 可以为控件附加额外的元数据或状态，不需要创建新的子类，即**扩充属性无需修改类的定义**
+
+     2. 支持样式表，可以动态改变控件的外观：
+
+        ```c++
+        QFrame[checkable=true][checked=true] { background-color: blue; }
+        ```
+
+     3. 可以用于扩展(模拟)控件本身没有的功能，比如`checkable`、`checked`、`enabled` 等状态属性。但是需要手动去处理这些状态切换与外观(如果有需要)。
+
+        >  比如button的`checkable`设置为true，那么当按钮被点击，则自动触发`checked`状态的切换，并且发出信号。而自定义的就不会有这种功能，只能按需要手动切换并发射信号
+
+117. Qt的三种界面控件：QWidget、QDialog、QMainwindow
+
+     1. QWidget是窗口类和其他控件的基类，用作简单窗口、自定义控件或容器
+     2. QDialog主要作为对话框(**交互式窗口**)、
+        1. **支持模态(exec())和非模态(show())**、
+        2. **提供返回结果(accept()\reject())**、
+        3. 模态对话框通过`exec()`启动**局部事件循环**
+     3. QMainwindow通常作为主窗口，提供工具栏、工具栏等
+
+118. 对**自定义控件的qss**该如何设置呢？
+
+     1. 自定义控件里面的控件由于是标准控件，内部支持qss
+
+     2. 如果通过对自定义控件类名来设置qss会不生效，因为其未正确处理QSS属性。需要在`paintEvent` 中显式支持 QSS 的样式（如通过 `QStylePainter` 或 `QStyleOption`）
+
+        ```c++
+        protected:
+            void paintEvent(QPaintEvent *event) override {
+                QStylePainter painter(this);
+                QStyleOption opt;
+                opt.initFrom(this); // 初始化样式选项，获取 QSS 属性
+                painter.drawPrimitive(QStyle::PE_Widget, opt); // 绘制控件背景，支持 QSS
+            }
+        };
+        ```
+
+     3. 对于一些高级的绘制，或者上面不生效的情况下，就需要手动在paintEvent中进行绘制
+
+     我的Dialog中包含TitleBar和contentWidget，是不能在Dialog中单独对TitleBar设置样式的，只能是在TitleBar自己的qss中设置样式。如果需要其有特殊的样式，需要在TitleBar内部重写绘图事件
+
+     ```c++
+     /*是否启动重绘函数，后续如果渐变背景的titlebar有多个的话，增加传入渐变值参数*/
+     void TitleBar::setGradientBackground(bool enable)
+     {
+         m_isGradientEnabled = enable;
+         update(); // 触发重绘
+     }
+     
+     void TitleBar::paintEvent(QPaintEvent *event)
+     {
+         QPainter painter(this);
+         if (m_isGradientEnabled) {
+             QLinearGradient gradient(width(), height() / 2, 0, height() / 2);
+             gradient.setColorAt(0, QColor(235, 243, 255, 0)); // stop: 0
+             gradient.setColorAt(1, QColor(210, 235, 255));    // stop: 1 #D2EBFF
+             painter.fillRect(rect(), gradient);
+         }
+         QWidget::paintEvent(event);
+     }
+     ```
+
+119. 界面画完之后总结：
+
+     1. qss样式表(子部件、伪状态、动态元素)
+     2. 自定义控件(btnFrame、titlebar)
+     3. 控件(switch(两个图片合成的)、tooltip、分页器、滑动窗口)
+     4. up/down箭头
+     5. 事件(鼠标点击、进入、离开，重绘事件)
+
+120. 
 
 ### 4. 末尾
 
