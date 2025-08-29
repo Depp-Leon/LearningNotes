@@ -4334,9 +4334,20 @@ m_pPool->submit([this, pBundle]() {
    3. MVC开发模型
    4. Qt中英切换(tr())
    5. 自适应大小(在不同分辨率下如何自适应显示)
-   
-3. 画界面遇到的问题：
-   1. 实时防护界面titlebar无法更换qss
+3. 任务界面：
+   1. 首页
+   2. 实时防护
+   3. 引擎
+   4. 设置中心
+   5. 升级界面
+   6. U盘界面
+4. 设置中心待实现/优化：
+   1. BtnFrame实现**悬浮的时候**也会显示边框，监控模式那块悬浮和点击还要切换图标
+   2. 左侧的Button点击两次它的蓝色样式会消失。是否考虑换自定义元素？
+5. 首页待优化：
+   1. 下方换成BtnFrame，同样悬浮的时候显示蓝色框
+6. 实时防护待优化：
+   1. 点击设置的那块考虑是否换为BtnFrame，一块区域都可以点击/还是说只把文字设置为button
 
 
 
@@ -6119,6 +6130,8 @@ m_pPool->submit([this, pBundle]() {
 
      2. 如果通过对自定义控件类名来设置qss会不生效，因为其未正确处理QSS属性。需要在`paintEvent` 中显式支持 QSS 的样式（如通过 `QStylePainter` 或 `QStyleOption`）
 
+        > 这个paitEvent是在使用了自定义控件的类中实现
+
         ```c++
         protected:
             void paintEvent(QPaintEvent *event) override {
@@ -6131,6 +6144,8 @@ m_pPool->submit([this, pBundle]() {
         ```
 
      3. 对于一些高级的绘制，或者上面不生效的情况下，就需要手动在paintEvent中进行绘制
+
+        > 这个是在自定义控件类中实现paintEvent
 
      我的Dialog中包含TitleBar和contentWidget，是不能在Dialog中单独对TitleBar设置样式的，只能是在TitleBar自己的qss中设置样式。如果需要其有特殊的样式，需要在TitleBar内部重写绘图事件
 
@@ -6163,7 +6178,32 @@ m_pPool->submit([this, pBundle]() {
      4. up/down箭头
      5. 事件(鼠标点击、进入、离开，重绘事件)
 
-120. 
+120. Qt 的样式表遵循**层叠规则**，类似于 CSS。伪状态（如 `:checked`）的样式会覆盖基础样式的同类属性，但如果伪状态中没有指定某个属性（例如 border），则会保留基础样式的该属性设置
+
+     1. 设置基础qss，添加为状态的qss，伪状态只会叠加到基础qss上
+     2. 退出伪状态(如checked)时，如果没有设置非checked的状态，那么会使用之前的基础qss
+     
+121. 对于刷新样式表的下面代码，只会作用于其本身，不会作用到它的子控件的样式
+
+     ```c++
+     this->style()->unpolish(this);
+     this->style()->polish(this);
+     this->update();
+     ```
+
+122. qtDsinger中的`Line`实际上是Frame ，所以对其设置qss时，可以通过QFrame来设置全部，但是会影响到其他Frame
+
+     通过`object类名 控件名`可以实现对这个界面的所有该控件设置样式
+
+     ```
+     #SettingCenter QFrame {
+         background-color: #EEF1F4;
+         border: none;
+         border-style: none;
+     }  
+     ```
+
+     
 
 ### 4. 末尾
 
