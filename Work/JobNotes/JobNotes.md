@@ -4343,10 +4343,38 @@ m_pPool->submit([this, pBundle]() {
    6. U盘界面
 4. 设置中心待实现/优化：
    1. BtnFrame实现**悬浮的时候**也会显示边框，监控模式那块悬浮和点击还要切换图标
+   
    2. 左侧的Button点击两次它的蓝色样式会消失。是否考虑换自定义元素？
+   
+   3. 子界面：
+   
+      1. 定时升级/定时扫描，用一个stackedwidget，考虑如何使用tableview
+   
+         > 1. comboBox不好实现样式，遂改为自定义(在代码中画widget，加QVBoxLayout)可参考添加白名单那块
+         > 2. tableview
+   
+      2. 日志清理弹窗
+   
+      3. 密码保护
+   
+      4. 防护项目-三个防护
+   
+      5. 自动化规则
+   
+      6. 网络防护-对外攻击防护
+   
+      7. 文件保险箱
+   
+      8. 自动化规则
+   
+      9. 重要数据备份
+   
+      10. 限制保护
 5. 首页待优化：
+   
    1. 下方换成BtnFrame，同样悬浮的时候显示蓝色框
 6. 实时防护待优化：
+   
    1. 点击设置的那块考虑是否换为BtnFrame，一块区域都可以点击/还是说只把文字设置为button
 
 
@@ -6203,7 +6231,101 @@ m_pPool->submit([this, pBundle]() {
      }  
      ```
 
+123. 关于git分支合并产生的一些问题：
+
+     自己的分支提交之后，切换到主分支；
+
+     1. 主分支pull最新提交之后，rebase子分支，解决冲突。切换到子分支，merge主分支。
+
+        ```
+        git checkout develop_jyd
+        git add .
+        git commit 
+        git checkout develop
+        git pull 
+        git rebase debelop_jyd
+        // 解决冲突
+        git push --force	 // 强制提交
+        git checkout develop_jyd
+        git merge 	// 顺利合并，没有冲突
+        ```
+
+        优点：主分支基于子分支的提交为基底，子分支合并主分支的时候不需要再解决一次冲突。
+
+        缺点：主分支与远端分支的历史记录出现区别，此时提交只能强制push
+
+     2. 主分支pull最新提交之后，merge子分支，解决冲突，产生合并记录。此时要么切换到子分支合并重新解决一次冲突，要么删除掉子分支，新建子分支(推荐方式2)。
+
+        ```
+        // 前面部分与上面相同
+        git merge develop_jyd
+        // 解决冲突，提交产生合并记录
+        // ps：如果使用git cherry-pick <commit-hash> 可以避免产生合并记录
+        git push
+        git branch -d develop_jyd
+        git push origin --delete develop_jyd //删除掉远端的分支
+        git checkout -b develop_jyd //新建子分支，同时切换到子分支
+        git push origin develop_jyd //将新建子分支推送到远端
+        ```
+
+        优点：子分支不需要重新合并主分支，少一次解决冲突。
+
+        缺点：会产生一条合并记录(如果只有一条提交记录，那么可以使用`cherry-pick`解决)
      
+124. Qt的MVC模型实例
+
+     1. 代理的重写函数paint()、createEditor()有什么用，在什么时候被调用呢
+
+     2. QTableView的表头，QHeaderView在comon.qss中设置样式表
+
+        > 子控件section表示表头的每个部分
+
+     3. view设置垂直和水平表头，表头可以使用自定义表头(继承于QHeaderView)
+
+     4. view设置model，model实现填充表头和内容；view设置间隔、样式
+
+     5. view可以对某列/行的元素设置代理(改变样式，增加功能)
+
+     6. 自定义代理：
+
+        1. paint用来绘制每个单元格的样式(静态内容)
+
+        2. creatEditor()用来创建并返回一个编辑器（交互控件，动态内容），
+
+           > (普通代理) 默认触发这个编辑器的方式是双击,或者F12，由Qt的视图框架自动调用该函数。当编辑完成(输入enter键/点击其他单元格)视图框架将会自动销毁该编辑器，并释放内存
+           >
+           > (持久化代理)关闭了触发方式，在paint手动调用该函数实现持久存在(自定义了一个map，保存调用该函数返回的widget)，绕过了 Qt 的编辑框架（editTriggers 和编辑流程），因此编辑器不会被 Qt 自动销毁
+
+        3. 两个set函数，一个是从编辑器数据写回到model，一个是将model数据设置到编辑器
+
+     7. QModelIndex保存的是这个单元格的位置信息以及model数据
+
+125. explicit 是 C++ 中的一个关键字，用于修饰构造函数或类型转换函数（C++11 起），防止编译器自动进行隐式类型转换。当一个构造函数被声明为 explicit 时，它只能用于显式构造对象，不能被编译器用于隐式类型转换
+
+     为什么加了OBJECT宏之后的类构造函数必须加上这个关键字：
+
+     ```
+     class MyWidget : public QWidget {
+         Q_OBJECT
+     public:
+         MyWidget(QWidget *parent = nullptr); // 构造函数
+     };
+     ```
+
+     1. 如果构造函数不加 explicit，且 parent 参数有默认值（如 nullptr），这个单参数构造函数可能被编译器用于隐式转换。
+     2. 例如，QWidget* 指针可能被隐式转换为 MyWidget 对象，这在 Qt 的对象层次结构中可能导致意外行为或逻辑错误。
+     
+126. MVC中的代理，当对同一列进行代理的时候，
+
+     1. 每个单元格都会调用一次代理的重写的paint()，用来绘制内容
+
+     2. 但是Qt 并不会为每个单元格都创建一个新的 QWidget(在paint中绘制的内容)
+
+     3. **真正创建的 widget（通过 `createEditor()`）一般只有一两个**，Qt 会 **重用这些 widget**，把它们放到当前可视单元格的位置上。
+
+        > 效果上是每个单元格都会有这个widget，但是实际上只会有一两个打印信息(多的话两个少的话一个)
+
+     4. 每个单元格上的内容实际上是 **同一个 widget 被移动和重绘**，用来减少开销
 
 ### 4. 末尾
 
