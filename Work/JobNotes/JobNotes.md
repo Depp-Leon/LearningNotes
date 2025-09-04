@@ -6202,9 +6202,10 @@ m_pPool->submit([this, pBundle]() {
 
      1. qss样式表(子部件、伪状态、动态元素)
      2. 自定义控件(btnFrame、titlebar)
-     3. 控件(switch(两个图片合成的)、tooltip、分页器、滑动窗口)
+     3. 控件(switch(两个图片合成的)、tooltip、分页器、滑动窗口、comboBox)
      4. up/down箭头
      5. 事件(鼠标点击、进入、离开，重绘事件)
+     6. TableView、自定义表头、自定义代理
 
 120. Qt 的样式表遵循**层叠规则**，类似于 CSS。伪状态（如 `:checked`）的样式会覆盖基础样式的同类属性，但如果伪状态中没有指定某个属性（例如 border），则会保留基础样式的该属性设置
 
@@ -6274,23 +6275,32 @@ m_pPool->submit([this, pBundle]() {
      
 124. Qt的MVC模型实例
 
-     1. 代理的重写函数paint()、createEditor()有什么用，在什么时候被调用呢
+     1. TableView设置垂直和水平表头，按需要可以设定**自定义表头**(继承于QHeaderView，重写paint函数），比如表头第一列有一个全选checkBox按钮
 
-     2. QTableView的表头，QHeaderView在comon.qss中设置样式表
+        ```c++
+         m_HeadView = new CheckBoxHeaderView(1, Qt::Horizontal, ui->tableView, 12);
+         ui->tableView->setHorizontalHeader(m_HeadView); // 水平表头为自定义表头
+        ```
+
+     2. TableView中某列/某行需要设定特别样式/控件，需要使用**自定义代理**，比如最后一列为删除按钮
+
+        ```c++
+        ButtonTimedTaskDelegate *buttonDelegate = new ButtonTimedTaskDelegate();
+        ui->tableView->setItemDelegateForColumn(5, buttonDelegate);
+        connect(buttonDelegate, SIGNAL(sigBtnClicked(QModelIndex)), this, SLOT(slot_deleteButton_clicked(QModelIndex)));
+        ```
+
+     3. 设置QHeaderView和TableView的样式，项目放在common.qss
 
         > 子控件section表示表头的每个部分
 
-     3. view设置垂直和水平表头，表头可以使用自定义表头(继承于QHeaderView)
+     4. TableView设置model，model实现填充表头和内容；TableView来设置间隔、样式
 
-     4. view设置model，model实现填充表头和内容；view设置间隔、样式
+     5. 自定义代理后(对某列进行代理)：
 
-     5. view可以对某列/行的元素设置代理(改变样式，增加功能)
+        1. paint用来绘制(该列中)每个单元格的样式(静态内容)
 
-     6. 自定义代理：
-
-        1. paint用来绘制每个单元格的样式(静态内容)
-
-        2. creatEditor()用来创建并返回一个编辑器（交互控件，动态内容），
+        2. creatEditor()用来创建并返回一个编辑器（交互控件，动态内容）
 
            > (普通代理) 默认触发这个编辑器的方式是双击,或者F12，由Qt的视图框架自动调用该函数。当编辑完成(输入enter键/点击其他单元格)视图框架将会自动销毁该编辑器，并释放内存
            >
@@ -6298,9 +6308,21 @@ m_pPool->submit([this, pBundle]() {
 
         3. 两个set函数，一个是从编辑器数据写回到model，一个是将model数据设置到编辑器
 
-     7. QModelIndex保存的是这个单元格的位置信息以及model数据
+     6. QModelIndex保存的是这个单元格的位置信息以及model数据
 
-125. explicit 是 C++ 中的一个关键字，用于修饰构造函数或类型转换函数（C++11 起），防止编译器自动进行隐式类型转换。当一个构造函数被声明为 explicit 时，它只能用于显式构造对象，不能被编译器用于隐式类型转换
+125. MVC中的自定义代理，当对同一列进行代理的时候，
+
+     1. 每个单元格都会调用一次代理的重写的`paint()`，用来绘制内容
+
+     2. 但是Qt 并不会为每个单元格都创建一个新的 QWidget(在paint中绘制的内容)
+
+     3. **真正创建的 widget（通过 `createEditor()`）一般只有一两个**，Qt 会 **重用这些 widget**，把它们放到当前可视单元格的位置上。
+
+        > 效果上是每个单元格都会有这个widget，但是实际上只会有一两个打印信息(多的话两个少的话一个)
+
+     4. 每个单元格上的内容实际上是 **同一个 widget 被移动和重绘**，用来减少开销
+
+126. explicit 是 C++ 中的一个关键字，用于修饰构造函数或类型转换函数（C++11 起），防止编译器自动进行隐式类型转换。当一个构造函数被声明为 explicit 时，它只能用于显式构造对象，不能被编译器用于隐式类型转换
 
      为什么加了OBJECT宏之后的类构造函数必须加上这个关键字：
 
@@ -6314,18 +6336,43 @@ m_pPool->submit([this, pBundle]() {
 
      1. 如果构造函数不加 explicit，且 parent 参数有默认值（如 nullptr），这个单参数构造函数可能被编译器用于隐式转换。
      2. 例如，QWidget* 指针可能被隐式转换为 MyWidget 对象，这在 Qt 的对象层次结构中可能导致意外行为或逻辑错误。
-     
-126. MVC中的代理，当对同一列进行代理的时候，
 
-     1. 每个单元格都会调用一次代理的重写的paint()，用来绘制内容
+127. Qt中父指针和继承之间的区别
 
-     2. 但是Qt 并不会为每个单元格都创建一个新的 QWidget(在paint中绘制的内容)
+     1. 父指针：几乎所有继承自 `QObject` 的类（`QWidget` 也继承自它）都有一个 **父对象指针**。
+        1. **生命周期**管理（对象树机制），避免内存泄漏
+        2. **对象树**：Qt 会把对象组织成一棵 对象树，UI 的层级关系、**事件传递**、样式表（`QSS`）继承，都会依赖这个父子关系。
+        3. **样式表继承**：父类的样式表默认自动作用于子对象
+     2. 继承：扩充功能和多态，比如自定义的控件，可以扩展功能
+     3. 总结：**Qt 里的 parent 和 C++ 的继承是完全不同的概念**，一个是 **对象生命周期和层级管理**，一个是 **类型关系和代码复用**。
 
-     3. **真正创建的 widget（通过 `createEditor()`）一般只有一两个**，Qt 会 **重用这些 widget**，把它们放到当前可视单元格的位置上。
+128. 关于qt画界面时的背景
 
-        > 效果上是每个单元格都会有这个widget，但是实际上只会有一两个打印信息(多的话两个少的话一个)
+     1. 设置界面透明，即未设置背景的部分使用父类的背景(若无则透明)，不使用默认的背景
 
-     4. 每个单元格上的内容实际上是 **同一个 widget 被移动和重绘**，用来减少开销
+        ```
+        // 《物理透明》
+        setAttribute(Qt::WA_TranslucentBackground); // 告诉 Qt 这个控件完全不画背景，把那块区域丢给系统渲染。透明部分直接显示桌面。需配合paintEvent手动绘画使用
+        
+        // 《逻辑透明》
+        QWidget#widget_A, QWidget#widget_B, QStackedWidget {		
+            background: transparent;				// 告诉 Qt 不要给这个控件填充背景色，透明部分由父控件的背景来填充
+        }
+        ```
+
+     2. 设置透明**只对顶层窗口的绘制背景生效**，若其中含有带容器性质的子控件(Frame/Widget/StackedWidget)等，则不会作用其身上。其本身若没有设置背景则显示默认的颜色
+
+        > 容器类控件默认都有独立的背景角色（`QPalette::Base` 或 `QPalette::Window`），这会导致它们的区域和父控件颜色不一致
+
+     3. qt中的样式是**层叠的**，也就是要想背景展示想要的效果，需要作用最上层的容器背景
+
+     4. qt取消Dialog的默认窗口标志
+
+        ```
+        setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowSystemMenuHint);
+        ```
+
+129. 
 
 ### 4. 末尾
 
