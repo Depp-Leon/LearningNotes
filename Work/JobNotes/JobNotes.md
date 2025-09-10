@@ -2183,7 +2183,7 @@ m_pPool->submit([this, pBundle]() {
    // 4. 打单个包
    vim package/pack/comp_ver_conf.ini		// 修改打包信息
    // 具体类型去vim package/pack/version_gen_fun 里找
-   ./make_packet.sh dep gen_dep			// 执行打包脚本，第一个参数deb包，第二个为带界面
+   ./make_packet.sh deb gen_deb			// 执行打包脚本，第一个参数deb包，第二个为带界面
    
    // 5， 打全量包
    up_pack.sh				// 全量包
@@ -3727,7 +3727,27 @@ m_pPool->submit([this, pBundle]() {
 
    
 
+#### 2.13.9 八月
 
+|               八月任务               | 截至时间 | 完成 |
+| :----------------------------------: | :------: | :--: |
+|              1. bug修改              |          |      |
+| 2. 软件升级，适配最新版708的存储结构 |          |      |
+|   3. Linux客户端界面使用新版UI重构   |          |      |
+
+1. - [x] 软件升级，适配最新版708的存储结构
+2. 新版UI界面重构
+
+   1. OEM贴牌适配
+      1. OEM下分几个需要套牌的文件夹(里面只有需要替换的图片)
+      2. 全部的图片放到外面，创建一个skin文件夹
+      3. 添加qrc文件
+      4. 写gen_rcc.sh脚本
+      5. .pro/cmakelist中添加resource资源
+   2. QSS样式表
+   3. MVC开发模型
+   4. Qt中英切换(tr())
+   5. 自适应大小(在不同分辨率下如何自适应显示)
 
 ## 三、技术问题
 
@@ -4313,71 +4333,38 @@ m_pPool->submit([this, pBundle]() {
    2. 重新生成vrv.rcc文件
    3. 打包的时候指定-n vrvsd，会根据-n来生成对应的版本号。RJJH通过版本号选择对应的rcc文件
 
-##### 2.1.2 八月任务
+##### 2.1.2 九月任务
 
-|               八月任务               | 截至时间 | 完成 |
-| :----------------------------------: | :------: | :--: |
-|              1. bug修改              |          |      |
-| 2. 软件升级，适配最新版708的存储结构 |          |      |
-|   3. Linux客户端界面使用新版UI重构   |          |      |
+|    九月任务    | 截至时间 | 完成 |
+| :------------: | :------: | :--: |
+|    bug修改     |          |      |
+|  新版708界面   |          |      |
+| 北信源新增需求 |          |      |
 
-1. - [x] 软件升级，适配最新版708的存储结构
-2. 新版UI界面重构
-
-   1. OEM贴牌适配
-      1. OEM下分几个需要套牌的文件夹(里面只有需要替换的图片)
-      2. 全部的图片放到外面，创建一个skin文件夹
-      3. 添加qrc文件
-      4. 写gen_rcc.sh脚本
-      5. .pro/cmakelist中添加resource资源
-   2. QSS样式表
-   3. MVC开发模型
-   4. Qt中英切换(tr())
-   5. 自适应大小(在不同分辨率下如何自适应显示)
-3. 任务界面：
-   1. 首页
-   2. 实时防护
-   3. 引擎
-   4. 设置中心
-   5. 升级界面
-   6. U盘界面
-4. 设置中心待实现/优化：
-   1. BtnFrame实现**悬浮的时候**也会显示边框，监控模式那块悬浮和点击还要切换图标
-   
-   2. 左侧的Button点击两次它的蓝色样式会消失。是否考虑换自定义元素？
-   
-   3. 子界面：
-   
-      1. 定时升级/定时扫描，用一个stackedwidget，考虑如何使用tableview
-   
-         > 1. comboBox不好实现样式，遂改为自定义(在代码中画widget，加QVBoxLayout)可参考添加白名单那块
-         > 2. tableview
-   
-      2. 日志清理弹窗
-   
-      3. 密码保护
-   
-      4. 防护项目-三个防护
-   
-      5. 自动化规则
-   
-      6. 网络防护-对外攻击防护
-   
-      7. 文件保险箱
-   
-      8. 自动化规则
-   
-      9. 重要数据备份
-   
-      10. 限制保护
-5. 首页待优化：
-   
-   1. 下方换成BtnFrame，同样悬浮的时候显示蓝色框
-6. 实时防护待优化：
-   
-   1. 点击设置的那块考虑是否换为BtnFrame，一块区域都可以点击/还是说只把文字设置为button
-
-
+1. bug修改：
+   1. 入口防护弹窗 处理后 防护日志数据记录错误
+   2. 取消勾选 U盘防护隐藏文件提示，U盘依旧能报隐藏文件
+2. 任务界面：
+   - [x] 首页
+   - [x] 实时防护
+   - [x] 引擎
+   - [ ] 设置中心
+     - [x] 日志清理弹窗
+     - [x] 密码保护防护项目
+     - [x] 定时升级和定时扫描
+     - [ ] 三个防护
+     - [ ] 网络防护-对外攻击防护
+     - [ ] 文件保险箱
+     - [ ] 自动化规则
+     - [ ] 重要数据备份
+     - [ ] 限制保护
+   - [ ] 升级界面
+   - [ ] U盘界面
+3. 界面待优化：
+   1. 实时防护点击到实时防护设置界面按钮需要改为无边框按钮
+   2. 设置界面/实时防护设置界面的背景、圆角等需要统一完善
+4. 北信源新需求：
+   1. 将扫描项目更换为扫描对象数量
 
 
 #### 2.2 备忘录
@@ -5703,7 +5690,7 @@ m_pPool->submit([this, pBundle]() {
 
 88. 关于Qt Creator中遇到的一些设置问题
 
-    1. QWidget中的`sizePolicy`：决定**控件**占用多少空间（扩展、固定或压缩），如果设置为fix(比如设置图片的label)，使用`fixed`就会固定为设置的最大/最小值
+    1. QWidget中的`sizePolicy`：决定**控件**占用多少空间（扩展、固定或压缩），如果设置为fix(比如设置图片的label)，使用`fixed`就会固定为默认推荐的值
 
     2. 控件的`alignment`：决定**控件内容**在其边界框内的位置，比如label中的文字偏左还是偏右还是居中
 
@@ -6372,9 +6359,115 @@ m_pPool->submit([this, pBundle]() {
         setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowSystemMenuHint);
         ```
 
-129. 
+129. 在当前界面创建新的子界面，子界面类将this作为父指针，在构造时只用自己的那块qss。但是实际运行这块qss没有实现。
 
-### 4. 末尾
+     不清楚为何，但是当我将这个qss文件，增加了`QPushbutton {}`之后再执行就可以看到样式的变化；再删除掉这一句执行就便正常了
+     
+130. scrollArea和scroll Bar
+
+     1. scrollArea是一个容器，超过设定大小就会有滚动条(**静态数据使用scrollArea**)
+     2. 当使用tableview时，将tableview和scrollBar放在同一个容器中，最后用代码实现数据与滚动条的联动(**动态数据使用scrollBar**)
+
+131. qss中关于选择器的使用：
+
+     1. 类型选择器：直接使用qt控件类名作为选择器，匹配该类型的所有控件
+
+        ```
+        QPushButton {
+            background: red;
+        }
+        ```
+
+     2. ID选择器（#objectName）
+
+        ```
+        #objectName {
+            background: green;
+        }
+        ```
+
+     3. 层级选择器(父子关系)
+
+        ```
+        // 匹配 objectName 为 ItemsProtectDialog 的控件里的所有 QRadioButton。
+        #ItemsProtectDialog QRadioButton {
+            color: red;
+        }
+        
+        #widget_2 #widget_title{
+            background: #F1F4F7;
+            border-radius: 4px 4px 0px 0px;
+        }
+        ```
+
+     4. 属性选择器：基于动态属性（`setProperty`）来匹配
+
+        ```
+        // 给Label增加checkable属性
+        #myLabel[checked="true"]{
+            color: red;
+        }
+        ```
+
+     5. 伪状态选择器（`:`）
+
+        ```
+        QPushButton:hover { background: yellow; }
+        QPushButton:pressed { background: gray; }
+        QRadioButton:checked { color: green; }
+        QRadioButton:disabled { color: lightgray; }
+        ```
+
+     6. 子控件选择器：用于指定控件的子元素（indicator、handle、add-line 等）。
+
+        ```
+        // 比如radioButton的中心圆点、下拉框的下拉箭头等
+        QRadioButton::indicator {
+            width: 20px;
+            height: 20px;
+            image: url(:/skin/btn/switch_off.png);
+        }
+        ```
+
+     7. 子控件+伪状态
+
+        ```
+        QRadioButton::indicator:checked {
+            image: url(:/skin/btn/switch_on.png);
+        }
+        ```
+
+     8. 组合选择器，多个样式一样时，可以一起指定
+
+        ```
+        QPushButton, QToolButton, #myLabel, #myradiobutton{
+            font-size: 14px;
+        }
+        ```
+
+132. Qt的qss中设置了一个容器下的类型选择器之后，又设置该容器里面单个ID选择器之后，这个单个选择器的样式不生效
+
+     ```
+     #widget_2 QLabel { ... }
+     #label, #label_2, #label_3, #label_4 { ... }
+     ```
+
+     1. Qt 的样式表解析是 **最后一条规则覆盖前一条规则**，但前提是 **匹配到的选择器优先级相同**。
+
+        - `#widget_2 QLabel` → 是 **父 ID + 子类型选择器**
+        - `#label` → 是 **单 ID 选择器**
+
+        理论上 ID 选择器优先级更高，应该覆盖掉前者。但 Qt 的 QSS 引擎里，**有时“父+子”选择器被当成更具体（specific）选择器**，所以反而比单独的 `#label` 优先
+
+     2. 解决方式为这个单个ID选择器前面也加上父ID
+
+        ```
+        #widget_2 #label{...}		// 明确父类关系
+        ```
+
+        qt中的Line属于继承于QFrame，所以如果父容器对QWidget、QFrame做类型选择器的qss时，如果Line不使用上述方法则不会生效
+
+### 5. 末尾
 
 
 
