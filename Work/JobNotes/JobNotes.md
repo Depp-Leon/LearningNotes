@@ -2186,11 +2186,12 @@ m_pPool->submit([this, pBundle]() {
    ./make_packet.sh deb gen_deb			// 执行打包脚本，第一个参数deb包，第二个为带界面
    
    // 5， 打全量包
-   up_pack.sh				// 全量包
+   up_pack.sh				// 全量包，默认chenxinsd
+   up_pack.sh vrv			// 北信源全量包
+   
    up_proc_pack.sh			// 服务器版全量
    up_sm_pack.sh			// 涉密版全量
-   up_vrv_pack.sh			// 北信源全量
-   
+   up_vrv_pack.sh			// 北信源sdk全量
    up_proc_pack.sh vrv		// 北信源服务版
    
    
@@ -4344,6 +4345,7 @@ m_pPool->submit([this, pBundle]() {
 1. bug修改：
    1. 入口防护弹窗 处理后 防护日志数据记录错误
    2. 取消勾选 U盘防护隐藏文件提示，U盘依旧能报隐藏文件
+   
 2. 任务界面：
    - [x] 首页
    - [x] 实时防护
@@ -4352,19 +4354,33 @@ m_pPool->submit([this, pBundle]() {
      - [x] 日志清理弹窗
      - [x] 密码保护防护项目
      - [x] 定时升级和定时扫描
-     - [ ] 三个防护
-     - [ ] 网络防护-对外攻击防护
+     - [x] 三个防护
+     - [x] 网络防护-对外攻击防护
      - [ ] 文件保险箱
      - [ ] 自动化规则
      - [ ] 重要数据备份
      - [ ] 限制保护
    - [ ] 升级界面
    - [ ] U盘界面
-3. 界面待优化：
+   
+3. 已构界面的新增：
+   
+   1. 设置中心-入口防护：增加监控模式
+   2. 设置中心-威胁防护：监控模式增加了一个"极速模式"
+   3. 实时防护界面：
+      1. 按钮需要改动
+      2. 增加了一个切换模式的按钮和toolTip
+      3. 各种弹窗需要实现
+      4. 开启项(图标)与设置中心实际开启项之间的联动需要实现
+   
+4. 界面待优化：
+
    1. 实时防护点击到实时防护设置界面按钮需要改为无边框按钮
    2. 设置界面/实时防护设置界面的背景、圆角等需要统一完善
-4. 北信源新需求：
-   1. 将扫描项目更换为扫描对象数量
+
+5. - [x] 北信源-西安航空化学公司新需求：将扫描项目更换为扫描对象数量
+
+   ​	
 
 
 #### 2.2 备忘录
@@ -5706,7 +5722,7 @@ m_pPool->submit([this, pBundle]() {
 
        > [网格布局和其他布局方法的联系 - CSS：层叠样式表 | MDN](https://developer.mozilla.org/zh-CN/docs/Web/CSS/CSS_grid_layout/Relationship_of_grid_layout_with_other_layout_methods)
 
-91. 关于为什么不直接在垂直布局中直接添加水平布局，而是先拉一个widget后应用为水平布局
+91. 关于为什么不能直接在垂直布局中直接添加水平布局，而是先拉一个widget后应用为水平布局
 
     1. 布局灵活性：直接使用 QHBoxLayout 作为子项时，它只能作为其他布局的子布局，而无法独立携带其他属性（如背景色、边框或自定义样式）。通过先拖入 QWidget，可以为该区域设置特定的样式或行为（如背景渐变、阴影），并在 QWidget 上应用 QHBoxLayout，增强自定义能力。
 
@@ -6465,7 +6481,72 @@ m_pPool->submit([this, pBundle]() {
         #widget_2 #label{...}		// 明确父类关系
         ```
 
-        qt中的Line属于继承于QFrame，所以如果父容器对QWidget、QFrame做类型选择器的qss时，如果Line不使用上述方法则不会生效
+        > qt中的Line属于继承于QFrame，所以如果父容器对QWidget、QFrame做类型选择器的qss时，如果Line不使用上述方法则不会生效
+     
+133. 关于Qt的connect函数：
+
+     1. 声明的`signals/slots` 关键字只是 MOC 的标记，对于槽函数声明：**老语法必须用，新语法可以不用**
+
+        1. `signals:`用来告诉 MOC：这些函数声明是信号。MOC 会为它们生成底层实现（`QMetaObject::activate`），实现“发布消息”的功能。
+
+        2. `slots:`用来告诉 MOC：这些函数是槽，可以通过 **字符串反射** 调用，比如老语法
+
+           ```
+           connect(sender, SIGNAL(clicked()), receiver, SLOT(onClicked()));
+           // 这里传的是字符串，MOC 需要知道哪些函数是槽，才能在运行时找到并调用。
+           ```
+
+           > SIGNAL(clicked()) 和 SLOT(onClicked()) 本质上是字符串。宏展开后得到：
+           >
+           > ```
+           > connect(button, "2clicked()", this, "1onClicked()");
+           > // "2" 表示 这是一个信号（signal）。"1" 表示 这是一个槽函数（slot）。
+           > ```
+           >
+           > MOC（Qt 的元对象编译器）在编译时会生成一张 **元对象表**，里面记录了类的所有信号和槽。运行时 `QObject::connect` 会通过字符串查表，把信号和槽连起来。
+
+     2. 新语法的`connect()`,槽函数 **可以是任何普通成员函数、静态函数、自由函数、lambda**；且槽函数不必写在`slots:` 里。
+
+        ```
+        connect(button, &QPushButton::clicked, this, &MyClass::handleClick);
+        // 新的connect使用的是函数指针，能够检测函数签名是否匹配，所以不能用同名不同参数的函数了。老语法直接把参数也放在字符串后面所以可以
+        // handleClick() 完全可以不写在 slots: 里。
+        
+        ```
+
+     3. 只有新语法的connect()，槽函数可以使用`lambda函数`，好处是可以**捕获列表**，可以使用局部变量
+
+        ```
+        int count = 0;
+        connect(button, &QPushButton::clicked, this, [=]() mutable {
+            qDebug() << "Clicked" << ++count;
+        });
+        // 普通槽函数做不到这一点
+        ```
+
+     4. 槽函数使用lambda时，调用的区别
+
+        1. 普通槽函数：信号发出 → Qt 的元对象系统（MOC）找到对应槽函数 → 调用。
+        2. lambda槽：号发出时，Qt 会直接调用存储下来的 lambda（本质上是一个可调用对象(**函数指针)**）。
+
+134. qt设置样式表，出现某个地方设置不上的情况，检查是否继承了父类，父类的样式表与该样式表重名！
+
+     1. 要么不继承父类，放置父类qss干扰
+     2. 要么自己的样式表中全部加上当前类的objectName的前缀
+     
+135. qt构画界面时，使用布局还是widget：
+
+     1. 如果这一块有特殊背景/边框，那么需要使用widget
+     2. 如果需要设置固定区域(设置大小/长宽限制等)/或者设置隐藏/展示等功能需要使用widget
+     3. 布局仅仅有设置上下左右及间距的作用，其他功能都得使用容器类，当然容器类自身也可以设置布局
+     4. 使用widget时，如果设置了整体的背景，这个widget可能展示的是默认的背景，可能需要将widget设置为透明才能展示出来全局背景
+     
+136. 项目使用多个仓库
+
+     1. 界面使用develop_ui仓库
+     2. 后台使用normal_development仓库
+     3. 第三方库使用third_library仓库
+     4. 项目目录下即这三个仓库，编写cmakelist
 
 ### 5. 末尾
 
