@@ -1899,7 +1899,7 @@ m_pPool->submit([this, pBundle]() {
    
    sudo cp cur_user JYNRJJH2 JYNRJJH2-UTRAY1 JYNSAFED  JYUpdateUI  	/opt/apps/chenxinsd/bin/ 
    
-   sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libSysMonManage.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so  /opt/apps/chenxinsd/lib/modules/
+   sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so  /opt/apps/chenxinsd/lib/modules/
    
    sudo cp libJYFileShred.so libJYFileMonitor.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/chenxinsd/lib/plugins/system/
    ```
@@ -4345,42 +4345,36 @@ m_pPool->submit([this, pBundle]() {
 1. bug修改：
    1. 入口防护弹窗 处理后 防护日志数据记录错误
    2. 取消勾选 U盘防护隐藏文件提示，U盘依旧能报隐藏文件
-   
 2. 任务界面：
    - [x] 首页
    - [x] 实时防护
    - [x] 引擎
-   - [ ] 设置中心
+   - [x] 设置中心
      - [x] 日志清理弹窗
      - [x] 密码保护防护项目
      - [x] 定时升级和定时扫描
      - [x] 三个防护
      - [x] 网络防护-对外攻击防护
-     - [ ] 文件保险箱
-     - [ ] 自动化规则
-     - [ ] 重要数据备份
-     - [ ] 限制保护
+     - [x] 文件保险箱
+     - [x] 自动化规则
+     - [x] 重要数据备份
+     - [x] 限制保护
    - [ ] 升级界面
    - [ ] U盘界面
-   
 3. 已构界面的新增：
-   
-   1. 设置中心-入口防护：增加监控模式
-   2. 设置中心-威胁防护：监控模式增加了一个"极速模式"
-   3. 实时防护界面：
+
+   1. - [x] 设置中心新增
+   2. **实时防护**界面需要根据新的版本样式重新添加/完善
       1. 按钮需要改动
       2. 增加了一个切换模式的按钮和toolTip
-      3. 各种弹窗需要实现
-      4. 开启项(图标)与设置中心实际开启项之间的联动需要实现
-   
-4. 界面待优化：
-
-   1. 实时防护点击到实时防护设置界面按钮需要改为无边框按钮
-   2. 设置界面/实时防护设置界面的背景、圆角等需要统一完善
-
-5. - [x] 北信源-西安航空化学公司新需求：将扫描项目更换为扫描对象数量
-
-   ​	
+4. - [x] 北信源-西安航空化学公司新需求：将扫描项目更换为扫描对象数量
+5. 界面连接Model层
+   1. 设置中心
+      1. 设置中心bug：点击左侧小的BtnFrame，点击两次会导致样式变化
+   2. 定时任务
+      1. 界面bug：每天/每周/每月这三个按钮需要设置互斥只能选一个
+      2. 类型缺少全部升级
+      3. 向safed发送定时任务字段的定时开关需要从设置中心获取
 
 
 #### 2.2 备忘录
@@ -6547,6 +6541,127 @@ m_pPool->submit([this, pBundle]() {
      2. 后台使用normal_development仓库
      3. 第三方库使用third_library仓库
      4. 项目目录下即这三个仓库，编写cmakelist
+     
+137. qt中使用了自定义BtnFrame的点击事件，如果这个区域的按钮想要单独处理，可以在点击事件中加入下面代码
+
+     ```c++
+     void BtnFrame::mousePressEvent(QMouseEvent *event)
+     {
+         QWidget *child = childAt(event->pos());
+         if (child) {
+             // 点击到了子控件，直接交给默认处理，让按钮正常工作
+             QFrame::mousePressEvent(event);
+             return;
+         }
+     
+         // 否则才触发你的自定义信号
+         emit clicked();
+     }
+     ```
+
+     > 使用之前的也可以，只要有`QFrame::mousePressEvent(event);`可以让事件继续处理即可
+     
+138. 新版通信流程
+
+     1. 初始化：
+        1. main中单例构造model和callback对象
+        2. 界面初始化与callback对象建立信号槽链接
+     2. RJJH发往safed：直接调用model的单例对象的函数与safed交互
+     3. safed发往RJJH：model对象收到消息解析之后调用callback对象的函数，触发信号槽
+
+     > 之前的方式是model对象就是一个定义了OBject宏的类，直接在主界面上连接信号槽
+     >
+     > 这个方式model完全是c++对象，通过callback（定义了Object宏）来与界面建立信号槽；可能是因为model层是供Linux和Windows两个界面RJJH的原因，所以加了中间callback回调对象，从而不同平台需要什么信号槽和功能自己定义
+     
+139. Qt中信号槽的参数如果是自定义类型的话会报错：
+
+     ```
+     QObject::connect: Cannot queue arguments of type ‘MyClass’ (Make sure ‘MyClass’ is registed using qRegisterMetaType().)
+     ```
+
+     **原因**：当一个signal被放到队列中（queued）时，它的参数(arguments)也会被一起一起放到队列中（queued起来），这就意味着参数在被传送到slot之前需要被拷贝、存储在队列中（queue）中；为了能够在队列中存储这些参数(argument)，Qt需要去construct、destruct、copy这些对象，而为了让Qt知道怎样去作这些事情，参数的类型需要使用qRegisterMetaType来注册（如错误提示中的说明）
+
+     **解决方式**：
+
+     1. 对新类型进行注册
+
+        在类型定义头文件里声明（让 QVariant / QMetaType 认识这个类型）：
+
+        ```c++
+        // settingmodelconfig.h
+        #include <QMetaType>		// 需要导入该头文件
+        namespace setting {
+        struct SettingModelConfig {
+            int id;
+            QString name;
+            // 必须是可拷贝的（或提供拷贝构造函数）
+        };
+        }
+        Q_DECLARE_METATYPE(setting::SettingModelConfig)
+        ```
+
+        在程序初始化时注册（通常放在 main()）：
+
+        ```c++
+        #include "settingmodelconfig.h"
+        
+        int main(int argc, char** argv) {
+            qRegisterMetaType<setting::SettingModelConfig>("setting::SettingModelConfig");
+            QApplication a(argc, argv);
+            ...
+            return a.exec();
+        }
+        ```
+
+        
+
+     2. 使用QVariant类型中转
+
+        > `QVariant` 可以存储各种数据类型（万能类型）
+
+        第一步仍然需要在类型定义头文件中声明
+
+        ```c++
+        // settingmodelconfig.h
+        #include <QMetaType>		// 需要导入该头文件
+        namespace setting {
+        struct SettingModelConfig {
+            int id;
+            QString name;
+            // 必须是可拷贝的（或提供拷贝构造函数）
+        };
+        }
+        Q_DECLARE_METATYPE(setting::SettingModelConfig)
+        ```
+
+        然后传递的时候使用`QVariant`
+
+        ```c++
+        connect(this, SIGNAL(m_signal(QVariant)), this, SLOT(m_slot(QVariant)));
+        
+        // 发射前
+        myStruct mstruct;
+        QVariant data;
+        data.setValue(mstruct);
+        emit signal_child(data);
+        
+        // 槽函数中
+        // 如果没有第一步，那么下面这个就会报错，因为它连 QVariant 的存取都不知道该怎么做
+        myStruct mstruct = data.value<myStruct>();
+        ```
+
+     3. 如果只使用一次的话，可以只在connet(使用前)，注册
+
+        ```c++
+        qRegisterMetaType<setting::SettingModelConfig>("setting::SettingModelConfig");
+            CModelExport::getInstance().settingModel->GetSettingConfig();
+            connect(CallBackManager::getInstance().settingCallback.get(), SIGNAL(settingChanged(const setting::SettingModelConfig &)),
+                    this, SLOT(onSettingChanged(const setting::SettingModelConfig &)));
+        ```
+
+        
+
+     
 
 ### 5. 末尾
 
