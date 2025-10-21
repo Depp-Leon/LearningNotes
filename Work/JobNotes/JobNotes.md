@@ -4345,6 +4345,7 @@ m_pPool->submit([this, pBundle]() {
 1. bug修改：
    1. 入口防护弹窗 处理后 防护日志数据记录错误
    2. 取消勾选 U盘防护隐藏文件提示，U盘依旧能报隐藏文件
+   
 2. 任务界面：
    - [x] 首页
    - [x] 实时防护
@@ -4360,21 +4361,99 @@ m_pPool->submit([this, pBundle]() {
      - [x] 重要数据备份
      - [x] 限制保护
    - [ ] 升级界面
-   - [ ] U盘界面
-3. 已构界面的新增：
+   
+3. - [x] 北信源-西安航空化学公司新需求：将扫描项目更换为扫描对象数量
 
-   1. - [x] 设置中心新增
-   2. **实时防护**界面需要根据新的版本样式重新添加/完善
-      1. 按钮需要改动
-      2. 增加了一个切换模式的按钮和toolTip
-4. - [x] 北信源-西安航空化学公司新需求：将扫描项目更换为扫描对象数量
-5. 界面连接Model层
-   1. 设置中心
+4. 界面连接Model层
+   1. - [x] 设置中心
+      
       1. 设置中心bug：点击左侧小的BtnFrame，点击两次会导致样式变化
-   2. 定时任务
-      1. 界面bug：每天/每周/每月这三个按钮需要设置互斥只能选一个
-      2. 类型缺少全部升级
-      3. 向safed发送定时任务字段的定时开关需要从设置中心获取
+      
+   2. - [x] 定时任务
+
+      - [ ] 类型缺少全部升级
+      - [x] 下发逻辑需要加protobuffer字段，现在界面是定时查杀下发一次、定时升级下发一次，而safed收到后将来自本地的定时任务都清除之后再添加
+
+   3. - [x] 系统防护之三个防护项界面
+
+   4. - [x] 系统防护之自动化规则
+
+      1. "添加"按钮对应文件选择框的实现，具体参考白名单添加
+      2. 回调函数连接信号槽、点击”保存“实现添加该项配置，并发送safed
+
+   5. - [x] 网络防护界面同定时任务，完善tableview功能
+
+   6. 数据防护
+   - [x] 勒索诱捕缺界面、配置
+      - [x] 文件保险箱缺少添加的界面(后缀项目无法添加)
+      - [x] 自动化规则同系统防护的自动化规则
+   7. 数据防护之数据备份和高级防护的限制保护，询问彦青是否是Linux功能(可能是windows)
+   8. - [x] 实时防护界面
+      
+      1. 每点击一个选项就会触发一次配置保存
+      2. 点击大项的开关就会与子项的开关进行联动
+   
+5. 升级model需看下哪里的问题
+
+6. 例外程序需要实现
+
+7. 总结需要添加的protobuffer
+
+8. 升级界面
+
+
+
+##### 2.1.3 十月任务
+
+|        九月任务         | 截至时间 | 完成 |
+| :---------------------: | :------: | :--: |
+|         bug修改         |          |      |
+| 已实现的界面model层完善 |          |      |
+|    升级界面+model层     |          |      |
+
+1. 升级model需看下哪里的问题
+
+   添加和删除都改为直接下发，并申请配置，当配置到达再作用到tableview
+
+2. 例外程序需要实现
+
+3. 将设置中心新增的部分隐藏掉，方便测试
+
+4. 托盘
+
+5. 主界面数据部分
+
+   1. ip是本地ip还是服务端ip
+   2. 病毒库展示的是病毒库版本吗
+   3. 左下角是设备名称吗
+
+6. 授权状态改变样式
+
+7. 升级界面
+
+8. bug：
+
+   1. 设置中超过限制时需要添加提示
+
+   2. 升级没有升级全部，先将其隐藏？ 升级按月升级时显示每月0号
+
+   3. 定时查杀快速查杀下发不了
+
+   4. 升级未选择时没有提示
+
+   5. 系统防护中下拉弹窗点开、切换大项的时候仍然会存在
+
+   6. 系统防护的服务创建防护为什么一直是关闭状态
+
+   7. 系统防护自动化规则，关闭使用说明时界面没有变小
+
+   8. 系统防护自定义规则，保存后，界面无反应
+
+   9. 文件保险箱添加第一条时不显示、未判空、确定的按钮样式不对
+
+      > 询问是否这些添加界面都需要增加判空，样式是否都和定时任务的一样
+
+9. 补充新增的(后面需要完善的)内容
 
 
 #### 2.2 备忘录
@@ -5013,8 +5092,8 @@ m_pPool->submit([this, pBundle]() {
        MyClass obj1();   // 声明了一个函数，不是对象！（最容易误用）
        MyClass obj2{};   // 正确，使用大括号初始化
        MyClass obj3;     // 默认构造
-       MyClass obj4 = MyClass(); // 正确，调用默认构造
-       MyClass obj5 = MyClass{}; // 正确，调用默认构造
+       MyClass obj4 = MyClass(); // 正确，调用无参构造后拷贝构造
+       MyClass obj5 = MyClass{}; // 正确，调用无参构造后拷贝构造
        ```
 
     2. 对于带参数的类的构造函数，两种都可以
@@ -5916,6 +5995,8 @@ m_pPool->submit([this, pBundle]() {
 
      1. 自定义控件的子控件全部由该类的 .ui 文件构建
 
+        > QT Desinger中新建->QT设计师界面类->Qwidget界面
+
         ```c++
         // 自定义控件的ui_xxx.h
         class Ui_CustomWidget
@@ -5954,6 +6035,8 @@ m_pPool->submit([this, pBundle]() {
         ```
 
      2. 自定义控件不实现子控件，由主类的 .ui 文件实现
+
+        > QT Desinger中新建C++文件-> 继承QWidget/其他控件
 
         ```c++
         // 自定义控件没有ui_xxx.h，只有.cpp和.h文件实现自定义事件
@@ -6659,7 +6742,122 @@ m_pPool->submit([this, pBundle]() {
                     this, SLOT(onSettingChanged(const setting::SettingModelConfig &)));
         ```
 
-        
+140. 关于Qt的自定义文件路径选择框
+
+     1. 使用tree_view作为样式框
+     2. 使用QFileSystemModel 作为数据model
+     3. 使用槽函数on_treeview_pressed()捕获点击的路径信息
+     4. 使用接口函数/信号槽获取该路径
+
+     ```c++
+     // 1. 初始化treeview
+     void FileBroswerDialog::initTreeView()
+     {
+         m_pFileModel = new QFileSystemModel(this);
+         m_pFileModel->setNameFilterDisables(false);
+         m_pFileModel->setRootPath("/");
+         QModelIndex index = m_pFileModel->index("/");
+         ui->treeView->setModel(m_pFileModel);
+         ui->treeView->setRootIndex(index);
+     	
+         // 设置滚动条
+         ui->treeView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+         ui->treeView->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+     	
+         // 只用第一列来显示文件名
+         ui->treeView->setColumnWidth(0, 398);
+         int nCol = m_pFileModel->columnCount();
+         /*隐藏其他列*/
+         for (int i = 1; i < nCol; i++) {
+             ui->treeView->setColumnWidth(i, 0);
+         }
+     }
+     
+     // 2. treeview的点击槽函数
+     void FileBroswerDialog::on_treeView_pressed(const QModelIndex &index)
+     {
+         bool isDir = m_pFileModel->isDir(index);
+         // 捕获文件名
+         m_selPath = index.data(Qt::DisplayRole).toString();
+         QStringList listPath;
+         listPath.append(m_selPath);
+         bool isRoot = m_selPath.compare("/") == 0;
+         QModelIndex parent = index;
+         while (isRoot == false) {
+             // 递归获取其父文件夹名，最终得到完整的地址
+             parent = parent.parent();
+             QString path = parent.data(Qt::DisplayRole).toString();
+             isRoot = path.compare("/") == 0;
+             if (isRoot == false)
+                 path += "/";
+             listPath.insert(0, path);
+         }
+         m_selPath = listPath.join("");
+         qDebug() << "result==" << m_selPath;
+         bool bEnable = true;
+         if (m_bSelFileOnly) {
+             if (isDir == true) {
+                 bEnable = false;
+             }
+         }
+         if (m_bSelDirOnly) {
+             if (isDir == false) {
+                 bEnable = false;
+             }
+         }
+         ui->btnChoose->setEnabled(bEnable);
+     }
+     
+     // 3. 获取地址的两种方式
+     QString FileBroswerDialog::getFullPath()
+     {
+         return m_selPath;
+     }
+     
+     void FileBroswerDialog::on_btnChoose_clicked()
+     {
+         emit sigBtnChooseClicked(m_selPath);
+         QDialog::accept();
+     }
+     ```
+     
+141. protobuffer删除repeated数据时，同vector等容器一样需要考虑迭代器失效的问题
+
+     > 删除某个元素后，后面的元素会自动前移，保持顺序。
+
+     删除时如果正向遍历会导致下标错乱，推荐**倒序遍历删除**，这和 `std::vector` 删除元素的最佳实践一致。
+     
+142. Qt信号槽出现崩溃：新界面在实时防护界面跳转到实时防护设置界面时，出现崩溃
+
+     ```c++
+     m_currentWidget = new RealTimeProtect;			// 主页的mainpage的widget换为实时防护的widget
+     repalceWidgetContent(m_widget, m_currentWidget);
+     connect(m_currentWidget, SIGNAL(sigShowRealTimeProtectSetting(int)), this, SLOT(slotRealtimeSetting(int)));
+     
+     // 在实时防护界面点击子项触发跳转信号，在slotRealtimeSetting中调用
+     auto widget = new RealTimeProtectSetting(index);
+     repalceWidgetContent(m_currentWidget, widget);
+     delete m_currentWidget;
+     m_currentWidget = widget;
+     ```
+
+     问题所在：信号是从 `m_currentWidget`（或其中的按钮）发出的 —— 在处理该信号/鼠标事件的同一调用栈中立即 `delete m_currentWidget`，这会让 Qt 在继续处理鼠标事件或内部清理时访问已经被释放的对象，导致 SIGSEGV（这与 backtrace 的 `sendMouseEvent` 恰好一致）。
+
+     解决关键：**避免在槽内直接删除发信号的 widget**
+
+     解决办法：使用`deleteLater()`代替`delete()`或者在事件循环后再执行删除和替换操作
+
+     ```c++
+     auto widget = new RealTimeProtectSetting(index);
+     repalceWidgetContent(m_currentWidget, widget);
+     
+     // 不要立即 delete old，改为 deleteLater()
+     // 这会把删除延迟到 Qt 事件循环空闲时，避免在当前鼠标事件处理期间访问已释放对象
+     if (old)
+         old->deleteLater();
+     
+     m_currentWidget = widget;
+     ```
 
      
 

@@ -540,7 +540,7 @@ Qt的MVC（Model-View-Controller）模型是一种用于组织用户界面应用
    dia.exec()	// 阻塞后续代码
    ```
 
-4. 关于Qt的界面对象，对象是new出来的，那么除非手动delete或者其父对象被释放，那么该对象会一直存在。
+4. 关于Qt的界面对象，如果对象是new出来的，那么除非手动delete或者其父对象被释放，那么该对象会一直存在。
 
    点击界面的关闭按钮，实际上是调用了`close()`槽函数，而`close()`的默认行为是**将窗口设置为不可见**（`setVisible(false)`）
 
@@ -887,15 +887,41 @@ Qt的MVC（Model-View-Controller）模型是一种用于组织用户界面应用
 
    1. `QApplication::exec()`：
 
-      - 启动应用程序的全局事件循环，负责处理所有窗口和对象的事件。**整个应用程序通常只有一个主事件循环**。
+      - **启动应用程序的全局事件循环（基于 `QEventLoop`）**，负责处理所有窗口和对象的事件。**整个应用程序通常只有一个主事件循环**。
       - 管理整个应用程序中的所有窗口（QWidget 或其派生类，如 QMainWindow、QDialog 等）的事件分发。
       - 确保应用程序持续运行，直到用户关闭应用程序或显式调用 `QApplication::quit()`。
 
    2. 窗口对象与`exec()`:
 
-      - 普通窗口（QWidget 或 QMainWindow）调用 `show()` 方法会使窗口显示，但不会启动事件循环。
+      > 注意：只有QDialog可以启动`exec()`
 
-      - 模态窗口（如 QDialog）可以通过调用 `exec()` 方法来启动一个局部事件循环，这个本地事件循环会**暂停**主事件循环，直到对话框关闭，结束后会返回控制权给主事件循环
+      - 普通窗口（QWidget 或 QMainWindow）调用 `show()` 方法会使窗口显示，但不会启动事件循环。
+      - 模态窗口（如 QDialog）可以通过调用 `exec()` 方法来**启动一个局部事件循环（基于 `QEventLoop`）**，这个本地事件循环会**暂停**主事件循环，直到对话框关闭，结束后会返回控制权给主事件循环
+      
+      ```
+      MyDialog dlg;
+      int ret = dlg.exec();  // 阻塞，直到accept()/reject()/close()
+      if (ret == QDialog::Accepted) { ... }
+      ```
+      
+   3. 手动调用`QEventLoop::exec()`:**在当前作用域启动事件循环**，适用于异步操作
+
+      > QEventLoop::exec是所有事件循环的底层实现（`QApplication::exec()`、`QDialog::exec()` 都基于/调用它）。
+
+      ```c++
+      QEventLoop loop;
+      connect(obj, &SomeClass::finished, &loop, &QEventLoop::quit);
+      doSomethingAsync();
+      loop.exec();  // 等待异步完成
+      ```
+
+   4. 三者关系：
+
+      | 名称                   | 典型调用者  | 范围大小     | 阻塞谁                 | 退出条件                | 常见场景                   |
+      | ---------------------- | ----------- | ------------ | ---------------------- | ----------------------- | -------------------------- |
+      | `QApplication::exec()` | `main()`    | 🌐 全局       | 整个程序主线程         | `quit()`、主窗关闭      | 程序主事件循环             |
+      | `QDialog::exec()`      | 任意窗口/槽 | 🧩 单个对话框 | 当前函数（但不冻结UI） | `accept()` / `reject()` | 模态对话框                 |
+      | `QEventLoop::exec()`   | 任意地方    | 🎯 局部       | 当前代码块             | `quit()`                | 等待异步完成、局部同步等待 |
 
 9. 普通窗口调用 `close()` 后，只是隐藏窗口，对象仍然存在，因此可以继续接收信号并触发槽函数。
 
