@@ -711,26 +711,28 @@
 
 14. C++开启多线程时，**传递类的非静态函数**，方法一使用`bind`，方法二使用`lambda`
 
-    > 原因：传递非静态函数需要指定对象指针
+      > 原因：传递非静态函数需要指定对象指针（this），如果没有绑定`this`，那么线程不知道这个函数属于哪个对象
+      >
+      > > 类的非静态函数，有个默认隐藏的参数`this`
 
-    1. 类开启线程方式一：线程使用`bind`绑定`this`指针
+      1. 类开启线程方式一：线程使用`bind`绑定`this`指针
 
-       ```c++
-       m_checkConnectStateThread = std::thread(std::bind(&CZDFYHandlerMassage::CheckUiConnectState, this));
-       ```
+         ```c++
+         m_checkConnectStateThread = std::thread(std::bind(&CZDFYHandlerMassage::CheckUiConnectState, this));
+         ```
 
-       > `std::bind` 是一个函数适配器，用于创建一个新的可调用对象（如函数、成员函数等），并绑定特定的参数。
-       >
-       > 在这里，`std::bind(&CZDFYHandlerMassage::CheckUiConnectState, this)` 的作用是创建一个绑定到当前对象 `this` 的 `CheckUiConnectState` 成员函数的可调用对象。
-       >
-       > `&CZDFYHandlerMassage::CheckUiConnectState` 指向成员函数的指针，`this` 是指向当前类实例的指针。
+         > `std::bind` 是一个函数适配器，用于创建一个新的可调用对象（如函数、成员函数等），并绑定特定的参数。
+         >
+         > 在这里，`std::bind(&CZDFYHandlerMassage::CheckUiConnectState, this)` 的作用是创建一个绑定到当前对象 `this` 的 `CheckUiConnectState` 成员函数的可调用对象。
+         >
+         > `&CZDFYHandlerMassage::CheckUiConnectState` 指向成员函数的指针，`this` 是指向当前类实例的指针。
 
-    2. 类开启线程方式二：上述使用`lambda`实现
+      2. 类开启线程方式二：上述使用`lambda`实现
 
-       ```c++
-        m_checkConnectStateThread = std::thread([this]() { CheckUiConnectState(); });
-        // 如果有参数就在()中添加
-       ```
+         ```c++
+          m_checkConnectStateThread = std::thread([this]() { CheckUiConnectState(); });
+          // 如果有参数就在()中添加
+         ```
 
 15. 如果在`std::bind`中使用实参，而不是占位符，那么在调用绑定的函数时，`std::bind`会将这些实参作为固定参数传递给成员函
 

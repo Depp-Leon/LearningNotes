@@ -34,6 +34,10 @@
 
 #### 2.3 补充单词
 
+**iterate**   vt.迭代、重复
+
+**hint** 		v.n.暗示
+
 **implement**	v. 执行、贯彻	n.工具
 
 **determine**	 v. 决定、下决心

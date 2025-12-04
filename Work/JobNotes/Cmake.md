@@ -290,3 +290,14 @@
     在cmakelist中声明头文件就得标记到`ipc_impl`路径即可，连接器会找到`ipc_impl->ipc_proto->`，如果标记到`ipc_proto`，那么会报错找不到对应头文件
 
 24. cmakelist导入头文件而不导入cpp文件的情况下，确保导入的动态库/静态库有其中的编译后的源码。否则需要将其cpp文件同样导入cmakelist中，不然就会报编译错误。
+
+25. `add_subdirectory(<source_dir> [binary_dir] [EXCLUDE_FROM_ALL])`：会让 CMake 处理指定目录下的 CMakeLists.txt，把那个子目录作为当前构建树的一部分加入到顶层工程中。
+
+    ```
+    # 比如界面的CMAKELIST中，添加了model层和单个执行文件的Udisk、Upgrade执行文件
+    add_subdirectory(../model ${CMAKE_BINARY_DIR}/model_build)	// 第二个参数指定构建输出目录
+    add_subdirectory(qt/view/Udisk)
+    add_subdirectory(qt/view/Upgrade)
+    ```
+
+    
