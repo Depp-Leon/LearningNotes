@@ -134,9 +134,8 @@
    1. `HEAD -> feature_707_refactoring_jyd`
 
       - **HEAD** 是 Git 中的特殊指针，表示你**当前所在的工作位置**（当前检出的提交，**本地分支**）。
-   - **-> feature_707_refactoring_jyd** 表示 HEAD 当前指向本地分支 feature_707_refactoring_jyd。
+      - **-> feature_707_refactoring_jyd** 表示 HEAD 当前指向本地分支 feature_707_refactoring_jyd。
       - **含义**：你当前检出的分支是 feature_707_refactoring_jyd，工作目录和索引（staging area）基于这个分支的最新提交。
-      
    2. `origin/feature_707_refactoring`
 
       - 这是一个**远程跟踪分支**（remote-tracking branch）与本地的同名分支建立了跟踪关系。

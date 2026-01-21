@@ -25,6 +25,15 @@ python脚本语法：
            
            super().__init__(**kwargs) # 调用父类的构造函数(_init_)
        
+   
+   #具体位置调用类
+   def pack_ui(**args):
+       for arg in PACK_UI_ARGS:			#遍历不同的架构，打包deb和rpm包，跳转到UI类执行构造函数
+           args["arch"] = arg["arch"]
+           args["type"] = "deb"
+           UI(**args)
+           args["type"] = "rpm"
+           UI(**args)
    ```
 
    > 在函数定义中使用 `**kwargs` 表示接收所有额外的关键字参数，这些参数会以字典的形式存储在 `kwargs` 中
@@ -126,7 +135,19 @@ python脚本语法：
     print(my_set)          # 输出 {1, 2, 3, 4}
     ```
 
-13. 动态执行字符串形式的 Python 表达式 `eval()`
+13. 元组(tuple) `()` : **不可变有序**序列类型（创建后不能增删改元素的<u>位置或个数</u>）。
+
+    ```python
+    t = (1, "a", 3.14)	   # 直接()或者tuple()进行创建
+    a, b, c = t        	   # 解包：a=1,b="a",c=3.14
+    
+    t2 = tuple([4,5,6])	   # 从可迭代对象构造
+    
+    t = (1, [2,3])		   # 元组本身不可变(位置和个数)，但若包含可变对象，则该可变对象可以修改
+    t[1].append(4)         # 合法，元组引用的列表被修改
+    ```
+
+14. 动态执行字符串形式的 Python 表达式 `eval()`
 
     ```python
     eval(expression, globals=None, locals=None)
@@ -143,7 +164,7 @@ python脚本语法：
 
     > 调用函数和类的实例化时需要带`()`, 否则返回的只是函数或者对象本身，没有触发执行
 
-14. 关于为什么在类实例化以及在构造函数中使用`**`来接收参数
+15. 关于为什么在类实例化以及在构造函数中使用`**`来接收参数
 
     1. 实例化时加 `**`：因为传入的是一个字典（或类似对象），需要**解包**成关键字参数以**匹配 init 的参数名**。不加 `**`，字典会被当作单一参数，导致参数不匹配
 
@@ -152,24 +173,46 @@ python脚本语法：
            def __init__(self, name, age):
            
        params = {"name": "Alice", "age": 25}
-       instance = MyClass(**params)  # 解包字典为 name="Alice", age=25
+       instance = MyClass(**params)  							# 解包字典为 name="Alice", age=25,与形参匹配则赋值
        ```
 
     2. 在 __init__ 函数中加 `**`：在类的 __init__ 方法中定义 `**kwargs`，是为了让类能够接**受任意数量的关键字参数，并将它们打包成一个字典**
 
        ```python
        class MyClass:
-           def __init__(self, name, **kwargs):
+           def __init__(self, name, **kwargs):					#字典键优先作为关键字绑定到同名形参，剩下的被收进kwargs
                self.name = name
-               self.extras = kwargs  # 存储额外参数
+               self.extras = kwargs  							# 存储额外参数
        
        params = {"name": "Bob", "age": 30, "city": "Beijing"}
        instance = MyClass(**params)
-       print(instance.name)      # 输出 Bob
-       print(instance.extras)    # 输出 {'age': 30, 'city': 'Beijing'}
+       print(instance.name)      								# 输出 Bob
+       print(instance.extras)    								# 输出 {'age': 30, 'city': 'Beijing'}
+       ```
+       
+    3. __init__ 的参数可以任意形式：可以不带参数、带位置参数、带默认值、带 *args/`**kwargs` 等。是否需要参数取决于你在类初始化时想传入什么数据。
+
+       ```python
+       def __init__(self):							#无参
+       def __init__(self, name, version):			#带参
+       def __init__(self, name, version="1.0"):	#带默认值
+       
+       def __init__(self, *args):					# *args收集位置参数为 tuple
+       def __init__(self, **kwargs):				# **kwargs 收集关键字参数为 dict
+       
+       class D:
+           def __init__(self, *args, **kwargs):	
+                   self.args = args			
+                   self.kwargs = kwargs
+       d1 = D(1, 2, a=3, b=4)						# 示例1，此时args收集位置参数，args=(1,2)
+       
+       t = (1,2)
+       d = {"a":3,"b":4} 							# 注意，作为参数的字典，key必须为字符串
+       d2 = D(*t,**d)								# 示例2，对元组和字典进行解包，等价于d1
+       d3 = D(t,**d)								# 示例3，将元组t作为第一个位置参数被args收集，args=((1,2),) ----元组只有一个参数，需要加,
        ```
 
-15. 关于继承之后，重写函数的调用问题：Python 使用**动态绑定**（dynamic dispatch），Python 的方法解析是基于实例的类型和继承链动态决定的
+16. 关于继承之后，重写函数的调用问题：Python 使用**动态绑定**（dynamic dispatch），Python 的方法解析是基于实例的类型和继承链动态决定的
 
     比如：`UI_UOS`继承了`UI`类，那么当在`UI_UOS`中执行`super().__init__(**kwargs)`调用了父类的构造时：
 
@@ -203,8 +246,8 @@ python脚本语法：
     # 测试代码
     obj = UI_uos(key="value")
     ```
-    
-16. python的`replace()` 是一个**字符串方法**，用于将字符串中的指定子字符串替换为另一个子字符串。
+
+17. python的`replace()` 是一个**字符串方法**，用于将字符串中的指定子字符串替换为另一个子字符串。
 
     **它不会对原字符串造成影响，需要有另外一个字符串进行接收**
 
@@ -212,7 +255,7 @@ python脚本语法：
     appidDesktop = appidDesktop.replace("chenxinsd", self.softName)
     ```
 
-17. 判断一个字符串是否包含子字符串的**标准方法**是使用 in 运算符
+18. 判断一个字符串是否包含子字符串的**标准方法**是使用 `in` 运算符
 
     ```
     if "chenxinsd" in self.softName:
@@ -221,5 +264,20 @@ python脚本语法：
     if self.softName.find("chenxinsd") != -1
     ```
 
-    
+19. 使用字典，来实现不同key，执行不同的函数：**获取函数名(value)，再加上()执行**
 
+    ```python
+    PROJECT_FUNCS = {						#字典，根据不同类型，执行不同的打包函数
+        "chenxinui": pack_chenxinui,		
+        "vrvui": pack_vrvui,
+    }
+    
+    def pack_project(**args):
+        handler = PROJECT_FUNCS.get(project)	#project即"chenxinui"或"vrvui"
+        if handler is None:
+            raise ValueError(f"未知项目: {project}")
+    
+        return handler(**args)
+    ```
+
+20. 

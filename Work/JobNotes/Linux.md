@@ -637,6 +637,7 @@
    
    ctrl+左键	   	   #进入函数 或者 F12
    alt+leftarrow(左箭头)  #修改后的返回函数快捷键
+   alt+leftarrow(右箭头)  #撤销左箭头操作
    
    选中代码->`ctrl+[`  / `ctrl+]`  #代码整体缩进或者右移：
    ctrl + ` (esc下面那个) 			#打开终端

@@ -1116,7 +1116,7 @@
    		
    		
    src_2.0的具体分布
-   1. moudles模块：PostDataReport		上报中控的实际cpp实现
+   1. moudles模块：PostDataReport		上报中控及收到中控命令的实际cpp实现
    			   UploadFile		  上传文件的实际cpp实现  
    			   virus_scan_engine_plugin	 实际的引擎扫描cpp实现
    2. oem: 贴牌文件夹
@@ -1902,6 +1902,16 @@ m_pPool->submit([this, pBundle]() {
    sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so  /opt/apps/chenxinsd/lib/modules/
    
    sudo cp libJYFileShred.so libJYFileMonitor.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/chenxinsd/lib/plugins/system/
+   
+   #新的目录结构
+   sudo cp cur_user JYNRJJH2 JYNRJJH2-UTRAY1 JYNSAFED  JYUpdateUI  /opt/apps/cn.vsecure.chenxinsd/files/bin/
+   
+   sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so  /opt/apps/cn.vsecure.chenxinsd/files/lib/modules/
+   
+   sudo cp libJYFileShred.so libJYFileMonitor.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/cn.vsecure.chenxinsd/files/lib/plugins/system/
+   
+   #再替换zdfy的lib库
+   sudo cp ~/ChenxinSpace/temp/lib/libSysMon* /opt/apps/cn.vsecure.chenxinsd/files/lib/modules/
    ```
 
 3. 什么时候需要重新执行cmake和make
@@ -4009,6 +4019,92 @@ m_pPool->submit([this, pBundle]() {
 
 24. - [ ] 后面需要补充系统防护项的锁，XML文件中没有lock，需要补充到本地配置文件
 
+
+
+#### 2.13.13 十二月
+
+|        十二月任务         | 截至时间 | 完成 |
+| :-----------------------: | :------: | :--: |
+| 通知管理界面、U盘监控模式 |          |      |
+|          bug修复          |          |      |
+|      与中控进行联调       |          |      |
+
+1. 设置中心增加通知管理设置界面
+
+2. - [x] U盘防护新增监控模式
+
+     > 思路：
+     >
+     > 1. 界面传入notify(免打扰模式)和tip(免打扰模式的处理策略，是否提示)两个参数
+     > 2. 当免打扰模式配置为”不提示，自动处理“和”不提示，仅记录“，则btip为false。
+     > 3. nofity参数控制，当界面收到U盘Add反馈时，是否打开U盘悬浮窗
+     > 4. btip参数控制，当扫描完成，界面接收到ResponseVirus时，是否打开处理病毒窗口（如果免下的自动和仅记录），则不打开
+
+3. - [x] 后面需要补充系统防护项的锁，XML文件中没有lock，需要补充到本地配置文件
+
+4. - [x] 定时任务界面、勒索诱捕界面、文件保险箱
+
+   1. 下拉框改为整体可点击，参考添加信任项界面
+   2. 勒索诱捕界面的tableView表格，1. "el"参数设置为“middle”，文件名过长省略中间；2. 悬浮可以展示文件全名
+   3. 文件选择框指定只能选文件/只能选文件夹
+   4. 文件保险箱下拉箭头不能收回、定时任务界面水平线有圆角
+
+5. - [x] 防护组件升级进度条不动
+
+6. - [x] 未下发定时任务出现初始升级界面
+
+7. - [x] 定时扫描时间过短问题
+
+8. - [x] 病毒库升级之后，不同界面的病毒库版本为同步
+
+9. - [x] 增加在线升级实时防护组件
+
+10. - [x] 系统防护添加lock配置
+
+11. - [x] 界面所有的下拉框，设置点击控件外可以关闭
+
+12. - [x] 日志详情内容，设置不可以拖拽
+
+13. - [x] 通知管理开关全部置反
+
+14. - [x] 策略调整：
+
+    1. 中控下发策略附加策略版本tag，需比对该tag与本地是否相同，若不同再保存
+
+       > ctrl_center_agent.cpp中145行，判断name是否属于类型中的、再判断版本号
+
+    2. 中控下发策略补充入口防护、系统防护小开关
+
+       > 系统防护的小开关，需要通过switcher，即子项的并集，来解析小项开关
+
+15. - [x] 服务端下发清除客户端未存在得病毒，服务端上报日志顺序错误，先报完成查杀后报启动扫描
+
+    1. 服务端下发威胁清除，上报日志的动作顺序错误
+
+    2. 服务端下发一个不存在的威胁，界面会卡在扫描中
+
+       > 原因在于：病毒处理的太快，导致先执行了进度为100%时中控上报，再执行到威胁清除开始的上报。同时因为这个原因，导致界面是先收到progress和stop的信号，再收到start的信号，进而导致界面卡在初始界面
+
+16. - [ ] 定时升级病毒库不生效
+
+    现象：
+
+    1. 下发病毒库升级任务，总是最新下发的那个在插入数据库之前(转换时间戳)那一步解析失败，在config组件中打印从RJJH下发来的任务都正确
+    2. 下发扫描任务没问题，并且会将病毒库升级任务正确插入（1失败的病毒库任务）
+
+17. - [x] 病毒库版本不对
+
+    1. ps查看升级进程传来的参数中病毒库版本是什么
+    2. 实际的版本号在Version.ini中
+
+    - [x] 病毒库升级模块不存在
+
+    1. 触发该条件关注lib/engine/zav/../libupdate.so，该库dlopen打开失败会返回升级模块不存在的问题
+
+18. 上报中控基础信息不对，上报疑似威胁中信息不对
+
+19. - [x] 界面去掉最大化
+
 ## 三、技术问题
 
 
@@ -4595,52 +4691,48 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-##### 2.1.3 十二月任务
+##### 2.1.2 一月任务
 
-|        十二月任务         | 截至时间 | 完成 |
-| :-----------------------: | :------: | :--: |
-| 通知管理界面、U盘监控模式 |          |      |
-|          bug修复          |          |      |
-|      与中控进行联调       |          |      |
+|         一月任务         | 截至时间 | 完成 |
+| :----------------------: | :------: | :--: |
+|         bug修复          |          |      |
+| 设置中心界面按新需求修改 |          |      |
+|      与中控进行联调      |          |      |
 
-1. - [x] 设置中心增加通知管理设置界面
+1. 设置中心需要更改的地方
+   - [x] 日志清理改为月
 
-2. - [x] U盘防护新增监控模式
+   - [x] 通知管理去掉管理员下发的两项
 
-     > 思路：
-     >
-     > 1. 界面传入notify(免打扰模式)和tip(免打扰模式的处理策略，是否提示)两个参数
-     > 2. 当免打扰模式配置为”不提示，自动处理“和”不提示，仅记录“，则btip为false。
-     > 3. nofity参数控制，当界面收到U盘Add反馈时，是否打开U盘悬浮窗
-     > 4. btip参数控制，当扫描完成，界面接收到ResponseVirus时，是否打开处理病毒窗口（如果免下的自动和仅记录），则不打开
+   - [x] 数据设置增加数据备份UI、对应跳转添加界面的UI
 
-3. - [ ] 后面需要补充系统防护项的锁，XML文件中没有lock，需要补充到本地配置文件
+   - [x] 默认填写值范围限制
 
-4. - [x] 定时任务界面、勒索诱捕界面、文件保险箱
+     > U盘扫描压缩包，-1扫描全部该版本去掉，中控下发/升级而来的-1全部替换为64
 
-   1. 下拉框改为整体可点击，参考添加信任项界面
-   2. 勒索诱捕界面的tableView表格，1. "el"参数设置为“middle”，文件名过长省略中间；2. 悬浮可以展示文件全名
-   3. 文件选择框指定只能选文件/只能选文件夹
-   4. 文件保险箱下拉箭头不能收回、定时任务界面水平线有圆角
-   
-5. - [x] 防护组件升级进度条不动
+2. - [x] 强力查杀出现两个弹窗
 
-6. 未下发定时任务出现初始升级界面，分析：
+3. - [ ] 强力查杀升级病毒库之后，界面版本没有同步变更
 
-   1. 定时升级触发时，要么没有界面，要么出现的是初始化界面
+4. - [x] 升级软件提示初始化失败
 
-      > 定时任务的类型是virus_internet，升级界面并不会处理该类型，所以展示的是初始界面
+5. - [x] 网络防护弹窗不消失且不能关闭
 
-   2. 过几个小时会出现这种情况
+6. - [x] 设置中心恢复默认设置，需要同步文档
 
-      > 猜测，实际上是因为中控下发升级任务/定时任务，导致其启动界面。但是由于启动界面又会重新向safed发送一次请求任务，导致出现了两次升级任务
-   >
-      > 要么是下发了软件升级，但是界面并没有处理软件升级相关的操作，导致界面一直卡在初始化界面
+7. - [x] U盘自动处理，界面需要展示过程
 
-   解决：
-   
-   1. 定时任务，类型改为auto
-   2. 中控下发的任务，升级界面不再进一步向safed请求
+8. - [x] U盘处理时信任按钮需要关闭掉
+
+9. - [x] 威胁防护增加仅上报不处理功能
+
+10. 中控联调：
+
+
+
+
+
+
 
 
 
@@ -5108,8 +5200,11 @@ m_pPool->submit([this, pBundle]() {
 59. 708的**心跳流程**(与中控之间交互逻辑)(**ctrl_center组件**)：
 
     ```
-    run()			// 继承线程类，循环执行
+    run()			// 继承线程类，(inner_Mode)循环执行, 当授权相关信息(授权模式/中控IP)发生改变时，重新start
      ├─> getRegisterConfig()（未注册时）
+     		└─> syncPost()（HTTP通信，content为Request，向中控注册）
+                    └─> 中控服务器
+            └─> getRegisterConfigResponseAnalysis(response) 解析中控消息，是否注册成功
      └─> syncHeartBeat()（已注册时）
             └─> syncPost()（HTTP通信）
                     └─> 中控服务器
@@ -5145,8 +5240,6 @@ m_pPool->submit([this, pBundle]() {
         return true;
     }
     
-    
-    
     ```
 
     ```
@@ -5170,7 +5263,15 @@ m_pPool->submit([this, pBundle]() {
     r.header：响应头
     ```
 
-60. 常用的关于http请求方法
+60. 上面的ctrl_center属于客户端与中控建立链接的过程，由于循环执行run，所以每间隔一段时间都会再去判断是否链接、获取中控的消息。
+
+    客户端主动发送的状态，在src/moudles/PostDataReport2.0中，具体也是执行了syncPost，只是content变为了要上报的内容，步骤为
+
+    1. 当ctrl_center通过心跳(即循环执行run)建立中控链接之后，PostDataReport的状态会更改为startReport
+    2. 客户端需要向中控发送信息，会调用ctrl_center的syncReport，继而调用PostDataReport
+    3. PostDataReport如果是start状态，就可以填充content之后使用syncPost向中控发送
+
+61. 常用的关于http请求方法
 
     1. GET
 
@@ -5250,13 +5351,13 @@ m_pPool->submit([this, pBundle]() {
          );
          ```
 
-61. 英语：音标、自然拼读、单词、语法、短句/词组、音频、讲
+62. 英语：音标、自然拼读、单词、语法、短句/词组、音频、讲
 
     > 发音：Whaddaya Say
     >
     > 单词、语法、词组：English in use
-    
-62. 将本地的分分支B彻底覆盖为分支A
+
+63. 将本地的分分支B彻底覆盖为分支A
 
     ```
     git checkout B
@@ -5270,7 +5371,7 @@ m_pPool->submit([this, pBundle]() {
     git reset --hard origin/A
     ```
 
-63. 关于`std::function`:C++11 标准库中的一个**函数对象包装器**，定义在 `<functional>` 头文件中
+64. 关于`std::function`:C++11 标准库中的一个**函数对象包装器**，定义在 `<functional>` 头文件中
 
     - 它可以保存、复制和调用任何可调用对象（**普通函数、lambda、成员函数指针、仿函数**等）。
 
@@ -5282,7 +5383,7 @@ m_pPool->submit([this, pBundle]() {
     std::cout << add(2, 3) << std::endl; // 输出 5
     ```
 
-64. **当 lambda 只有一种/一条 return 语句时，编译器可以自动推断返回类型**，所以可以省略 `-> 返回类型`。
+65. **当 lambda 只有一种/一条 return 语句时，编译器可以自动推断返回类型**，所以可以省略 `-> 返回类型`。
     如果 lambda 有多条 return 或返回类型不明确，建议显式写 `-> 返回类型`，否则可能推断错误或编译失败。
 
     ```c++
@@ -5295,7 +5396,7 @@ m_pPool->submit([this, pBundle]() {
     };
     ```
 
-65. 关于类的初始化使用`()`还是`{}`的问题
+66. 关于类的初始化使用`()`还是`{}`的问题
 
     1. 普通类的初始化
 
@@ -5334,27 +5435,27 @@ m_pPool->submit([this, pBundle]() {
        ```
        
     4. 注意事项
-    
+
        - 对于内置类型或聚合类型，`{}` 可以防止窄化（如 int 赋值给 char 会报错）。
        - 对于 `std::vector<int> v{1, 2, 3};`，大括号是列表初始化。
-    
+
     5. 两种初始化的区别
-    
+
        1. `MyClass obj2{};`
-    
+
           - 直接用大括号初始化，叫**直接列表初始化**。
-    
+
           - 编译器会直接调用 `MyClass` 的构造函数。
-    
+
        2. `MyClass obj5 = MyClass{};`
-    
+
           - 这是**拷贝列表初始化**，先用 `MyClass{}` 创建一个<u>临时对象</u>，再用它初始化 `obj5`(**拷贝构造**)。
-    
+
           - 但对于大多数现代编译器（C++11 及以后），会做**返回值优化（RVO）**，临时对象不会真的多分配一次内存，最终和 `obj2{}` 效果一样。
-    
+
             > 但是如果你的类禁止拷贝/移动，只能用 `MyClass obj2{};`。
-    
-66. 对于类的成员初始化两种不同实现的区别
+
+67. 对于类的成员初始化两种不同实现的区别
 
     1. 类内赋初值（成员变量初始化器）
 
@@ -5381,10 +5482,10 @@ m_pPool->submit([this, pBundle]() {
 
        > - **如果构造函数初始化列表指定了成员变量，则覆盖类内初值**。
        > - 适合需要根据构造参数动态初始化成员。
-    
-67. Protobuffer使用枚举类型时，建议使用`::`来获取，只有 C++ 支持 `::` 作用域限定，使用`_`是C语言的用法
 
-68. protobuffer中定义了`package`就相当于定义了`namespace`
+68. Protobuffer使用枚举类型时，建议使用`::`来获取，只有 C++ 支持 `::` 作用域限定，使用`_`是C语言的用法
+
+69. protobuffer中定义了`package`就相当于定义了`namespace`
 
     ```
     package HmiToSafed;
@@ -5407,7 +5508,7 @@ m_pPool->submit([this, pBundle]() {
     }
     ```
 
-69. 当你的 proto 文件结构比较深（多层 message 嵌套、enum 嵌套），protoc 会生成类似
+70. 当你的 proto 文件结构比较深（多层 message 嵌套、enum 嵌套），protoc 会生成类似
     `外层_中层_内层_枚举类型_枚举值`
 
     ```
@@ -5435,8 +5536,8 @@ m_pPool->submit([this, pBundle]() {
     - 这是 protobuf 官方 C++ 生成器的标准行为（尤其是多层嵌套时）。
 
     > 如果你的枚举不是嵌套的，或者用了 `option allow_alias = true;` 或 `option c++_namespace`，有时可以直接用 `Type::EXT`。但多层嵌套时，protoc 默认就是下划线拼接全路径。
-    
-70. 对xml配置文件加密解密
+
+71. 对xml配置文件加密解密
 
     ```
     // 在bin目录下
@@ -5446,21 +5547,21 @@ m_pPool->submit([this, pBundle]() {
     ./JYToolBox --decrypt ZyHips.xml ZyHips.xml
     ```
 
-71. vscode中添加头文件识别不出来，从两个方向找：
+72. vscode中添加头文件识别不出来，从两个方向找：
 
     1. .vscode/c_cpp_properties.json中看导入的头文件路径是否包含
 
     2. 看最近的那个cmakelist中的导入头文件路径是否包含
 
        > 确保这两个地方有一个存在，然后就可以省略掉包含的前面部分路径
-    
+
 73. QSS样式表
 
-77. MVC开发模型
+74. MVC开发模型
 
-74. 自适应大小(在不同分辨率下如何自适应显示)
+75. 自适应大小(在不同分辨率下如何自适应显示)
 
-75. qt开发的问题
+76. qt开发的问题
 
     1. UI文件的本质
     2. 继承类不带ui，只能通过两种方式来实现多态
@@ -5468,9 +5569,9 @@ m_pPool->submit([this, pBundle]() {
     4. Qt Creator 锤子(build)和执行(run)分别做了什么
     5. QMetaObject的原理
 
-76. 唱歌：气息稳定->喉位控制->声带闭合->腔体共鸣
+77. 唱歌：气息稳定->喉位控制->声带闭合->腔体共鸣
 
-77. 关于Qt Creator
+78. 关于Qt Creator
 
     1. Qt Creatore是一个用于编写、调试、部署Qt应用程序的集成开发环境(IDE),并可以调用Qt Designer来设计UI界面
     2. Qt Designer则是一个图形化的界面设计器，‌专注于GUI设计，‌通过拖放方式创建UI界面，‌并生成对应的代码
@@ -5484,7 +5585,7 @@ m_pPool->submit([this, pBundle]() {
        1. 检查构建状态，若成功则启动可执行程序
        2. 若以(**Debug**)模式运行，则会启动**gdb**进行调试
 
-78. **pro**文件：`.pro`文件是Qt项目的配置文件，用于qmake（Qt的构建工具）来生成**Makefile**或其他构建系统文件，定义项目的结构、源文件、资源、依赖和编译选项。
+79. **pro**文件：`.pro`文件是Qt项目的配置文件，用于qmake（Qt的构建工具）来生成**Makefile**或其他构建系统文件，定义项目的结构、源文件、资源、依赖和编译选项。
 
     1. qmake基于`.pro`文件，Cmake基于`CMakelists.txt`。它们两个都是生成构建系统(`Makefile`)的工具，两个文件用于定义项目结构、源文件、资源和依赖。
 
@@ -5539,7 +5640,7 @@ m_pPool->submit([this, pBundle]() {
        CONFIG += console// console：为应用程序启用控制台输出（适合命令行程序）。
        ```
 
-79. Qt中的Ui文件
+80. Qt中的Ui文件
 
     1. `.ui`文件是什么：
 
@@ -5702,7 +5803,7 @@ m_pPool->submit([this, pBundle]() {
           }
           ```
 
-80. OEM贴牌（**RCC**）：RCC 是 Qt Resource Compiler（Qt资源编译器）的缩写。它是Qt提供的一个工具，用于将资源文件（如**图片**、**QSS文件**、**翻译文件.qm**、**图标**等）编译为**二进制格式**，并嵌入到应用程序的可执行文件中，以便在运行时通过**资源路径**访问这些文件。
+81. OEM贴牌（**RCC**）：RCC 是 Qt Resource Compiler（Qt资源编译器）的缩写。它是Qt提供的一个工具，用于将资源文件（如**图片**、**QSS文件**、**翻译文件.qm**、**图标**等）编译为**二进制格式**，并嵌入到应用程序的可执行文件中，以便在运行时通过**资源路径**访问这些文件。
 
     1. 定义`.qrc`文件： `.qrc`文件，一个**XML格式**的文件，列出需要嵌入的资源路径和别名
 
@@ -5812,7 +5913,7 @@ m_pPool->submit([this, pBundle]() {
          }
          ```
 
-81. 中英文切换(语言家(**linguist**))：Qt Linguist 是 Qt 框架提供的一款用于国际化和本地化的工具，专门用于管理 Qt 应用程序中的文本翻译
+82. 中英文切换(语言家(**linguist**))：Qt Linguist 是 Qt 框架提供的一款用于国际化和本地化的工具，专门用于管理 Qt 应用程序中的文本翻译
 
     > lupdate 和 lrelease 是用于支持国际化（i18n）和本地化的关键工具，专门用于处理翻译文件（.ts 和 .qm 文件），以实现多语言支持（如你的中英文切换需求）。
 
@@ -5861,7 +5962,7 @@ m_pPool->submit([this, pBundle]() {
        }
        ```
 
-82. 关于`Q_OBJECT`和**moc**
+83. 关于`Q_OBJECT`和**moc**
 
     1. Q_OBJECT 是一个由 Qt 提供的预处理器宏，通常放在类的定义中，紧跟在类名之后，位于类的开头。
 
@@ -5898,7 +5999,7 @@ m_pPool->submit([this, pBundle]() {
        - 声明 `metaObject()`、`qt_metacast` 和 `qt_metacall` 虚函数，用于运行时**类型信息**和**信号槽调用**
        - `QT_TR_FUNCTIONS` 提供 `tr()` 函数支持国际化。
 
-83. 实现**自定义控件**的两种方式：
+84. 实现**自定义控件**的两种方式：
 
     > 在Qt Designer中无法直接拖放自定义控件，默认只支持Qt的内置控件（如 QPushButton、QLabel 等）。
 
@@ -5927,7 +6028,7 @@ m_pPool->submit([this, pBundle]() {
        4. 将插件放入 Qt Designer 的插件目录（通常是 Qt 安装目录下的 plugins/designer 文件夹）
        5. 重启 Qt Designer，TitleBar 控件会出现在控件面板中，可以直接拖放使用
 
-84. 继承类不带`ui`，只能通过两种方式来实现**多态**
+85. 继承类不带`ui`，只能通过两种方式来实现**多态**
 
     在Qt Creator创建继承类时(C ++类)，只有`.h`和`.cpp`文件，没有`.ui`界面，所以如果想要实现多态的效果：基类widget中带有`titlbar`和`contentWidget`，想要每个子类实现各自的`contentWidget`，可以有如下两种方式
 
@@ -5973,9 +6074,9 @@ m_pPool->submit([this, pBundle]() {
           }
           ```
 
-85. Delegate的实际运用，他们三者(mvc)是如何调用的，delegate中实现重写的函数是如何被使用的
+86. Delegate的实际运用，他们三者(mvc)是如何调用的，delegate中实现重写的函数是如何被使用的
 
-86. Qt使用动图，控件使用`label`，代码中使用`movie`类
+87. Qt使用动图，控件使用`label`，代码中使用`movie`类
 
     ```
     // 加载 GIF 文件
@@ -5984,11 +6085,11 @@ m_pPool->submit([this, pBundle]() {
     movie->start(); // 开始播放动画
     ```
 
-87. 布局的`layoutStretch`为伸缩因子，可以对该布局中要伸缩的第几个控件设置为1来让其随控件进行伸缩
+88. 布局的`layoutStretch`为伸缩因子，可以对该布局中要伸缩的第几个控件设置为1来让其随控件进行伸缩
 
     > 伸缩因子一旦设置，如果该方向的控件未设置最小值(minimunSize)，那么该控件将会被挤压
 
-88. 关于Qt Creator中遇到的一些设置问题
+89. 关于Qt Creator中遇到的一些设置问题
 
     1. QWidget中的`sizePolicy`：决定**控件**占用多少空间（扩展、固定或压缩），如果设置为fix(比如设置图片的label)，使用`fixed`就会固定为默认推荐的值
 
@@ -5996,9 +6097,9 @@ m_pPool->submit([this, pBundle]() {
 
        > 对于图片来说，如果设置了`scaledContents`为true，那么将会填充整个区域，上面的设置就没有太大影响
 
-89. 对于控件布局，使用拉伸控件的情况下，是否设置最大size即可？
+90. 对于控件布局，使用拉伸控件的情况下，是否设置最大size即可？
 
-90. 关于布局：
+91. 关于布局：
 
     1. 我只需要按行或者列控制布局？那就用弹性盒子
 
@@ -6006,7 +6107,7 @@ m_pPool->submit([this, pBundle]() {
 
        > [网格布局和其他布局方法的联系 - CSS：层叠样式表 | MDN](https://developer.mozilla.org/zh-CN/docs/Web/CSS/CSS_grid_layout/Relationship_of_grid_layout_with_other_layout_methods)
 
-91. 关于为什么不能直接在垂直布局中直接添加水平布局，而是先拉一个widget后应用为水平布局
+92. 关于为什么不能直接在垂直布局中直接添加水平布局，而是先拉一个widget后应用为水平布局
 
     1. 布局灵活性：直接使用 QHBoxLayout 作为子项时，它只能作为其他布局的子布局，而无法独立携带其他属性（如背景色、边框或自定义样式）。通过先拖入 QWidget，可以为该区域设置特定的样式或行为（如背景渐变、阴影），并在 QWidget 上应用 QHBoxLayout，增强自定义能力。
 
@@ -6014,12 +6115,12 @@ m_pPool->submit([this, pBundle]() {
 
        > 所以建议使用布局前先拉取widget后转化布局，否则在这个布局中再拉取widget时导致右键功能缺失
 
-92. **pushButton 和 toolButton 的区别**
+93. **pushButton 和 toolButton 的区别**
 
     - **QPushButton** 是一个标准的按钮控件，通常用于触发主要操作（如“闪电查杀”），支持文本、图标和自定义样式，占用较大空间，适合需要明显交互的场景。
     - **QToolButton** 是一个工具按钮，设计更紧凑，常用于工具栏或图标化的操作（如菜单、设置），默认不显示文字（需手动设置），更适合小尺寸和图标主导的界面。
 
-93. **什么时候使用 Spacer，如何使用**
+94. **什么时候使用 Spacer，如何使用**
 
     - **使用场景**：Spacer 用于在布局中填充空白空间，调整控件间距或对齐（如居中）。在 Qt Designer 中，常用 Horizontal Spacer 或 Vertical Spacer。
     - **使用方法**：在布局中拖入 Spacer 控件，选择 Horizontal Spacer（水平填充）或 Vertical Spacer（垂直填充），调整其大小策略（如 Expanding）以动态占用空间。例如，在底部工具按钮行两端添加 Horizontal Spacer 可实现居中效果。
@@ -6027,21 +6128,21 @@ m_pPool->submit([this, pBundle]() {
     1. Spacer的Size Hint设置的是这个Spacer的最小占用空间
     2. 使用Spacer时，其他控件设置Size Policy 为是 Fixed或者设置最大最小值为相同固定值，防止拉伸
 
-94. QSS使用方式：选择器分类、子控件、为状态
+95. QSS使用方式：选择器分类、子控件、为状态
 
-95. 发现控件没有对齐：
+96. 发现控件没有对齐：
 
     1. 使用widget后提升布局
     2. 计算一下布局中所有控件宽度之和，设置这个widget的宽度即可让控件刚好在最左侧
     3. 不同控件之间固定的间隔可以对布局设置layoutSpacing，如果不同的间隔可以使用水平/垂直Spcer
     4. 对于spacer，设置expending则可以自动扩展，此时其他控件需要设置最小大小否则会被压缩(设置的SizeHint为最小值)。设置fixed即设置为SizeHint大小固定值，不会扩展或压缩
 
-96. 为什么`ui->setupUi(this);`需要放在widget.cpp最开始的位置？
+97. 为什么`ui->setupUi(this);`需要放在widget.cpp最开始的位置？
 
     1. 必须在构造函数**最前面**调用，因为它负责初始化界面上的所有控件。所有控件为指针类型指向**this**这个`widget`，所以后续才可以使用`ui`指针直接访问控件
     2. 只有执行了这个函数，才可以使用`ui->`访问控件
 
-97. 关于在主分支和子分支B合并记录的三个选项(**默认在主分支，合并子分支新的提交**)
+98. 关于在主分支和子分支B合并记录的三个选项(**默认在主分支，合并子分支新的提交**)
 
     1. `git merge` : 将子分支B提交合并到当前分支，会产生合并记录日志
 
@@ -6055,7 +6156,7 @@ m_pPool->submit([this, pBundle]() {
        git cherry-pick <commit-hash>
        ```
 
-98. QLabel使用动态图片（导入头文件QMovie）：
+99. QLabel使用动态图片（导入头文件QMovie）：
 
     ```c++
     QMovie *movie = new QMovie(":/path/to/your/animation.gif"); // 替换为实际 GIF 文件路径
@@ -6076,44 +6177,44 @@ m_pPool->submit([this, pBundle]() {
     movie->setScaledSize(QSize(200, 200)); // 调整显示大小
     ```
 
-99. 设置样式表的方式：
+100. 设置样式表的方式：
 
-    1. 给全局设背景
+     1. 给全局设背景
 
-       ```
-       this->setStyleSheet("background-image: url()")
-       ```
+        ```
+        this->setStyleSheet("background-image: url()")
+        ```
 
-       > 这个this指的是类的实例也就是当前整个窗口本身、
+        > 这个this指的是类的实例也就是当前整个窗口本身、
 
-    2. 可以使用this指定子控件的样式，里面指定类似QSS样式表的内容
+     2. 可以使用this指定子控件的样式，里面指定类似QSS样式表的内容
 
-       ```
-       this->setStyleSheet("QPushButton{"
-                             " color : red;"
-                             " }"
-                            "QLabel {"
-                             " color : orange;"
-                             "}");
-       ```
+        ```
+        this->setStyleSheet("QPushButton{"
+                              " color : red;"
+                              " }"
+                             "QLabel {"
+                              " color : orange;"
+                              "}");
+        ```
 
-    3. 使用样式表设置，读取qss文件为QString格式，调用`setStyleSheet`
+     3. 使用样式表设置，读取qss文件为QString格式，调用`setStyleSheet`
 
-       > 使用样式表，这个函数是全局的。所以样式表中必须**指定控件类型或 objectName**
+        > 使用样式表，这个函数是全局的。所以样式表中必须**指定控件类型或 objectName**
 
-       ```
-       QString styleSheet = getStyleSheet(QVector<QString>{":Style/BaseDialog.qss", ":Style/TitleBar.qss", ":Style/Common.qss"});
-       
-       setStyleSheet(styleSheet);
-       ```
+        ```
+        QString styleSheet = getStyleSheet(QVector<QString>{":Style/BaseDialog.qss", ":Style/TitleBar.qss", ":Style/Common.qss"});
+        
+        setStyleSheet(styleSheet);
+        ```
 
-    4. 对特定单个控件（objectName）设置样式
+     4. 对特定单个控件（objectName）设置样式
 
-       ```
-       ui->label->setStyleSheet("background-color:greeb;color: yellow;");
-       ```
+        ```
+        ui->label->setStyleSheet("background-color:greeb;color: yellow;");
+        ```
 
-100. `border-image`和 `background-image`的区别
+101. `border-image`和 `background-image`的区别
 
      1. `border-image`：
         - 用于设置控件的**边框和背景**图片
@@ -6128,7 +6229,7 @@ m_pPool->submit([this, pBundle]() {
      3. `background` ：
         - 与`background-image`类似，区别在于只设置纯色背景
 
-101. `background`、`background-image` 和 `border-image` 的区别及其对子控件的影响：
+102. `background`、`background-image` 和 `border-image` 的区别及其对子控件的影响：
 
      1. background 和 background-image
 
@@ -6154,7 +6255,7 @@ m_pPool->submit([this, pBundle]() {
           
         - **图片裁剪**：定图片的裁剪区域（例如 border-image-slice: 0 40 0 0）和应用区域，用于边框或背景的九宫格拉伸。
 
-102. **重绘事件**，如果即使父控件设置为background或者background-image，子类的渐变背景仍然不生效的情况下需要使用重绘事件。**重绘事件（paintEvent）的绘制内容优先级最高**，它会在 Qt 样式表（QSS）渲染之后执行。
+103. **重绘事件**，如果即使父控件设置为background或者background-image，子类的渐变背景仍然不生效的情况下需要使用重绘事件。**重绘事件（paintEvent）的绘制内容优先级最高**，它会在 Qt 样式表（QSS）渲染之后执行。
 
      - Qt 会先根据样式表（QSS）渲染控件的背景、边框等样式。
      - 然后调用控件的 paintEvent，你在 paintEvent里用 QPainter 绘制的内容会直接覆盖 QSS 渲染的结果。
@@ -6173,7 +6274,7 @@ m_pPool->submit([this, pBundle]() {
      }
      ```
 
-103. 当声明了Q_OBJECT宏之后，构建提示**vtable 类名**的错误：
+104. 当声明了Q_OBJECT宏之后，构建提示**vtable 类名**的错误：
 
      1. 你的类继承了 Qt 的 QObject（通过 BaseDialog），并且有 `Q_OBJECT`宏，编译器会为其生成虚表（vtable）。如果头文件或源文件有问题，可能导致 vtable 生成失败。
 
@@ -6185,7 +6286,7 @@ m_pPool->submit([this, pBundle]() {
 
      3. 没有 Q_OBJECT 宏时，类不需要 Qt 的元对象系统，不会强制生成虚表，所以即使没实现析构函数也不会报错
 
-104. 自定义控件提升后，为什么不能直接用`ui->widgetTitle->控件名`来访问呢？
+105. 自定义控件提升后，为什么不能直接用`ui->widgetTitle->控件名`来访问呢？
 
      1. 自定义控件提升后，`ui->widgetTitle`就是你提升的控件类型的指针，**可以直接访问其公开成员函数和属性**。
 
@@ -6195,18 +6296,22 @@ m_pPool->submit([this, pBundle]() {
 
         <img src="source/images/JobNotes/image-20250820181709461.png" alt="image-20250820181709461" style="zoom: 80%;" /><img src="source/images/JobNotes/image-20250820181820785.png" alt="image-20250820181820785" style="zoom: 67%;" />
 
-105. **自定义控件**之btnFrame，实现多个组件联合一体的按钮。
+106. **自定义控件**之btnFrame，实现多个组件联合一体的按钮。
 
      1. 在界面拉一个Frame，在Frame中实现样式(拉取子控件)
      2. 创建一个继承于QFrame类(无需ui界面)，实现点击、按压等事件
      3. 在.ui界面对Frame右键提升为该自定义控件
      4. 在uic执行的时候，在该类的ui_xxx.h中，Frame成员变为butnFrame，然后在setUpUI函数中将界面的组件加载到btnFrame中。这样就实现了界面和事件分离的自定义控件
 
-106. **自定义控件**的三种形式，
+107. **自定义控件**的三种形式：类B为自定义控件，将控件A(类A)提升为类B，本质上B必须**继承**类A或者类A的子类
 
-     1. 自定义控件的子控件全部由该类的 .ui 文件构建
+     1. 自定义控件(类B)有子控件**(UI由B类实现 / 聚合和组合)**
 
-        > QT Desinger中新建->QT设计师界面类->Qwidget界面
+        > - QT Desinger中新建->QT设计师界面类->Qwidget界面
+        >
+        > - 通常继承自 `QWidget`（或 `QFrame`），并使用它自己的 `.ui` 文件来定义内部布局，该布局包含了多个子控件（如 `QLabel`, `QLineEdit`, `QPushButton` 等）。
+        > - 在父窗口的.ui文件中，放置一个占位符(比如类A的普通widget)，类B被创建时在占位符的位置显示完整的、包含内部子控件的复杂结构。
+        > - 提升机制只是利用了占位符来决定 类 B 的位置、大小和父窗口，而 类 B内部的具体显示内容则完全由 类 B自己的 `.ui` 文件和代码控制。
 
         ```c++
         // 自定义控件的ui_xxx.h
@@ -6245,9 +6350,11 @@ m_pPool->submit([this, pBundle]() {
         };
         ```
 
-     2. 自定义控件不实现子控件，由主类的 .ui 文件实现
+     2. 自定义控件(类B)没有子控件**（UI由A类实现 / 继承并扩展）**
 
-        > QT Desinger中新建C++文件-> 继承QWidget/其他控件
+        > - 类 B 继承自一个基本控件 类 A（如 `QLabel`, `QPushButton`, `QWidget`），并且类 B 本身没有使用 `.ui` 文件来定义其内部结构。它只是在 类 A 的基础上添加了自定义的逻辑、信号、槽或重写了绘图事件。
+        > - 在主界面的ui_xx.h中，所有类A都被替换为类B，所以类B就有了类A的所有属性(子控件、字体、事件函数等)
+        > - 提升后，得到的控件就是 类 A 的外观，但拥有 类 B 的所有行为和功能。
 
         ```c++
         // 自定义控件没有ui_xxx.h，只有.cpp和.h文件实现自定义事件
@@ -6284,7 +6391,7 @@ m_pPool->submit([this, pBundle]() {
 
      3. 自定义控件实现一半子控件，主类实现另一半子控件。这种情况比较少见，需要主类和自定义类的控件之间协调一致，具体实现为前两种的混合
 
-107. QFrame和QWidget的区别和联系
+108. QFrame和QWidget的区别和联系
 
      1. QFrame 是 Qt 提供的一个轻量级容器控件，继承自 QWidget，主要用于**绘制边框**或作为**可视化的框架**；
         - 显示不同的**边框**样式
@@ -6294,20 +6401,20 @@ m_pPool->submit([this, pBundle]() {
         - 所有控件的父类，可以用来创建**自定义控件**
         - 可以通过QWidget来**扩展布局**，这样可以设定大小、背景、样式等
 
-108. stackedWidget分页容器，对于每一个页来说，拖入一个控件之后，调整布局，要么在ui界面相关部分直接右键选择布局，要么在右面的stackedWidget右键布局。如果在page右键则不能选择布局。
+109. stackedWidget分页容器，对于每一个页来说，拖入一个控件之后，调整布局，要么在ui界面相关部分直接右键选择布局，要么在右面的stackedWidget右键布局。如果在page右键则不能选择布局。
 
      > 注意：
      >
      > 1. widget相关容器都可以调整布局，但是需要容器种必须有一个组件才可以选择布局
      > 2. 是否可以为控件选择布局取决于控件是否是一个容器（container），Qt 的布局系统设计为容器控件（如 QWidget、QFrame）使用，非容器控件（如 QPushButton）不支持直接添加布局。
-     
-109. **tooTip**：tooltip（工具提示）是 Qt 提供的一种 UI 功能，用于在鼠标悬停在控件上时显示一段简短的提示文本，帮助用户了解控件的用途或状态。它通常以一个小弹出窗口的形式出现。
+
+110. **tooTip**：tooltip（工具提示）是 Qt 提供的一种 UI 功能，用于在鼠标悬停在控件上时显示一段简短的提示文本，帮助用户了解控件的用途或状态。它通常以一个小弹出窗口的形式出现。
 
      1. 几乎所有继承自 QWidget 的控件（如 QPushButton、QLabel、QLineEdit、QFrame 等）都支持设置tootip。
      2. QSS 可以为 QToolTip 类设置全局样式，影响所有 tooltip。
      3. 不能为特定控件的 tooltip 单独设置样式（QSS 不支持基于 objectName 选择 tooltip），只能全局应用。
 
-110. **QScrollArea** 是一个容器控件，继承自 QAbstractScrollArea，用于嵌入一个 widget（称为内容 widget），并在内容超出其大小时显示滚动条
+111. **QScrollArea** 是一个容器控件，继承自 QAbstractScrollArea，用于嵌入一个 widget（称为内容 widget），并在内容超出其大小时显示滚动条
 
      1. 内嵌一个widget作为内容区，这个widget必须设有**布局**。
 
@@ -6319,7 +6426,7 @@ m_pPool->submit([this, pBundle]() {
 
      4. 内容widget的固定值或者最小值必须大于scrollArea的可视区域，否则滑动条不会出现
 
-111. SizePolicy的四个概念
+112. SizePolicy的四个概念
 
      1. 水平/垂直策略：定义控件在水平？垂直方向上的大小调整行为（Fixed、Minimum、Maximum、Preferred、Expanding、MinimumExpanding）。
 
@@ -6332,8 +6439,8 @@ m_pPool->submit([this, pBundle]() {
         3. Minimum/Maximum：控件可以拉伸，但最小/大尺寸为 `sizeHint()`，压缩时不会小/大于此值。
 
      2. 水平/垂直伸展：表示控件在水平/垂直方向上的相对拉伸因子（stretch），值越大，控件在水平方向上分配的额外空间越多（默认 0，表示不特别伸展）。
-     
-112. 开关控件(switch)的实现：在pushbutton上内嵌一个label子控件，将label的背景覆盖到pushbutton上即可
+
+113. 开关控件(switch)的实现：在pushbutton上内嵌一个label子控件，将label的背景覆盖到pushbutton上即可
 
      1. 但是不能直接在Qt Desinger中直接拖拽Label到button上，因为QPushButton 是一个功能性控件，主要用于触发点击事件，并显示文本或图标。它不像 QWidget、QFrame 或 QGroupBox 这样设计为容器的控件，Qt Designer 的界面不允许将其他控件直接拖放到 QPushButton 上作为子控件。
 
@@ -6371,9 +6478,9 @@ m_pPool->submit([this, pBundle]() {
 
         >  **注意子部件加伪状态的情况下子部件在前！**
 
-113. qss中可以实现的伪状态：悬浮(hover)、按压(pressed)、禁用(disable)、点击(button中设置为checkable)、点击后的悬浮按压等
+114. qss中可以实现的伪状态：悬浮(hover)、按压(pressed)、禁用(disable)、点击(button中设置为checkable)、点击后的悬浮按压等
 
-114. 一些控件没有的伪状态，可以通过设置**动态属性**，对其动态属性来做相关的样式设置，比如：
+115. 一些控件没有的伪状态，可以通过设置**动态属性**，对其动态属性来做相关的样式设置，比如：
 
      BtnFrame中继承的是Frame，所以不能通过伪状态`:checked`来动态改变样式表，通过增加动态属性方案来达到同样效果
 
@@ -6407,7 +6514,7 @@ m_pPool->submit([this, pBundle]() {
      }
      ```
 
-115. 当Button控件的`checkable` 属性被设置为 true 时，按钮变为可选中状态（类似于复选框或单选按钮的行为）。此时
+116. 当Button控件的`checkable` 属性被设置为 true 时，按钮变为可选中状态（类似于复选框或单选按钮的行为）。此时
 
      1. 用户点击按钮时，Qt 会先更新按钮的 `checked` 状态（切换 true/false）。
 
@@ -6420,7 +6527,7 @@ m_pPool->submit([this, pBundle]() {
      1. `clicked()`：用户通过鼠标点击按钮、按下键盘的回车/空格键，或者程序调用 `click()` 方法时候触发
      2. `toggled(bool)`：只有当按钮的 `checked` 状态发生变化时触发，前提是仅当按钮的 `checkable` 属性为 `true` 时才会发出此信号
 
-116. 关于**动态属性**：Qt 的动态属性机制（通过 `QObject::setProperty` 和 `QObject::property`）是为了提供一种灵活的方式，让开发者可以在运行时为**任何 QObject 派生对象**添加自定义属性，而无需修改类的定义。
+117. 关于**动态属性**：Qt 的动态属性机制（通过 `QObject::setProperty` 和 `QObject::property`）是为了提供一种灵活的方式，让开发者可以在运行时为**任何 QObject 派生对象**添加自定义属性，而无需修改类的定义。
 
      1. 可以为控件附加额外的元数据或状态，不需要创建新的子类，即**扩充属性无需修改类的定义**
 
@@ -6434,7 +6541,7 @@ m_pPool->submit([this, pBundle]() {
 
         >  比如button的`checkable`设置为true，那么当按钮被点击，则自动触发`checked`状态的切换，并且发出信号。而自定义的就不会有这种功能，只能按需要手动切换并发射信号
 
-117. Qt的三种界面控件：QWidget、QDialog、QMainwindow
+118. Qt的三种界面控件：QWidget、QDialog、QMainwindow
 
      1. QWidget是窗口类和其他控件的基类，用作简单窗口、自定义控件或容器
      2. QDialog主要作为对话框(**交互式窗口**)、
@@ -6443,7 +6550,7 @@ m_pPool->submit([this, pBundle]() {
         3. 模态对话框通过`exec()`启动**局部事件循环**
      3. QMainwindow通常作为主窗口，提供工具栏、工具栏等
 
-118. 对**自定义控件的qss**该如何设置呢？
+119. 对**自定义控件的qss**该如何设置呢？
 
      1. 自定义控件里面的控件由于是标准控件，内部支持qss
 
@@ -6489,7 +6596,7 @@ m_pPool->submit([this, pBundle]() {
      }
      ```
 
-119. 界面画完之后总结：
+120. 界面画完之后总结：
 
      1. qss样式表(子部件、伪状态、动态元素)
      2. 自定义控件(btnFrame、titlebar)
@@ -6498,12 +6605,12 @@ m_pPool->submit([this, pBundle]() {
      5. 事件(鼠标点击、进入、离开，重绘事件)
      6. TableView、自定义表头、自定义代理
 
-120. Qt 的样式表遵循**层叠规则**，类似于 CSS。伪状态（如 `:checked`）的样式会覆盖基础样式的同类属性，但如果伪状态中没有指定某个属性（例如 border），则会保留基础样式的该属性设置
+121. Qt 的样式表遵循**层叠规则**，类似于 CSS。伪状态（如 `:checked`）的样式会覆盖基础样式的同类属性，但如果伪状态中没有指定某个属性（例如 border），则会保留基础样式的该属性设置
 
      1. 设置基础qss，添加为状态的qss，伪状态只会叠加到基础qss上
      2. 退出伪状态(如checked)时，如果没有设置非checked的状态，那么会使用之前的基础qss
-     
-121. 对于刷新样式表的下面代码，只会作用于其本身，不会作用到它的子控件的样式
+
+122. 对于刷新样式表的下面代码，只会作用于其本身，不会作用到它的子控件的样式
 
      ```c++
      this->style()->unpolish(this);
@@ -6511,7 +6618,7 @@ m_pPool->submit([this, pBundle]() {
      this->update();
      ```
 
-122. qtDsinger中的`Line`实际上是Frame ，所以对其设置qss时，可以通过QFrame来设置全部，但是会影响到其他Frame
+123. qtDsinger中的`Line`实际上是Frame ，所以对其设置qss时，可以通过QFrame来设置全部，但是会影响到其他Frame
 
      通过`object类名 控件名`可以实现对这个界面的所有该控件设置样式
 
@@ -6523,7 +6630,7 @@ m_pPool->submit([this, pBundle]() {
      }  
      ```
 
-123. 关于git分支合并产生的一些问题：
+124. 关于git分支合并产生的一些问题：
 
      自己的分支提交之后，切换到主分支；
 
@@ -6563,8 +6670,8 @@ m_pPool->submit([this, pBundle]() {
         优点：子分支不需要重新合并主分支，少一次解决冲突。
 
         缺点：会产生一条合并记录(如果只有一条提交记录，那么可以使用`cherry-pick`解决)
-     
-124. Qt的MVC模型实例
+
+125. Qt的MVC模型实例
 
      1. TableView设置垂直和水平表头，按需要可以设定**自定义表头**(继承于QHeaderView，重写paint函数），比如表头第一列有一个全选checkBox按钮
 
@@ -6601,7 +6708,7 @@ m_pPool->submit([this, pBundle]() {
 
      6. QModelIndex保存的是这个单元格的位置信息以及model数据
 
-125. MVC中的自定义代理，当对同一列进行代理的时候，
+126. MVC中的自定义代理，当对同一列进行代理的时候，
 
      1. 每个单元格都会调用一次代理的重写的`paint()`，用来绘制内容
 
@@ -6613,7 +6720,7 @@ m_pPool->submit([this, pBundle]() {
 
      4. 每个单元格上的内容实际上是 **同一个 widget 被移动和重绘**，用来减少开销
 
-126. explicit 是 C++ 中的一个关键字，用于修饰构造函数或类型转换函数（C++11 起），防止编译器自动进行隐式类型转换。当一个构造函数被声明为 explicit 时，它只能用于显式构造对象，不能被编译器用于隐式类型转换
+127. explicit 是 C++ 中的一个关键字，用于修饰构造函数或类型转换函数（C++11 起），防止编译器自动进行隐式类型转换。当一个构造函数被声明为 explicit 时，它只能用于显式构造对象，不能被编译器用于隐式类型转换
 
      为什么加了OBJECT宏之后的类构造函数必须加上这个关键字：
 
@@ -6628,7 +6735,7 @@ m_pPool->submit([this, pBundle]() {
      1. 如果构造函数不加 explicit，且 parent 参数有默认值（如 nullptr），这个单参数构造函数可能被编译器用于隐式转换。
      2. 例如，QWidget* 指针可能被隐式转换为 MyWidget 对象，这在 Qt 的对象层次结构中可能导致意外行为或逻辑错误。
 
-127. Qt中父指针和继承之间的区别
+128. Qt中父指针和继承之间的区别
 
      1. 父指针：几乎所有继承自 `QObject` 的类（`QWidget` 也继承自它）都有一个 **父对象指针**。
         1. **生命周期**管理（对象树机制），避免内存泄漏
@@ -6637,7 +6744,7 @@ m_pPool->submit([this, pBundle]() {
      2. 继承：扩充功能和多态，比如自定义的控件，可以扩展功能
      3. 总结：**Qt 里的 parent 和 C++ 的继承是完全不同的概念**，一个是 **对象生命周期和层级管理**，一个是 **类型关系和代码复用**。
 
-128. 关于qt画界面时的背景
+129. 关于qt画界面时的背景
 
      1. 设置界面透明，即未设置背景的部分使用父类的背景(若无则透明)，不使用默认的背景
 
@@ -6663,16 +6770,16 @@ m_pPool->submit([this, pBundle]() {
         setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowSystemMenuHint);
         ```
 
-129. 在当前界面创建新的子界面，子界面类将this作为父指针，在构造时只用自己的那块qss。但是实际运行这块qss没有实现。
+130. 在当前界面创建新的子界面，子界面类将this作为父指针，在构造时只用自己的那块qss。但是实际运行这块qss没有实现。
 
      不清楚为何，但是当我将这个qss文件，增加了`QPushbutton {}`之后再执行就可以看到样式的变化；再删除掉这一句执行就便正常了
-     
-130. scrollArea和scroll Bar
+
+131. scrollArea和scroll Bar
 
      1. scrollArea是一个容器，超过设定大小就会有滚动条(**静态数据使用scrollArea**)
      2. 当使用tableview时，将tableview和scrollBar放在同一个容器中，最后用代码实现数据与滚动条的联动(**动态数据使用scrollBar**)
 
-131. qss中关于选择器的使用：
+132. qss中关于选择器的使用：
 
      1. 类型选择器：直接使用qt控件类名作为选择器，匹配该类型的所有控件
 
@@ -6749,7 +6856,7 @@ m_pPool->submit([this, pBundle]() {
         }
         ```
 
-132. Qt的qss中设置了一个容器下的类型选择器之后，又设置该容器里面单个ID选择器之后，这个单个选择器的样式不生效
+133. Qt的qss中设置了一个容器下的类型选择器之后，又设置该容器里面单个ID选择器之后，这个单个选择器的样式不生效
 
      ```
      #widget_2 QLabel { ... }
@@ -6770,8 +6877,8 @@ m_pPool->submit([this, pBundle]() {
         ```
 
         > qt中的Line属于继承于QFrame，所以如果父容器对QWidget、QFrame做类型选择器的qss时，如果Line不使用上述方法则不会生效
-     
-133. 关于Qt的connect函数：
+
+134. 关于Qt的connect函数：
 
      1. 声明的`signals/slots` 关键字只是 MOC 的标记，对于槽函数声明：**老语法必须用，新语法可以不用**
 
@@ -6817,26 +6924,26 @@ m_pPool->submit([this, pBundle]() {
         1. 普通槽函数：信号发出 → Qt 的元对象系统（MOC）找到对应槽函数 → 调用。
         2. lambda槽：号发出时，Qt 会直接调用存储下来的 lambda（本质上是一个可调用对象(**函数指针)**）。
 
-134. qt设置样式表，出现某个地方设置不上的情况，检查是否继承了父类，父类的样式表与该样式表重名！
+135. qt设置样式表，出现某个地方设置不上的情况，检查是否继承了父类，父类的样式表与该样式表重名！
 
      1. 要么不继承父类，放置父类qss干扰
      2. 要么自己的样式表中全部加上当前类的objectName的前缀
-     
-135. qt构画界面时，使用布局还是widget：
+
+136. qt构画界面时，使用布局还是widget：
 
      1. 如果这一块有特殊背景/边框，那么需要使用widget
      2. 如果需要设置固定区域(设置大小/长宽限制等)/或者设置隐藏/展示等功能需要使用widget
      3. 布局仅仅有设置上下左右及间距的作用，其他功能都得使用容器类，当然容器类自身也可以设置布局
      4. 使用widget时，如果设置了整体的背景，这个widget可能展示的是默认的背景，可能需要将widget设置为透明才能展示出来全局背景
-     
-136. 项目使用多个仓库
+
+137. 项目使用多个仓库
 
      1. 界面使用develop_ui仓库
      2. 后台使用normal_development仓库
      3. 第三方库使用third_library仓库
      4. 项目目录下即这三个仓库，编写cmakelist
-     
-137. qt中使用了自定义BtnFrame的点击事件，如果这个区域的按钮想要单独处理，可以在点击事件中加入下面代码
+
+138. qt中使用了自定义BtnFrame的点击事件，如果这个区域的按钮想要单独处理，可以在点击事件中加入下面代码
 
      ```c++
      void BtnFrame::mousePressEvent(QMouseEvent *event)
@@ -6854,8 +6961,8 @@ m_pPool->submit([this, pBundle]() {
      ```
 
      > 使用之前的也可以，只要有`QFrame::mousePressEvent(event);`可以让事件继续处理即可
-     
-138. 新版通信流程
+
+139. 新版通信流程
 
      1. 初始化：
         1. main中单例构造model和callback对象
@@ -6866,8 +6973,8 @@ m_pPool->submit([this, pBundle]() {
      > 之前的方式是model对象就是一个定义了OBject宏的类，直接在主界面上连接信号槽
      >
      > 这个方式model完全是c++对象，通过callback（定义了Object宏）来与界面建立信号槽；可能是因为model层是供Linux和Windows两个界面RJJH的原因，所以加了中间callback回调对象，从而不同平台需要什么信号槽和功能自己定义
-     
-139. Qt中信号槽的参数如果是自定义类型的话会报错：
+
+140. Qt中信号槽的参数如果是自定义类型的话会报错：
 
      ```
      QObject::connect: Cannot queue arguments of type ‘MyClass’ (Make sure ‘MyClass’ is registed using qRegisterMetaType().)
@@ -6953,7 +7060,7 @@ m_pPool->submit([this, pBundle]() {
                     this, SLOT(onSettingChanged(const setting::SettingModelConfig &)));
         ```
 
-140. 关于Qt的自定义文件路径选择框
+141. 关于Qt的自定义文件路径选择框
 
      1. 使用tree_view作为样式框
      2. 使用QFileSystemModel 作为数据model
@@ -7031,14 +7138,14 @@ m_pPool->submit([this, pBundle]() {
          QDialog::accept();
      }
      ```
-     
-141. protobuffer删除repeated数据时，同vector等容器一样需要考虑迭代器失效的问题
+
+142. protobuffer删除repeated数据时，同vector等容器一样需要考虑迭代器失效的问题
 
      > 删除某个元素后，后面的元素会自动前移，保持顺序。
 
      删除时如果正向遍历会导致下标错乱，推荐**倒序遍历删除**，这和 `std::vector` 删除元素的最佳实践一致。
-     
-142. Qt信号槽出现崩溃：新界面在实时防护界面跳转到实时防护设置界面时，出现崩溃
+
+143. Qt信号槽出现崩溃：新界面在实时防护界面跳转到实时防护设置界面时，出现崩溃
 
      ```c++
      m_currentWidget = new RealTimeProtect;			// 主页的mainpage的widget换为实时防护的widget
@@ -7070,7 +7177,7 @@ m_pPool->submit([this, pBundle]() {
      m_currentWidget = widget;
      ```
 
-143. Qt程序中 **启动另一个 Qt 程序（或任何外部可执行文件）**，可以使用**QProcess**来完成
+144. Qt程序中 **启动另一个 Qt 程序（或任何外部可执行文件）**，可以使用**QProcess**来完成
 
      ```
      QString program = "/home/leslie/MyQtApp/bin/OtherApp";  // 可执行文件路径
@@ -7097,7 +7204,7 @@ m_pPool->submit([this, pBundle]() {
      | `QProcess::startDetached()` | ✅ 是         | ❌ 不行       | ❌ 不退出         |
      | `QProcess::execute()`       | ❌ 否（阻塞） | ❌ 不行       | ✅ 会退出         |
 
-144. Cmake中`add_library()` 中的几种库类型区别
+145. Cmake中`add_library()` 中的几种库类型区别
 
      ```
      add_library(target_name [STATIC | SHARED | MODULE | OBJECT | INTERFACE])
@@ -7112,7 +7219,7 @@ m_pPool->submit([this, pBundle]() {
      | `OBJECT`    | 对象库 | ✅ 有         | ❌ 不生成独立文件（只生成 `.o`）   | 将多个库合并编译为中间对象以重用          |
      | `INTERFACE` | 接口库 | ❌ 无         | ❌ 不生成任何文件                  | 仅用于传递编译选项、宏定义、include路径等 |
 
-145. CMake中`target_source()`三种修饰符
+146. CMake中`target_source()`三种修饰符
 
      ```
      target_sources(<target>
@@ -7149,7 +7256,7 @@ m_pPool->submit([this, pBundle]() {
      target_sources(myApp PRIVATE main.cpp utils.cpp widget.cpp)
      ```
 
-146. C++11的委托构造函数：“带参构造函数委托给无参（或另一个）构造函数去做初始化”，即委托构造
+147. C++11的委托构造函数：“带参构造函数委托给无参（或另一个）构造函数去做初始化”，即委托构造
 
      ```
      CustomTipWidget::CustomTipWidget(QWidget *parent)
@@ -7177,7 +7284,7 @@ m_pPool->submit([this, pBundle]() {
      2. 委托构造不能形成循环（禁止 A 委托 B，B 又委托 A）。
      3. 委托构造中不能让自身的初始化列表覆盖被委托构造的初始化——**被委托**构造函数负责实际的基类/成员初始化（所以通常不会在委托者里再写成员初始化）。
 
-147. Qt中QObject（和 QWidget）是不可拷贝的：拷贝构造和拷贝赋值被删除（deleted）。因此任何导致编译器尝试调用拷贝/移动构造的写法都会报类似“deleted function … cannot be referenced”的错误。
+148. Qt中QObject（和 QWidget）是不可拷贝的：拷贝构造和拷贝赋值被删除（deleted）。因此任何导致编译器尝试调用拷贝/移动构造的写法都会报类似“deleted function … cannot be referenced”的错误。
 
      ```
      // 下面会调用一次拷贝构造函数，这个类继承QWidget/QLabel，没有拷贝构造函数所有会报错
@@ -7186,44 +7293,45 @@ m_pPool->submit([this, pBundle]() {
      CustomApplyTipWidget tip(CustomApplyTipWidget::TipType::WARNING, this);
      ```
 
-148. Qt的界面，关于界面close后进程关闭的问题
+149. Qt的界面，关于界面close后进程关闭的问题
 
      1. 如果界面调用 `this->close()` 会尝试关闭并隐藏窗口并发送 `QCloseEvent`，它本身不是等价于 `delete`。当且仅当没有其它可见窗口且 `QApplication::quitOnLastWindowClosed` 为 true（默认是 true），事件循环会退出，`app.exec()`返回，`main()` 结束，进程才会退出。
      2. 如果界面是**堆对象**，且**没有父对象**。那么需要对界面设置`setAttribute(Qt::WA_DeleteOnClose)`，此时 `close()` 会触发 `deleteLater()`，对象会在事件循环空闲时被删除（安全，因为对象是 heap 分配）。
-     
-149. Qt使用了`QClipboard`来复制内容到剪切板之后，VM的右键复制粘贴不能和Window联动了，是因为Linux有两个剪切板，代码中使用了`QClipboard`之后`PRIMARY`就用不了了，所以需要重启剪贴板同步服务
+
+150. Qt使用了`QClipboard`来复制内容到剪切板之后，VM的右键复制粘贴不能和Window联动了，是因为Linux有两个剪切板，代码中使用了`QClipboard`之后`PRIMARY`就用不了了，所以需要重启剪贴板同步服务
 
      ```
      sudo systemctl restart vmware-tools
      #或
      sudo /usr/bin/vmware-user
-     
      ```
+     
+151. 对于Dialog来说， — 在通常情况下调用 QDialog::accept() 或 QDialog::reject() 会结束对话并把它从屏幕上移除（关闭/隐藏）。
 
-150. 对于Dialog来说， — 在通常情况下调用 QDialog::accept() 或 QDialog::reject() 会结束对话并把它从屏幕上移除（关闭/隐藏）。
-
-151. 控件/自定义控件，设置禁用之后(setDiabale(true))，
+152. 控件/自定义控件，设置禁用之后(setDiabale(true))，
 
      1. 会禁用：鼠标点击/按键、样式渲染(:diabled)
      2. 不会禁用：enter/leave/hover等状态
-     
-152. 部分Ubuntu系统，右上角系统托盘界面不生效的原因：
+
+153. 部分Ubuntu系统，右上角系统托盘界面不生效的原因：
 
      1. 个别系统不支持嵌入 QWidget，只允许原生菜单 QMenu。如果是在QtDesinger中创建的界面(QDialog/QWidget)等都不会显示出来
-     
+
      2. 继承了QSystemTrayIcon之后，只要使用了setContextMenu(m_menu)，系统托盘会自动处理右键/左键的菜单显示，处理不了单击信号。
-     
+
      3. Ubuntu17之后使用的桌面环境（Desktop Environment，简称 DE）是GNOME，支持自定义窗口。Ubuntu17之前的默认使用的是Unity。Unity机制是托盘图标由 AppIndicator 接管，不允许自定义窗口、只允许菜单。
-     
+
         > 桌面环境可以理解为Windows 的“任务栏 + 桌面 + 开始菜单 + 系统托盘”的整套 UI
-     
-153. 总结安装中控
+
+154. 总结安装中控
 
      1. 准备好中控安装包
      2. dpkg安装
-     3. 使用`systemctl start/status/stop CentXXX`
+     3. 使用`systemctl start/status/stop CxCenter.service`
+     4. 初始密码：Vsecure@2016
+     5. 中控中导入授权(从官网下载试用授权文件)
 
-154. Git，执行了错误的命令，如何回退：
+155. Git，执行了错误的命令，如何回退：
 
      案例：使用了`git pull --rebase`，解决完冲突，使用失误，执行了`git rebase --skip`,导致本次提交的内容全部消失
 
@@ -7237,13 +7345,13 @@ m_pPool->submit([this, pBundle]() {
      git reset --hard HEAD@{2}
      ```
 
-155. 误区：堆对象delete之后，只是将其内存销毁。但是外面其指针也需要手动置为nullptr，否则如果其他再次访问这个指针将会出错
+156. 误区：堆对象delete之后，只是将其内存销毁。但是外面其指针也需要手动置为nullptr，否则如果其他再次访问这个指针将会出错
 
      > 同理，包括Qt的`m_settingDlg->setAttribute(Qt::WA_DeleteOnClose);`也是当关闭界面时自动清理堆空间，但是`m_settingDlg`仍指向那个地址，此时需要手动将其置空
 
-156. Qt中的`QPointer`是是“受保护的指针”，它保存一个裸指针，并在所指向的 QObject被销毁时自动被置为 `nullptr`。
+157. Qt中的`QPointer`是是“受保护的指针”，它保存一个裸指针，并在所指向的 QObject被销毁时自动被置为 `nullptr`。
 
-157. 查看主防配置文件，需要解密
+158. 查看主防配置文件，需要解密
 
      ```
      sudo ./JYToolBox --decrypt  ../etc/ZyHips.xml temp.xml
@@ -7251,13 +7359,13 @@ m_pPool->submit([this, pBundle]() {
      // 加密使用 eacrypt
      ```
 
-158. 启动的时候如果加载libSysMonPolicyManage崩溃，需要替换这两个库，这两个库在另外的仓库编译
+159. 启动的时候如果加载libSysMonPolicyManage崩溃，需要替换这两个库，这两个库在另外的仓库编译
 
      ```
      libSysMonPolicyManage.so  libSysMonManage.so
      ```
 
-159. 三款AI开发工具对比
+160. 三款AI开发工具对比
 
      > 这些AI开发工具都是建立在AI大模型基础上的，比如 Anthropic的Claude、OpenAi的ChatGPT（精通对话的模型）、OpenAi的CodeX（精通代码的模型）、Google的Gemini、马斯克的Grok等
 
@@ -7287,21 +7395,21 @@ m_pPool->submit([this, pBundle]() {
        >
        > **CodeX**同样也是open AI开发的CLI工具：Codex模型是引擎，用於代碼翻譯，而GitHub Co-Pilot則是建立在Codex模型之上的一個服務，使代碼編寫更加容易
 
-160. AI编程的变革：
+161. AI编程的变革：
 
      1. **IDE 智能提示**：代表了“字符级编程”的黄金时代，从 IntelliSense 到 TabNine，自动补全成为开发者的标配工具。
      2. **Copilot 式补全**：开启了“函数级编程”时代。你只要写一句注释或函数名，它就能帮你补出整个实现逻辑，甚至包含 edge case 的处理。
      3. **Codex 任务代理**：正式迈入“任务级编程”时代。你用自然语言分配一个任务，它能识别全局上下文，查阅依赖关系，主动完成整个功能开发并提交代码。
 
-161. AI coding细分方向
+162. AI coding细分方向
 
      1. **AI-assisted Coding:** 以 **Cursor** 和 **GitHub Copilot** 为代表，它们是现有开发工作流的 “增强器”，致力于让专业开发者写代码更快、更爽。
      2. **End-to-end Agent** 以 **Devin**、**Claude Code** 和 **Amp** 为代表，它们的目标是成为能独立完成任务的 “初级工程师”，将开发者从执行者提升为任务的分配者和审查者。Agent 同时也可能是作为合作者，特别是 Claude Code 这样 CLI based agent，我既可以和他 pair programming，也可以请他帮我干活。
      3. **Vibe Coding / UGS:** 以 **v0** 和 **YouWare** 为代表，它们试图将代码的能力赋予非开发者，让他们通过自然语言创造应用和工具。
 
-162. 目标，学会使用Claude Code！
+163. 目标，学会使用Claude Code！
 
-163. 关于Node.js和npm
+164. 关于Node.js和npm
 
      1. Node.js 是一个**跨平台、开源的 JavaScript 运行时环境**。在 Node.js 出现之前，JavaScript 主要被限制在浏览器中运行，用于处理**网页的客户端**逻辑。它允许你在**服务器端**（后端）、**命令行工具**以及其他应用程序中运行 JavaScript 代码。
 
@@ -7323,13 +7431,62 @@ m_pPool->submit([this, pBundle]() {
 
            > 也就是说node.js本质上只提供了js的环境，实际上需要通过npm(命令行功能)，安装的三方模块扩展其功能
 
+165. WSL和VMware的区别
+
+     1. WSL (Windows Subsystem for Linux)：在windows系统下提供一个与Windows继承的Linux开发环境，启动一个真实的Linux内核，与主机windows内核并行运行，共享大部分系统资源和文件系统访问权限。
+     2. VMware Workstation/Player (传统虚拟机)：相当于一个软件，完全虚拟化一套硬件，在这个虚拟的硬件之上安装并运行一个独立的操作系统
+
+166. telnet命令，测试目标ip目标端口号是否开启
+
+     ```
+     telnet ip port		
+     ```
+
+167. netstat命令，查看本地端口的状态
+
+     ```
+     netstat -ntlp
+     ```
+
+168. QRadioButton，只要都在同一个父widget下（或同一层次的容器），会自动互斥，默认启用 `autoExclusive`（对于单选按钮默认为 true）
+
+169. 对于C++中，private的虚函数在子类中的权限和是否能被重写的问题
+
+     1. C++两个概念：
+        1. **实现权（Overriding）**：子类是否有权定义该函数的行为。
+        2. **访问权（Visibility）**：谁有权发起这个函数的调用。
+     2. private/protected/public 只是定义了访问权，即该类实例、子类能否调用(考虑子类继承权限)
+     3. 
+     4. 子类实现虚函数可以**不受父类该虚函数的访问权限影响**，可以自定义访问权限
+     5. 父类定义了**纯虚函数**，子类必须实现，否则子类也是抽象类且实例化会报错(即不能实例)
+     
+170. linux下的包管理工具
+
+     | **比较维度**            | **Ubuntu / Debian 系**      | **CentOS / RHEL / Fedora 系** | **角色定位**                                    |
+     | ----------------------- | --------------------------- | ----------------------------- | ----------------------------------------------- |
+     | **高层工具 (项目经理)** | **`apt`** (或 apt-get)      | **`yum`** (或 dnf)            | **负责：** 联网、解析依赖、自动下载、批量升级。 |
+     | **底层工具 (施工员)**   | **`dpkg`**                  | **`rpm`**                     | **负责：** 安装本地文件、提取内容、写入系统。   |
+     | **软件包后缀**          | `.deb`                      | `.rpm`                        | **格式：** 包含程序文件、安装脚本和依赖清单。   |
+     | **核心安装命令**        | `sudo apt install <软件名>` | `sudo yum install <软件名>`   | **场景：** 只要有网，这是首选。                 |
+     | **本地安装命令**        | `sudo dpkg -i <文件>.deb`   | `sudo rpm -ivh <文件>.rpm`    | **场景：** 安装离线下载好的特定软件包。         |
+     | **查询已装软件**        | `dpkg -l`                   | `rpm -qa`                     | **功能：** 直接读取本地安装数据库。             |
+
+     1. Debian系列：Debian、Ubuntu等
+        1. apt负责联网、从服务器仓库中下载deb包并安装(**下载后自动调用dpkg进行安装**)
+        2. dpkg是底层管理器，负责对本地的安装包的安装、解压等操作
+     2. RedHat系列：RedHat、Centos、Fedora等
+        1. yum负责从服务器仓库下载rpm包并安装(同理，**自动调用rpm安装)**
+        2. rpm是底层管理器，负责对本地的安装包的安装、解压等操作
+
 ### 5. 末尾，
 
+1. 英语-长期学习
+2. AI工具Claude学习
+3. 行业方向分析，简历、总结、观望行情
+4. 理财、了解金融知识
+5. 乐器、健身
 
-
-
-
-
+> 上半场：金融、认知、健康  
 
 
 
