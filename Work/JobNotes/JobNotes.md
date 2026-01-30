@@ -1908,7 +1908,7 @@ m_pPool->submit([this, pBundle]() {
    
    sudo cp libglog.so.0.3.5 libkvcache.so libnetplugin.so libPostDataReport2.0.so libZyAuthPlug.so libZyAVCache.so libJYVirusScanEnginePlugin.so libZyUploadFile.so  /opt/apps/cn.vsecure.chenxinsd/files/lib/modules/
    
-   sudo cp libJYFileShred.so libJYFileMonitor.so libJYSystemController.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/cn.vsecure.chenxinsd/files/lib/plugins/system/
+   sudo cp libJYFileShred.so libJYFileMonitor.so libJYUDiskProtection.so libJYVirusScan.so libJYZDFY.so libJYVirusLibraryManage.so libJYClientUpgradeManage.so /opt/apps/cn.vsecure.chenxinsd/files/lib/plugins/system/
    
    #再替换zdfy的lib库
    sudo cp ~/ChenxinSpace/temp/lib/libSysMon* /opt/apps/cn.vsecure.chenxinsd/files/lib/modules/
@@ -2174,9 +2174,21 @@ m_pPool->submit([this, pBundle]() {
    #8. 贴牌北信源vrv包
    /opt/python-3.6.15/bin/python3.6 ./main.py -a STANDARD -n vrvsd -v V708
    /usr/bin/python3.8 ./main.py -a PACK_TEST -n vrvsd -v V708			// 本地测试
+   
    ```
    
-4. **705**打包流程
+4. **709**打包流程
+
+   ```
+   #进入目录
+   cd /home/work/workspace2/708/normal_develop/Output/bin2.0/py_make_packet  
+   #参考main.py，执行脚本并添加对应参数(// 默认打包x64，deb，chenxin709。-u选择上传)
+   /opt/python-3.6.15/bin/python3.6 ./main.py -u 1 					
+   ```
+   
+   
+   
+5. **705**打包流程
 
    ```
    // 1. 40上705仓库路径
@@ -2210,21 +2222,21 @@ m_pPool->submit([this, pBundle]() {
    
    ```
 
-5. 本地通过`192.168.1.6`(共用的包环境),拉取最新的包进行安装测试
+6. 本地通过`192.168.1.6`(共用的包环境),拉取最新的包进行安装测试
 
    ```
    public share #账号密码
    cd Linux_Packets/text/common/deb/XXX.deb
    ```
 
-6. 安装、卸载
+7. 安装、卸载
 
    ```
    sudo dpkg -i xxx.deb		#安装
    sudo dpkg -P chenxinsd		#卸载
    ```
 
-7. 中控(ip变更、要最新ip)账号密码
+8. 中控(ip变更、要最新ip)账号密码
 
    ```
    admin	vsecure2020		#中控账号密码
@@ -2233,7 +2245,7 @@ m_pPool->submit([this, pBundle]() {
    192.168.1.112 	#试用中控
    ```
 
-8. 测试远程ip、账号、密码
+9. 测试远程ip、账号、密码
 
    ```
    192.168.2.14
@@ -2245,7 +2257,7 @@ m_pPool->submit([this, pBundle]() {
    1QAZ2wsx
    ```
 
-9. 本地出包：
+10. 本地出包：
 
    ```
    cd ~/ChenxinSpace/normal_develop/Output/bin2.0/py_make_packet
@@ -4215,11 +4227,13 @@ m_pPool->submit([this, pBundle]() {
 
     2. **组件学名叫做功能型插件、插件学名叫做业务型插件**。
 
-    3. 功能性插件即这个项目必须有的基础功能，比如通信、上报、任务队列管理等
+    3. 功能性插件即这个项目必须有的基础功能，比如界面通信、服务端上报、任务队列、定时任务、调用查杀引擎等
 
     4. 业务性插件就是可扩展的、根据业务需求进行增、删并且可以复用功能插件的部分。单独的插件就作为动态库调用。
 
        > 业务型插件公共使用的代码部分放在common中，比如病毒库升级逻辑
+       >
+       > 扫描、文件监控、升级、U盘防护、文件粉碎、主动防御等
 
 17. **Safed的实现**分为三个部分：
 
@@ -4726,9 +4740,23 @@ m_pPool->submit([this, pBundle]() {
 
 9. - [x] 威胁防护增加仅上报不处理功能
 
-10. 中控联调：
+10. - [x] 中控联调：中控配置联调
 
+    
 
+##### 2.1.2 二月任务
+
+|    二月任务    | 截至时间 | 完成 |
+| :------------: | :------: | :--: |
+| 中电十五研究所 |          |      |
+|     709bug     |          |      |
+|                |          |      |
+
+1. - [ ] 中电十五：705版本客户端不可删除白名单(白名单增加来源列)
+2. 709数据防护修改：
+   1. 表格添加时去重，界面提示语句需要修改
+   2. 删除时增加删除提示界面
+   3. 勾选框在选中时，删除才可以点击
 
 
 
@@ -7365,51 +7393,7 @@ m_pPool->submit([this, pBundle]() {
      libSysMonPolicyManage.so  libSysMonManage.so
      ```
 
-160. 三款AI开发工具对比
-
-     > 这些AI开发工具都是建立在AI大模型基础上的，比如 Anthropic的Claude、OpenAi的ChatGPT（精通对话的模型）、OpenAi的CodeX（精通代码的模型）、Google的Gemini、马斯克的Grok等
-
-     1、GitHub Copilot
-
-     -  “AI 同伴编程”工具，主要是 **代码补全／建议**，嵌入 IDE（VS Code)、JetBrains 等）直接使用。
-
-     - 同时提供 Chat 功能、CLI 等扩展形式。 
-
-     - 面向大多数开发者，希望加速常规开发流程。
-
-     2、Cursor
-
-     - 是一个 “AI 优化的代码编辑器”（其实是基于 VS Code 或类似，但加了 AI 能力）——也许可以理解为 “编辑器＋AI” 而不仅是 “补全工具” 。 
-
-       > 相当于Vscode + Copilot
-
-     - 对于开发者希望“更流畅地在编辑器里”被 AI 辅助的场景更强调。
-
-     3、Claude Code---**Coding agent(代码代理)**
-
-     - 出自 Anthropic，强调 “agentic coding assistant”——能够 **理解整个代码库**、执行命令、修改文件、提交代码、甚至跑测试。 
-
-     - 定位于更高级、自动化程度更高的开发辅助工具，不只是补全，而是 “让 AI 做一部分开发流程”
-
-       > 属于命令行编程工具(**CLI工具**）：CLI 是 **C**ommand **L**ine **I**nterface，**命令行接口**
-       >
-       > **CodeX**同样也是open AI开发的CLI工具：Codex模型是引擎，用於代碼翻譯，而GitHub Co-Pilot則是建立在Codex模型之上的一個服務，使代碼編寫更加容易
-
-161. AI编程的变革：
-
-     1. **IDE 智能提示**：代表了“字符级编程”的黄金时代，从 IntelliSense 到 TabNine，自动补全成为开发者的标配工具。
-     2. **Copilot 式补全**：开启了“函数级编程”时代。你只要写一句注释或函数名，它就能帮你补出整个实现逻辑，甚至包含 edge case 的处理。
-     3. **Codex 任务代理**：正式迈入“任务级编程”时代。你用自然语言分配一个任务，它能识别全局上下文，查阅依赖关系，主动完成整个功能开发并提交代码。
-
-162. AI coding细分方向
-
-     1. **AI-assisted Coding:** 以 **Cursor** 和 **GitHub Copilot** 为代表，它们是现有开发工作流的 “增强器”，致力于让专业开发者写代码更快、更爽。
-     2. **End-to-end Agent** 以 **Devin**、**Claude Code** 和 **Amp** 为代表，它们的目标是成为能独立完成任务的 “初级工程师”，将开发者从执行者提升为任务的分配者和审查者。Agent 同时也可能是作为合作者，特别是 Claude Code 这样 CLI based agent，我既可以和他 pair programming，也可以请他帮我干活。
-     3. **Vibe Coding / UGS:** 以 **v0** 和 **YouWare** 为代表，它们试图将代码的能力赋予非开发者，让他们通过自然语言创造应用和工具。
-
-163. 目标，学会使用Claude Code！
-
-164. 关于Node.js和npm
+160. 关于Node.js和npm
 
      1. Node.js 是一个**跨平台、开源的 JavaScript 运行时环境**。在 Node.js 出现之前，JavaScript 主要被限制在浏览器中运行，用于处理**网页的客户端**逻辑。它允许你在**服务器端**（后端）、**命令行工具**以及其他应用程序中运行 JavaScript 代码。
 
@@ -7431,36 +7415,38 @@ m_pPool->submit([this, pBundle]() {
 
            > 也就是说node.js本质上只提供了js的环境，实际上需要通过npm(命令行功能)，安装的三方模块扩展其功能
 
-165. WSL和VMware的区别
+161. WSL和VMware的区别
 
      1. WSL (Windows Subsystem for Linux)：在windows系统下提供一个与Windows继承的Linux开发环境，启动一个真实的Linux内核，与主机windows内核并行运行，共享大部分系统资源和文件系统访问权限。
      2. VMware Workstation/Player (传统虚拟机)：相当于一个软件，完全虚拟化一套硬件，在这个虚拟的硬件之上安装并运行一个独立的操作系统
 
-166. telnet命令，测试目标ip目标端口号是否开启
+162. telnet命令，测试**目标ip**目标端口号是否开启
+
+     > telnet是一种古老的远程登录协议，现在已被ssh取代。其主要用于排查网络故障
 
      ```
-     telnet ip port		
+     telnet [目标ip] [目标port]		
      ```
 
-167. netstat命令，查看本地端口的状态
+163. netstat命令，查看**本地**端口的状态
 
      ```
      netstat -ntlp
+     netstat -ntlp | grep [目标port]
      ```
 
-168. QRadioButton，只要都在同一个父widget下（或同一层次的容器），会自动互斥，默认启用 `autoExclusive`（对于单选按钮默认为 true）
+164. QRadioButton，只要都在同一个父widget下（或同一层次的容器），会自动互斥，默认启用 `autoExclusive`（对于单选按钮默认为 true）
 
-169. 对于C++中，private的虚函数在子类中的权限和是否能被重写的问题
+165. 对于C++中，private的虚函数在子类中的权限和是否能被重写的问题
 
      1. C++两个概念：
         1. **实现权（Overriding）**：子类是否有权定义该函数的行为。
         2. **访问权（Visibility）**：谁有权发起这个函数的调用。
      2. private/protected/public 只是定义了访问权，即该类实例、子类能否调用(考虑子类继承权限)
-     3. 
      4. 子类实现虚函数可以**不受父类该虚函数的访问权限影响**，可以自定义访问权限
      5. 父类定义了**纯虚函数**，子类必须实现，否则子类也是抽象类且实例化会报错(即不能实例)
-     
-170. linux下的包管理工具
+
+166. linux下的包管理工具
 
      | **比较维度**            | **Ubuntu / Debian 系**      | **CentOS / RHEL / Fedora 系** | **角色定位**                                    |
      | ----------------------- | --------------------------- | ----------------------------- | ----------------------------------------------- |
@@ -7478,12 +7464,24 @@ m_pPool->submit([this, pBundle]() {
         1. yum负责从服务器仓库下载rpm包并安装(同理，**自动调用rpm安装)**
         2. rpm是底层管理器，负责对本地的安装包的安装、解压等操作
 
+167. 
+
 ### 5. 末尾，
 
 1. 英语-长期学习
+
 2. AI工具Claude学习
+
 3. 行业方向分析，简历、总结、观望行情
+
 4. 理财、了解金融知识
+
+   > 标普500和纳斯达克100
+   >
+   > 沪深300,中证2000
+   >
+   > 去香港开银行卡、再开户，可以定投纳指
+
 5. 乐器、健身
 
 > 上半场：金融、认知、健康  

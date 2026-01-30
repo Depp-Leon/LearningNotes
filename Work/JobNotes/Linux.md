@@ -26,14 +26,6 @@
     Ctrl+Alt+T			//打开一个新的终端窗口
    ```
 
-3. kaliLinux历史命令自动补全
-
-   ```
-   ctrl + E
-   ```
-
-   > Kali 默认使用的是 **Zsh**（Z Shell）作为终端 shell，而不是 Bas
-
 4. Ubuntu文字输入法切换页：
 
    ```
@@ -58,14 +50,29 @@
 
 #### 1.2 命令
 
-1. linux下安装gdb
+1. telnet命令，测试**目标ip**目标端口号是否开启
+
+   > telnet是一种古老的远程登录协议，现在已被ssh取代。其主要用于排查网络故障
+   
+   ```
+   telnet [目标ip] [目标port]		
+   ```
+   
+2. netstat命令，查看**本地**端口的状态
+
+   ```
+   netstat -ntlp
+   netstat -ntlp | grep [目标port]
+   ```
+
+3. linux下安装gdb
 
    ```
    apt-get update
    apt-get install  gdb	// 如果杀毒软件运行中将会报错
    ```
-   
-2. 虚拟机挂起重新开启后，如果显示"有线未托管"，右上角丢失有线连接选项时，解决办法：
+
+4. 虚拟机挂起重新开启后，如果显示"有线未托管"，右上角丢失有线连接选项时，解决办法：
 
    1. 终端重启网络服务
 
@@ -84,13 +91,13 @@
       sudo service NetworkManager start 
       ```
 
-3. kali开启ssh服务
+5. kali开启ssh服务
 
    ```
    service ssh start
    ```
 
-4. linux关于磁盘和内存的命令
+6. linux关于磁盘和内存的命令
 
    ```
    df -Th		# disk free 查看磁盘占用空间情况		T 显示文件系统类型 h 以人类可读形式(GB MB)
@@ -98,10 +105,10 @@
    
    free -h 	# 查看内存占用情况
    top			# 实时监控系统进程、CPU 和内存使用情况。
-   netstat -ntlp | grep 3306	# 查看特定端口号
+   netstat -ntlp | grep 3306	# 查看本地特定端口号
    ```
 
-5. ubtuntu关于ssh远程连接的命令
+7. ubtuntu关于ssh远程连接的命令
 
    ```
    //1. 安装ssh，安装后其会自己启动
@@ -116,7 +123,7 @@
    ssh leslie@192.168.3.222
    ```
 
-6. 远程文件拷贝
+8. 远程文件拷贝
 
    ```
    scp file.txt user@remote_host:/path/to/destination/
@@ -129,13 +136,13 @@
    # 如果是文件夹需要加上-r参数
    ```
 
-7. 麒麟系统上文件夹远程连接服务器：在文件夹索引上方输入`ftp://192.168.1.6`即可远程连接
+9. 麒麟系统上文件夹远程连接服务器：在文件夹索引上方输入`ftp://192.168.1.6`即可远程连接
 
    麒麟系统从远程文件夹拉取文件时，需要拉到左侧"桌面"文件夹下，不可以直接拉到桌面，否则报错
 
    麒麟系统实际上是linux的另一个发行版，与ubuntu的命令类似，安装时也使用dpkg
 
-8. ubuntu给非root用户添加sudo权限
+10. ubuntu给非root用户添加sudo权限
 
    ```
    #方式一：
@@ -152,32 +159,32 @@
    	chenye    ALL=(ALL:ALL) ALL
    ```
 
-9. linux授权指令
+11. linux授权指令
 
-   1. `chown`命令用于更改文件或目录的所有者和/或所属组
+    1. `chown`命令用于更改文件或目录的所有者和/或所属组
 
-      ```
-      chown [OPTION] OWNER[:GROUP] FILE
-      # sudo chown -R leslie normal_develop	
-      # OWNER：新的所有者用户名或用户ID。
-      # GROUP：新的组名或组ID（可选，如果不提供，则不会更改组）。
-      # FILE：要修改的文件或目录。
-      # OPTION：可选项，常用的选项有 -R（递归修改目录和其内容的所有者）
-      ```
+       ```
+       chown [OPTION] OWNER[:GROUP] FILE
+       # sudo chown -R leslie normal_develop	
+       # OWNER：新的所有者用户名或用户ID。
+       # GROUP：新的组名或组ID（可选，如果不提供，则不会更改组）。
+       # FILE：要修改的文件或目录。
+       # OPTION：可选项，常用的选项有 -R（递归修改目录和其内容的所有者）
+       ```
 
-   2. `chmod`（change mode）命令用于更改文件或目录的权限。权限决定了谁可以读取、写入或执行文件
+    2. `chmod`（change mode）命令用于更改文件或目录的权限。权限决定了谁可以读取、写入或执行文件
 
-      ```
-      chmod [OPTION] MODE FILE
-      # MODE：设置文件权限的方式，可以使用符号模式或数字模式来指定权限。
-      # FILE：要修改权限的文件或目录。
-      # OPTION：常用选项包括 -R（递归修改目录及其内容的权限）
-      
-      chmod +x <file>		// 如果+前面不加所属人，那么默认是所有
-      chomd -R 777/+x	<filedocument>   // 对目录加-R，则递归授权 
-      ```
+       ```
+       chmod [OPTION] MODE FILE
+       # MODE：设置文件权限的方式，可以使用符号模式或数字模式来指定权限。
+       # FILE：要修改权限的文件或目录。
+       # OPTION：常用选项包括 -R（递归修改目录及其内容的权限）
+       
+       chmod +x <file>		// 如果+前面不加所属人，那么默认是所有
+       chomd -R 777/+x	<filedocument>   // 对目录加-R，则递归授权 
+       ```
 
-10. 关于授权
+12. 关于授权
 
    ```
    chmod -R		// -R 递归授权，该文件夹下所有权限统一
@@ -296,6 +303,12 @@
        ```
        rpm -e <包名>
        rpm -e chenxinsd
+       ```
+       
+    3. 解包命令
+
+       ```
+       rpm2cpio package.rpm | cpio -idmv
        ```
 
 18. deb包命令
@@ -578,6 +591,46 @@
          - 卸载Vmware，并使用cclean删除注册表
          - 重新下载安装，使用普通用户打开Vmware，打开虚拟网络编辑器，点击使用管理员权限更改，此时VMware01就会出来
       3. 避免出现问题，**虚拟机要选择挂起，避免关机**。因为如果出现虚拟机未完全关机就关闭VMware可能就会导致上述情况
+
+### 2. Kali Linux
+
+1. kaliLinux历史命令自动补全
+
+   ```
+   ctrl + E
+   ```
+
+   > Kali 默认使用的是 **Zsh**（Z Shell）作为终端 shell，而不是 Bas
+
+2. 解压命令
+
+   ```
+   gunzip XXX.gz
+   ```
+
+3. hydra
+
+   示例：使用hydra暴力破解ssh
+
+   ```
+   hydra -l root -P /usr/share/wordlists/rockyou.txt ssh://192.168.3.96 -t 4 -vV 
+   
+   hydra -l username -P /path/to/passwords.txt ssh://192.168.1.1 -t 4 -vV
+   -l：指定用户名
+   -L：指定用户名字典文件路径
+   -P：指定密码字典文件路径
+   -t：指定线程数
+   -vV：显示详细输出信息
+   -o：将结果输出到文件
+   ```
+
+4. kali自带字典
+
+   ```
+   cd /usr/share/wordlists/
+   gunzip rockyou.txt.gz
+   ```
+
 
 ### 2. VScode
 
