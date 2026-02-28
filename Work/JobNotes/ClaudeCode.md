@@ -1,3 +1,5 @@
+### 一、ClaudeCode
+
 #### 序章：AI编程大模型
 
 ##### 1. AI编程的变革：
@@ -99,7 +101,7 @@
 
 
 
-#### 一、安装过程
+#### 1.1、安装过程
 
 1. 安装nodejs
 
@@ -175,7 +177,7 @@
    2. 复制API key，填充到上述CCR配置文件中，并根据模型，更改对应的字段
    ```
 
-#### 二、使用
+#### 1.2、使用
 
 1. 只使用Claude Code(不使用CCR的情况下)，在目标项目下启动
 
@@ -213,15 +215,16 @@
 
    ```
    #配置~/.claude-code-router/config.json文件，填充url和key
-   #注：修改完配置后需要重启CCR服务
+   #注：修改完配置后需要重启CCR服务:
+   ccr restart //重启ccr
    
    cd your-project-folder
-   ccr mode		// 查看模型
+   ccr model		// 查看模型
    ccr start		// 启动ccr
    ccr code		// 启动cc
    ```
 
-#### 三、CC教程
+#### 1.3、CC教程
 
 > [Claude Code 最佳实践和使用技巧  | Claude Code中文网 - 国内镜像站 | 免费使用指南教程](https://www.claude-cn.org/posts/Claude-code-best-practices-tips.html)
 >
@@ -259,7 +262,7 @@
    ```
 
 
-#### 四、最佳实践
+#### 1.4、最佳实践
 
 [Claude Code最佳实践（Claude Code: Best practices）  | Claude Code中文网 - 国内镜像站 | 免费使用指南教程](https://www.claude-cn.org/posts/Claude-code-best-practices.html#e-代码库问答-)
 
@@ -310,3 +313,36 @@
 你也可以让一个 Claude 写测试，另一个写通过测试的代码。甚至可以让 Claude 实例间通过草稿本交流，指定谁写谁读。
 
 这种分工往往比单 Claude 处理所有任务效果更好
+
+
+
+
+
+### 二、Openclaw
+
+[OpenClaw | 能干活的 AI 助手](https://openclaws.io/zh/)
+
+**OpenClaw**（曾用名 Moltbot/ClawdBot）已经从一个简单的 Claude 转换器进化为**全球最火的开源个人 AI 智能体（Agent）框架**。
+
+#### 2.1、作用
+
+##### 1. 作为“桥梁”连接聊天软件
+
+>  OpenClaw 相当于一个**中控台(跨平台机器人)**。
+
+- **操作：** 你在电脑上启动 OpenClaw，然后在配置文件里填入你的 Telegram Bot Token、飞书 App Secret 或者 Discord 机器人信息。
+- **结果：** 之后你不需要打开浏览器，直接在手机 Telegram 里发个消息，家里的 OpenClaw 就会调用 Claude 模型思考并回信，**并且在手机上就能指挥家里的电脑**
+
+##### 2. 调用“本地技能” (Skills)
+
+> 它能执行你电脑上的指令，**自动执行任务**
+
+- **自动化：** 
+  - **文件操作：** “帮我把桌面上的所有 PDF 总结成一封邮件发给老板。”
+  - **网页自动化：** “帮我监控这个网页，如果降价了在飞书提醒我。”
+  - **心跳模式 (Heartbeat)：** AI 会定时“醒来”，主动检查你的邮箱或追踪股票。
+- **代码执行：** 配合 Anthropic 的 **Claude Code CLI**，它能直接在你的项目文件夹里写代码、跑测试。
+
+
+
+#### 2.2 安装过程

@@ -6,7 +6,7 @@
 
 2. 参数设置为可修改的，开放可修改接口
 
-3. 中文注释多的时候使用 `/**/`
+3. 中文注释多的时候使用 `/**/ `
 
    > 原因：如果使用//可能会导致编码时影响到注释后面的代码
 
@@ -2191,25 +2191,25 @@ m_pPool->submit([this, pBundle]() {
 5. **705**打包流程
 
    ```
-   // 1. 40上705仓库路径
-   cd ~/workspace2/git_repo/release_705
+   1. // 1. 40上705仓库路径
+cd ~/workspace2/git_repo/release_705
    
    // 2. 编译，执行快速编译脚本/ 或者单独去对应架构编译
    ./QuickCrossCompiling_proc.sh
    ./QuickCrossCompiling.sh
-   // X86在进程版编译前需要将bin.cmake中携带的界面相关部分注释掉
+// X86在进程版编译前需要将bin.cmake中携带的界面相关部分注释掉
    
    // 3. 打包路径，该文件夹下包含打包脚本
-   cd ~/workspace2/git_repo/release_705/Output/bin2.0/
+cd ~/workspace2/git_repo/release_705/Output/bin2.0/
    
    // 4. 打单个包
    vim package/pack/comp_ver_conf.ini		// 修改打包信息
    // 具体类型去vim package/pack/version_gen_fun 里找
-   ./make_packet.sh deb gen_deb			// 执行打包脚本，第一个参数deb包，第二个为带界面
+./make_packet.sh deb gen_deb			// 执行打包脚本，第一个参数deb包，第二个为带界面
    
    // 5， 打全量包
    up_pack.sh				// 全量包，默认chenxinsd
-   up_pack.sh vrv			// 北信源全量包
+up_pack.sh vrv			// 北信源全量包
    
    up_proc_pack.sh			// 服务器版全量
    up_sm_pack.sh			// 涉密版全量
@@ -2220,6 +2220,7 @@ m_pPool->submit([this, pBundle]() {
    // 6. 出完包，查看出包地址
    cat alpha_packets/ap.txt | grep Linux
    
+   //补充：当编译的时候发现报错，可能是编译库的时候报错，此时把正常分支中的对应lib库拿来即可
    ```
 
 6. 本地通过`192.168.1.6`(共用的包环境),拉取最新的包进行安装测试
@@ -4117,6 +4118,42 @@ m_pPool->submit([this, pBundle]() {
 
 19. - [x] 界面去掉最大化
 
+#### 2.13.14 一月任务
+
+|         一月任务         | 截至时间 | 完成 |
+| :----------------------: | :------: | :--: |
+|         bug修复          |          |      |
+| 设置中心界面按新需求修改 |          |      |
+|      与中控进行联调      |          |      |
+
+1. 设置中心需要更改的地方
+
+   - [x] 日志清理改为月
+
+   - [x] 通知管理去掉管理员下发的两项
+
+   - [x] 数据设置增加数据备份UI、对应跳转添加界面的UI
+
+   - [x] 默认填写值范围限制
+
+     > U盘扫描压缩包，-1扫描全部该版本去掉，中控下发/升级而来的-1全部替换为64
+
+2. - [x] 强力查杀出现两个弹窗
+
+3. - [x] 升级软件提示初始化失败
+
+4. - [x] 网络防护弹窗不消失且不能关闭
+
+5. - [x] 设置中心恢复默认设置，需要同步文档
+
+6. - [x] U盘自动处理，界面需要展示过程
+
+7. - [x] U盘处理时信任按钮需要关闭掉
+
+8. - [x] 威胁防护增加仅上报不处理功能
+
+9. - [x] 中控联调：中控配置联调
+
 ## 三、技术问题
 
 
@@ -4705,45 +4742,6 @@ m_pPool->submit([this, pBundle]() {
 
 
 
-##### 2.1.2 一月任务
-
-|         一月任务         | 截至时间 | 完成 |
-| :----------------------: | :------: | :--: |
-|         bug修复          |          |      |
-| 设置中心界面按新需求修改 |          |      |
-|      与中控进行联调      |          |      |
-
-1. 设置中心需要更改的地方
-   - [x] 日志清理改为月
-
-   - [x] 通知管理去掉管理员下发的两项
-
-   - [x] 数据设置增加数据备份UI、对应跳转添加界面的UI
-
-   - [x] 默认填写值范围限制
-
-     > U盘扫描压缩包，-1扫描全部该版本去掉，中控下发/升级而来的-1全部替换为64
-
-2. - [x] 强力查杀出现两个弹窗
-
-3. - [ ] 强力查杀升级病毒库之后，界面版本没有同步变更
-
-4. - [x] 升级软件提示初始化失败
-
-5. - [x] 网络防护弹窗不消失且不能关闭
-
-6. - [x] 设置中心恢复默认设置，需要同步文档
-
-7. - [x] U盘自动处理，界面需要展示过程
-
-8. - [x] U盘处理时信任按钮需要关闭掉
-
-9. - [x] 威胁防护增加仅上报不处理功能
-
-10. - [x] 中控联调：中控配置联调
-
-    
-
 ##### 2.1.2 二月任务
 
 |    二月任务    | 截至时间 | 完成 |
@@ -4752,21 +4750,49 @@ m_pPool->submit([this, pBundle]() {
 |     709bug     |          |      |
 |                |          |      |
 
-1. - [ ] 中电十五：705版本客户端不可删除白名单(白名单增加来源列)
+1. - [x] 中电十五：705版本客户端不可删除白名单(白名单增加来源列)
+
 2. 709数据防护修改：
-   1. 表格添加时去重，界面提示语句需要修改
-   2. 删除时增加删除提示界面
-   3. 勾选框在选中时，删除才可以点击
+   - [x] 表格添加时去重，界面提示语句需要修改
+   - [x] 删除时增加删除提示界面
+   - [x] 勾选框在选中时，删除才可以点击
+   
+3. - [x] 2007打开底部U盘弹窗黑屏
 
+4. 中控更换过期授权文件，界面没有同步正确信息，过期时间界面没有展示出来，需要在safed中进行打印
 
+5. windows界面bug：实时防护弹窗UI问题
+   - [ ] 文字提示，与彦青同步，是否标题为系统防护-大类
+   
+   - [x] 进程命令行：根据不同的行数设置不同的高度，3行以上增加滑动条
 
+   - [ ] 底部病毒信息增加框
+   
+6. - [x] 数据防护界面增加备注列，增加添加界面
 
+   1. 数据防护-勒索诱捕-例外的添加窗口（all）
+   2. 数据防护-数据备份-例外的添加窗口（win）
+   3. 高级防护-限制保护-数据的添加窗口（win）
 
+7. - [x] 病毒库升级界面在检查和下载过程中，titlebar展示最小化按钮，成功后展示关闭按钮
 
+8. - [x] 服务端下发软件升级没有日志
 
+9. longarch下发软件升级safed崩溃
 
+10. - [x] 设置中，威胁防护的监控模式，将推荐设置到轻量模式中
 
+11. 鸿蒙打包工具，调研打包时所需要的目录结构，时间需求
 
+    > [Command Line Tools - 下载中心 - 华为开发者联盟](https://developer.huawei.com/consumer/cn/download/command-line-tools-for-hmos)
+    >
+    > ophm
+    
+12. - [x] 鸿蒙708V11更换授权之后病毒库升级不可使用
+
+13. - [x] 实时防护开启按钮，开启的时候给中控上报动作
+
+    
 
 
 
@@ -6930,6 +6956,8 @@ m_pPool->submit([this, pBundle]() {
 
      2. 新语法的`connect()`,槽函数 **可以是任何普通成员函数、静态函数、自由函数、lambda**；且槽函数不必写在`slots:` 里。
 
+        > 但是信号端仍然由MOC生成，信号依然需要使用signal
+
         ```
         connect(button, &QPushButton::clicked, this, &MyClass::handleClick);
         // 新的connect使用的是函数指针，能够检测函数签名是否匹配，所以不能用同名不同参数的函数了。老语法直接把参数也放在字符串后面所以可以
@@ -6952,26 +6980,148 @@ m_pPool->submit([this, pBundle]() {
         1. 普通槽函数：信号发出 → Qt 的元对象系统（MOC）找到对应槽函数 → 调用。
         2. lambda槽：号发出时，Qt 会直接调用存储下来的 lambda（本质上是一个可调用对象(**函数指针)**）。
 
-135. qt设置样式表，出现某个地方设置不上的情况，检查是否继承了父类，父类的样式表与该样式表重名！
+135. Connect实现源码分析
+
+     1. 函数原型
+
+        ```
+        // 静态connect函数
+        static QMetaObject::Connection connect(
+            const QObject *sender, const char *signal,
+            const QObject *receiver, const char *method,
+            Qt::ConnectionType type = Qt::AutoConnection);
+        ```
+
+     2. 元对象系统(MOC)
+
+        1. 通过moc(元对象编译器)预处理源代码
+        2. 生成`moc_*.cpp`文件，其中包含信号的元信息
+        3. 每个QObject派生类都有一个对应的QMetaObject实例
+
+     3. connect函数内部实现
+
+        1. 参数验证和规范化
+        2. 信号和槽的索引查找
+        3. 创建Connection对象
+        4. 将Connection添加到发送者和接收者的连接列表中
+
+        ```c++
+        QMetaObject::Connection QObject::connect(...)
+        {
+            // 1. 参数检查
+            if (!sender || !receiver || !signal || !method)
+                return QMetaObject::Connection();
+            
+            // 2. 提取信号和槽的索引
+            QByteArray tmpSignal = QMetaObject::normalizedSignature(signal);
+            const char *signalName = tmpSignal.constData();
+            int signal_index = QMetaObjectPrivate::indexOfSignalRelative(
+                &sender->metaObject()->d, signalName);
+            
+            QByteArray tmpMethod = QMetaObject::normalizedSignature(method);
+            const char *methodName = tmpMethod.constData();
+            int method_index = QMetaObjectPrivate::indexOfMethodRelative(
+                &receiver->metaObject()->d, methodName);
+            
+            // 3. 创建Connection对象
+            QMetaObject::Connection *c = new QMetaObject::Connection;
+            c->sender = sender;
+            c->signal_index = signal_index;
+            c->receiver = receiver;
+            c->method_index = method_index;
+            c->connectionType = type;
+            
+            // 4. 添加到连接列表
+            QObjectPrivate::get(sender)->addConnection(signal_index, c);
+            QObjectPrivate::get(receiver)->addConnection(-1, c);
+            
+            return QMetaObject::Connection(c);
+        }
+        ```
+
+     4. 信号发射过程
+
+        1. 调用moc生成的信号函数
+        2. 信号函数调用`QMetaObject::activate`
+        3. `activate`查找所有连接的槽并调用它们
+
+        ```c++
+        // moc生成的信号函数
+        void MyClass::mySignal(int arg1)
+        {
+            void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(&arg1)) };
+            QMetaObject::activate(this, &staticMetaObject, 0, _a);
+        }
+        
+        // QMetaObject::activate实现
+        void QMetaObject::activate(QObject *sender, int signal_index, void **argv)
+        {
+            QObjectPrivate *d = QObjectPrivate::get(sender);
+            if (Q_UNLIKELY(!d->connections))
+                return;
+            
+            // 获取该信号的所有连接
+            QObjectPrivate::ConnectionList *list =
+                &d->connections[signal_index];
+            
+            // 遍历所有连接并调用槽函数
+            for (QObjectPrivate::Connection *c = list->first; c; c = c->next) {
+                if (!c->receiver)
+                    continue;
+                
+                // 根据连接类型决定调用方式(直接调用或队列调用)
+                if (c->connectionType == Qt::DirectConnection) {
+                    c->call(sender, argv);
+                } else if (c->connectionType == Qt::QueuedConnection) {
+                    QCoreApplication::postEvent(c->receiver, 
+                        new QMetaCallEvent(c, sender, signal_index, argv));
+                }
+                // 其他连接类型处理...
+            }
+        }
+        ```
+
+     5. 槽函数调用
+
+        ```c++
+        // 最终槽函数通过QMetaObject::metacall调用
+        int QMetaObject::metacall(QObject *object, Call cl, int idx, void **argv)
+        {
+            // 通过索引找到对应的成员函数并调用
+            const QMetaObject *m = object->metaObject();
+            QMetaMethod method = m->method(idx);
+            method.invoke(object, Qt::DirectConnection, 
+                argv[1], argv[2], argv[3], ...);
+            return -1;
+        }
+        ```
+
+     6. 新的Connect避免了字符串解析，第二步conncet的时候直接存储函数指针，第五步槽函数调用直接使用函数指针而不需要再通过查找元对象表获取槽函数
+
+        ```c++
+        connect(sender, &Sender::signal, receiver, &Receiver::slot);
+        ```
+
+136. qt设置样式表，出现某个地方设置不上的情况，检查是否继承了父类，父类的样式表与该样式表重名！
 
      1. 要么不继承父类，放置父类qss干扰
      2. 要么自己的样式表中全部加上当前类的objectName的前缀
 
-136. qt构画界面时，使用布局还是widget：
+137. qt构画界面时，使用布局还是widget：
 
      1. 如果这一块有特殊背景/边框，那么需要使用widget
      2. 如果需要设置固定区域(设置大小/长宽限制等)/或者设置隐藏/展示等功能需要使用widget
      3. 布局仅仅有设置上下左右及间距的作用，其他功能都得使用容器类，当然容器类自身也可以设置布局
      4. 使用widget时，如果设置了整体的背景，这个widget可能展示的是默认的背景，可能需要将widget设置为透明才能展示出来全局背景
 
-137. 项目使用多个仓库
+138. 项目使用多个仓库
 
      1. 界面使用develop_ui仓库
      2. 后台使用normal_development仓库
      3. 第三方库使用third_library仓库
      4. 项目目录下即这三个仓库，编写cmakelist
 
-138. qt中使用了自定义BtnFrame的点击事件，如果这个区域的按钮想要单独处理，可以在点击事件中加入下面代码
+139. qt中使用了自定义BtnFrame的点击事件，如果这个区域的按钮想要单独处理，可以在点击事件中加入下面代码
 
      ```c++
      void BtnFrame::mousePressEvent(QMouseEvent *event)
@@ -6990,7 +7140,7 @@ m_pPool->submit([this, pBundle]() {
 
      > 使用之前的也可以，只要有`QFrame::mousePressEvent(event);`可以让事件继续处理即可
 
-139. 新版通信流程
+140. 新版通信流程
 
      1. 初始化：
         1. main中单例构造model和callback对象
@@ -7002,7 +7152,7 @@ m_pPool->submit([this, pBundle]() {
      >
      > 这个方式model完全是c++对象，通过callback（定义了Object宏）来与界面建立信号槽；可能是因为model层是供Linux和Windows两个界面RJJH的原因，所以加了中间callback回调对象，从而不同平台需要什么信号槽和功能自己定义
 
-140. Qt中信号槽的参数如果是自定义类型的话会报错：
+141. Qt中信号槽的参数如果是自定义类型的话会报错：
 
      ```
      QObject::connect: Cannot queue arguments of type ‘MyClass’ (Make sure ‘MyClass’ is registed using qRegisterMetaType().)
@@ -7088,7 +7238,7 @@ m_pPool->submit([this, pBundle]() {
                     this, SLOT(onSettingChanged(const setting::SettingModelConfig &)));
         ```
 
-141. 关于Qt的自定义文件路径选择框
+142. 关于Qt的自定义文件路径选择框
 
      1. 使用tree_view作为样式框
      2. 使用QFileSystemModel 作为数据model
@@ -7167,13 +7317,13 @@ m_pPool->submit([this, pBundle]() {
      }
      ```
 
-142. protobuffer删除repeated数据时，同vector等容器一样需要考虑迭代器失效的问题
+143. protobuffer删除repeated数据时，同vector等容器一样需要考虑迭代器失效的问题
 
      > 删除某个元素后，后面的元素会自动前移，保持顺序。
 
      删除时如果正向遍历会导致下标错乱，推荐**倒序遍历删除**，这和 `std::vector` 删除元素的最佳实践一致。
 
-143. Qt信号槽出现崩溃：新界面在实时防护界面跳转到实时防护设置界面时，出现崩溃
+144. Qt信号槽出现崩溃：新界面在实时防护界面跳转到实时防护设置界面时，出现崩溃
 
      ```c++
      m_currentWidget = new RealTimeProtect;			// 主页的mainpage的widget换为实时防护的widget
@@ -7205,7 +7355,7 @@ m_pPool->submit([this, pBundle]() {
      m_currentWidget = widget;
      ```
 
-144. Qt程序中 **启动另一个 Qt 程序（或任何外部可执行文件）**，可以使用**QProcess**来完成
+145. Qt程序中 **启动另一个 Qt 程序（或任何外部可执行文件）**，可以使用**QProcess**来完成
 
      ```
      QString program = "/home/leslie/MyQtApp/bin/OtherApp";  // 可执行文件路径
@@ -7232,7 +7382,7 @@ m_pPool->submit([this, pBundle]() {
      | `QProcess::startDetached()` | ✅ 是         | ❌ 不行       | ❌ 不退出         |
      | `QProcess::execute()`       | ❌ 否（阻塞） | ❌ 不行       | ✅ 会退出         |
 
-145. Cmake中`add_library()` 中的几种库类型区别
+146. Cmake中`add_library()` 中的几种库类型区别
 
      ```
      add_library(target_name [STATIC | SHARED | MODULE | OBJECT | INTERFACE])
@@ -7247,7 +7397,7 @@ m_pPool->submit([this, pBundle]() {
      | `OBJECT`    | 对象库 | ✅ 有         | ❌ 不生成独立文件（只生成 `.o`）   | 将多个库合并编译为中间对象以重用          |
      | `INTERFACE` | 接口库 | ❌ 无         | ❌ 不生成任何文件                  | 仅用于传递编译选项、宏定义、include路径等 |
 
-146. CMake中`target_source()`三种修饰符
+147. CMake中`target_source()`三种修饰符
 
      ```
      target_sources(<target>
@@ -7284,7 +7434,7 @@ m_pPool->submit([this, pBundle]() {
      target_sources(myApp PRIVATE main.cpp utils.cpp widget.cpp)
      ```
 
-147. C++11的委托构造函数：“带参构造函数委托给无参（或另一个）构造函数去做初始化”，即委托构造
+148. C++11的委托构造函数：“带参构造函数委托给无参（或另一个）构造函数去做初始化”，即委托构造
 
      ```
      CustomTipWidget::CustomTipWidget(QWidget *parent)
@@ -7312,7 +7462,7 @@ m_pPool->submit([this, pBundle]() {
      2. 委托构造不能形成循环（禁止 A 委托 B，B 又委托 A）。
      3. 委托构造中不能让自身的初始化列表覆盖被委托构造的初始化——**被委托**构造函数负责实际的基类/成员初始化（所以通常不会在委托者里再写成员初始化）。
 
-148. Qt中QObject（和 QWidget）是不可拷贝的：拷贝构造和拷贝赋值被删除（deleted）。因此任何导致编译器尝试调用拷贝/移动构造的写法都会报类似“deleted function … cannot be referenced”的错误。
+149. Qt中QObject（和 QWidget）是不可拷贝的：拷贝构造和拷贝赋值被删除（deleted）。因此任何导致编译器尝试调用拷贝/移动构造的写法都会报类似“deleted function … cannot be referenced”的错误。
 
      ```
      // 下面会调用一次拷贝构造函数，这个类继承QWidget/QLabel，没有拷贝构造函数所有会报错
@@ -7321,27 +7471,27 @@ m_pPool->submit([this, pBundle]() {
      CustomApplyTipWidget tip(CustomApplyTipWidget::TipType::WARNING, this);
      ```
 
-149. Qt的界面，关于界面close后进程关闭的问题
+150. Qt的界面，关于界面close后进程关闭的问题
 
      1. 如果界面调用 `this->close()` 会尝试关闭并隐藏窗口并发送 `QCloseEvent`，它本身不是等价于 `delete`。当且仅当没有其它可见窗口且 `QApplication::quitOnLastWindowClosed` 为 true（默认是 true），事件循环会退出，`app.exec()`返回，`main()` 结束，进程才会退出。
      2. 如果界面是**堆对象**，且**没有父对象**。那么需要对界面设置`setAttribute(Qt::WA_DeleteOnClose)`，此时 `close()` 会触发 `deleteLater()`，对象会在事件循环空闲时被删除（安全，因为对象是 heap 分配）。
 
-150. Qt使用了`QClipboard`来复制内容到剪切板之后，VM的右键复制粘贴不能和Window联动了，是因为Linux有两个剪切板，代码中使用了`QClipboard`之后`PRIMARY`就用不了了，所以需要重启剪贴板同步服务
+151. Qt使用了`QClipboard`来复制内容到剪切板之后，VM的右键复制粘贴不能和Window联动了，是因为Linux有两个剪切板，代码中使用了`QClipboard`之后`PRIMARY`就用不了了，所以需要重启剪贴板同步服务
 
      ```
      sudo systemctl restart vmware-tools
      #或
      sudo /usr/bin/vmware-user
      ```
-     
-151. 对于Dialog来说， — 在通常情况下调用 QDialog::accept() 或 QDialog::reject() 会结束对话并把它从屏幕上移除（关闭/隐藏）。
 
-152. 控件/自定义控件，设置禁用之后(setDiabale(true))，
+152. 对于Dialog来说， — 在通常情况下调用 QDialog::accept() 或 QDialog::reject() 会结束对话并把它从屏幕上移除（关闭/隐藏）。
+
+153. 控件/自定义控件，设置禁用之后(setDiabale(true))，
 
      1. 会禁用：鼠标点击/按键、样式渲染(:diabled)
      2. 不会禁用：enter/leave/hover等状态
 
-153. 部分Ubuntu系统，右上角系统托盘界面不生效的原因：
+154. 部分Ubuntu系统，右上角系统托盘界面不生效的原因：
 
      1. 个别系统不支持嵌入 QWidget，只允许原生菜单 QMenu。如果是在QtDesinger中创建的界面(QDialog/QWidget)等都不会显示出来
 
@@ -7351,7 +7501,7 @@ m_pPool->submit([this, pBundle]() {
 
         > 桌面环境可以理解为Windows 的“任务栏 + 桌面 + 开始菜单 + 系统托盘”的整套 UI
 
-154. 总结安装中控
+155. 总结安装中控
 
      1. 准备好中控安装包
      2. dpkg安装
@@ -7359,7 +7509,7 @@ m_pPool->submit([this, pBundle]() {
      4. 初始密码：Vsecure@2016
      5. 中控中导入授权(从官网下载试用授权文件)
 
-155. Git，执行了错误的命令，如何回退：
+156. Git，执行了错误的命令，如何回退：
 
      案例：使用了`git pull --rebase`，解决完冲突，使用失误，执行了`git rebase --skip`,导致本次提交的内容全部消失
 
@@ -7373,13 +7523,13 @@ m_pPool->submit([this, pBundle]() {
      git reset --hard HEAD@{2}
      ```
 
-156. 误区：堆对象delete之后，只是将其内存销毁。但是外面其指针也需要手动置为nullptr，否则如果其他再次访问这个指针将会出错
+157. 误区：堆对象delete之后，只是将其内存销毁。但是外面其指针也需要手动置为nullptr，否则如果其他再次访问这个指针将会出错
 
      > 同理，包括Qt的`m_settingDlg->setAttribute(Qt::WA_DeleteOnClose);`也是当关闭界面时自动清理堆空间，但是`m_settingDlg`仍指向那个地址，此时需要手动将其置空
 
-157. Qt中的`QPointer`是是“受保护的指针”，它保存一个裸指针，并在所指向的 QObject被销毁时自动被置为 `nullptr`。
+158. Qt中的`QPointer`是是“受保护的指针”，它保存一个裸指针，并在所指向的 QObject被销毁时自动被置为 `nullptr`。
 
-158. 查看主防配置文件，需要解密
+159. 查看主防配置文件，需要解密
 
      ```
      sudo ./JYToolBox --decrypt  ../etc/ZyHips.xml temp.xml
@@ -7387,13 +7537,13 @@ m_pPool->submit([this, pBundle]() {
      // 加密使用 eacrypt
      ```
 
-159. 启动的时候如果加载libSysMonPolicyManage崩溃，需要替换这两个库，这两个库在另外的仓库编译
+160. 启动的时候如果加载libSysMonPolicyManage崩溃，需要替换这两个库，这两个库在另外的仓库编译
 
      ```
      libSysMonPolicyManage.so  libSysMonManage.so
      ```
 
-160. 关于Node.js和npm
+161. 关于Node.js和npm
 
      1. Node.js 是一个**跨平台、开源的 JavaScript 运行时环境**。在 Node.js 出现之前，JavaScript 主要被限制在浏览器中运行，用于处理**网页的客户端**逻辑。它允许你在**服务器端**（后端）、**命令行工具**以及其他应用程序中运行 JavaScript 代码。
 
@@ -7415,12 +7565,12 @@ m_pPool->submit([this, pBundle]() {
 
            > 也就是说node.js本质上只提供了js的环境，实际上需要通过npm(命令行功能)，安装的三方模块扩展其功能
 
-161. WSL和VMware的区别
+162. WSL和VMware的区别
 
      1. WSL (Windows Subsystem for Linux)：在windows系统下提供一个与Windows继承的Linux开发环境，启动一个真实的Linux内核，与主机windows内核并行运行，共享大部分系统资源和文件系统访问权限。
      2. VMware Workstation/Player (传统虚拟机)：相当于一个软件，完全虚拟化一套硬件，在这个虚拟的硬件之上安装并运行一个独立的操作系统
 
-162. telnet命令，测试**目标ip**目标端口号是否开启
+163. telnet命令，测试**目标ip**目标端口号是否开启
 
      > telnet是一种古老的远程登录协议，现在已被ssh取代。其主要用于排查网络故障
 
@@ -7428,16 +7578,16 @@ m_pPool->submit([this, pBundle]() {
      telnet [目标ip] [目标port]		
      ```
 
-163. netstat命令，查看**本地**端口的状态
+164. netstat命令，查看**本地**端口的状态
 
      ```
      netstat -ntlp
      netstat -ntlp | grep [目标port]
      ```
 
-164. QRadioButton，只要都在同一个父widget下（或同一层次的容器），会自动互斥，默认启用 `autoExclusive`（对于单选按钮默认为 true）
+165. QRadioButton，只要都在同一个父widget下（或同一层次的容器），会自动互斥，默认启用 `autoExclusive`（对于单选按钮默认为 true）
 
-165. 对于C++中，private的虚函数在子类中的权限和是否能被重写的问题
+166. 对于C++中，private的虚函数在子类中的权限和是否能被重写的问题
 
      1. C++两个概念：
         1. **实现权（Overriding）**：子类是否有权定义该函数的行为。
@@ -7446,7 +7596,7 @@ m_pPool->submit([this, pBundle]() {
      4. 子类实现虚函数可以**不受父类该虚函数的访问权限影响**，可以自定义访问权限
      5. 父类定义了**纯虚函数**，子类必须实现，否则子类也是抽象类且实例化会报错(即不能实例)
 
-166. linux下的包管理工具
+167. linux下的包管理工具
 
      | **比较维度**            | **Ubuntu / Debian 系**      | **CentOS / RHEL / Fedora 系** | **角色定位**                                    |
      | ----------------------- | --------------------------- | ----------------------------- | ----------------------------------------------- |
@@ -7464,7 +7614,64 @@ m_pPool->submit([this, pBundle]() {
         1. yum负责从服务器仓库下载rpm包并安装(同理，**自动调用rpm安装)**
         2. rpm是底层管理器，负责对本地的安装包的安装、解压等操作
 
-167. 
+168. **SDK**（Software Development Kit，软件开发工具包）是给**程序员**用的“工具箱”。而我们平时说的**正常版本**（比如 App 或安装包）是给**普通用户**用的“成品”
+
+     SDK 不是一个单一的文件，通常是一堆资源的集合，可以供开发者调用接口，继承到别的软件中。
+
+     1. **库文件（Libraries）：** 已经写好的核心代码逻辑。
+     2. **API 文档：** 告诉开发者怎么调用这些功能的“说明书”。
+     3. **示例代码（Demo）：** 演示如何正确使用这个工具。
+     4. **辅助工具：** 调试、编译或打包时用的小工具。
+
+169. Qt实现最小化到桌面系统菜单(注意不是右上角托盘)：
+
+     ```
+     // Qt::FramelessWindowHint：去掉系统窗口框架
+     // Qt::WindowSystemMenuHint：请求系统菜单的支持
+     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowSystemMenuHint);
+     
+     // 设置title
+     this->setWindowTitle(tr("升级"));
+     
+     // 设置最小化图标
+     this->setWindowIcon(QIcon(":/skin/default/logo_24_blue.png"));
+     ```
+
+170. Qt信号槽使用函数指针的链接方式，不依赖于MOC，普通成员函数也可以被调用
+
+     ```
+     connect(ui->titleBar, &TitleBar::sigBtnCloseClicked, this, &UpgradeCommonPagesDialog::closeDialog);
+     // closeDialog可以只是public声明权限
+     ```
+
+     旧式字符串链接要求目标方法存在于类的元对象（即必须声明为 slots），否则连接会失败
+
+     ```
+     connect(ui->titleBar, SIGNAL(sigBtnCloseClicked()), this, SLOT(closeDialog()));
+     // 这种方式依赖于MOC，closeDialog必须声明为slot
+     ```
+
+171. QTextEdit和QPlainTextEdit的区别
+
+     | **特性**     | **QTextEdit**                                  | **QPlainTextEdit**                       |
+     | ------------ | ---------------------------------------------- | ---------------------------------------- |
+     | **支持格式** | **富文本 (HTML/Markdown)**、表格、图片、超链接 | **纯文本** (仅支持简单的字体样式和颜色)  |
+     | **性能**     | 处理大文件时较慢，内存占用高                   | **针对大文件优化**，性能极佳，响应快     |
+     | **换行逻辑** | 基于文本块（Paragraph），计算较复杂            | 针对**逐行显示**进行了高度优化           |
+     | **主要用途** | 制作简历、说明文档、显示带格式的日志           | **编写代码**、显示海量日志、大型文本编辑 |
+     | **底层实现** | `QTextDocument` 全功能支持                     | 简化的文档模型，侧重于行操作             |
+
+172. 基于QPlainTextEdit的自定义控件：
+
+     需求：自定义文本显示控件，支持多行文本显示和自动换行，并根据内容行数自动调整高度和滚动条显示。
+
+     实现：
+
+     1. 使用只读的 QPlainTextEdit 作为内部显示器
+     2. 把全文和字体交给 QTextLayout，它负责把字符映射成可绘制的段落，从而计算具体的行数
+     3. 根据行数来设置对应的高度，同时当函数大于3时，开启QPlainTextEdit的滚动条
+
+     应用：该自定义控件继承于Qwidget，自己在代码构控件。在QDesinger中只需要添加QWdie并将其提升为该自定义控件即可
 
 ### 5. 末尾，
 
