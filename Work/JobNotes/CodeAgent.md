@@ -1,6 +1,4 @@
-### 一、ClaudeCode
-
-#### 序章：AI编程大模型
+### 序章：AI编程大模型
 
 ##### 1. AI编程的变革：
 
@@ -101,10 +99,22 @@
 
 
 
+### 一、ClaudeCode
+
+Claude Code 是 [Anthropic](https://zhida.zhihu.com/search?content_id=270746772&content_type=Article&match_order=1&q=Anthropic&zhida_source=entity) 推出的命令行 AI 编程助手，直接跑在你的终端里。它不是网页聊天框，也不是 IDE 里那种补全插件。它能理解你整个代码库，能自己读文件改文件，能跑 shell 命令，能操作 git。说白了它不是那种你问一句它答一句的聊天机器人，是真能帮你干活的。
+
 #### 1.1、安装过程
 
 1. 安装nodejs
 
+   > 为何要使用node.js：
+   >
+   > 1. ClaudeCode、CodeX等命令行编程代理工具都是使用JavaScript写的，需要运行在Node.js环境下。在web应用上或者AI模型本质上是**通过 HTTP 或 WebSocket 协议在云端运行**的，Node.js使用的是 Google 的 **V8 引擎**（和 Chrome 浏览器一模一样）,其这意味着，它更有利于处理 JSON 数据、异步请求（async/await）以及流式传输（Streaming）。
+   > 2. Node.js自带的npm包管理工具，可以直接从其开源的插件/工具库下载安装包
+   > 3. 可以实现跨平台开发：JS脚本在 Windows/Mac/Linux 上几乎是一模一样的，不需要担心兼容问题。
+
+   > 注意：
+   >
    > 1. 确保安装的是18.0版本以后的，需要通过npm进行网络下载
    > 2. 如果不用root，而是普通用户，建议使用第二种安装，避免ccr因为权限问题启动时找不到模型
 
@@ -316,9 +326,97 @@
 
 
 
+### 二、CodeX
+
+CodeX 是 **OpenAI** 推出的 AI 编程助手，支持 CLI（命令行）、IDE 插件和云端三种使用方式，集代码生成、解释、调试、重构于一体。
+
+#### 2.1 安装过程
+
+> [国内使用 CodeX 操作手册（2026 年最新版）国内使用 CodeX 操作手册（2026 年最新版） CodeX 是 - 掘金](https://juejin.cn/post/7595034434975481894)
+
+1. 同样需要安装Node.js
+
+2. 通过npm安装codex
+
+   ```
+   # 1. 检查 Node.js 版本
+   node -v  # 应 ≥ v18，推荐 v22+
+   
+   # 2. 安装 CodeX CLI
+   npm install -g @openai/codex
+   ```
+
+3. 获取API密钥，可以购买官方或者中转平台(便宜)
+
+   > [仪表板 - NEW CLI](https://foxcode.rjj.cc/dashboard)
+   >
+   > [模型中心｜硅基流动 SiliconFlow 大模型云服务](https://siliconflow.cn/models)
+   >
+   > [WolfAI - 全球AI聚合平台](https://wolfai.top/pricing)
+   >
+   > [首页 - KL API](https://api.kl-api.info/)
+   >
+   > [API keys | Google AI Studio](https://aistudio.google.com/api-keys?project=gen-lang-client-0812074526) （只是体验的话可以在此使用免费API）
+
+4. 打开/新建`~/.codex/config.toml`
+
+   ```
+   model_provider = "fox"
+   # 可配置gpt-5或gpt-5-codex
+   model = "gpt-5"
+   # 可配置high medium low minimal
+   model_reasoning_effort = "high"
+   disable_response_storage = true
+   
+   # foxcode配置
+   [model_providers.fox]
+   name = "fox"
+   base_url = "https://code.newcli.com/codex/v1"
+   wire_api = "responses"
+   requires_openai_auth = true
+   ```
+
+   > 注意不同中转平台的 `base_url` 和 `model_provider` 名称不同，请按平台文档填写
+
+5. 打开/新建`~/.codex/auth.json`
+
+   ```
+   {
+     "OPENAI_API_KEY": "sk-ant-oat01-OTcW425bFr9CYrAG51-YucrnPw_eikeEI7bisEZQDNTCMAk2TD89d_df_86m7-3iVLcDT9JosW4me1BneYo1S5X6c8PgEAA"
+   }
+   ```
+
+   > 替换为目标API
 
 
-### 二、Openclaw
+
+#### 2.2 使用
+
+1. 如果有ChatGpt plus账号
+
+   ```
+   codex
+   ```
+
+   系统会自动弹出浏览器，使用你的 ChatGPT 账号登录，授权后 Token 会自动保存到 `~/.codex/token`，无需手动配置 API Key 。
+
+2. 如果使用中转API，确保 `auth.json` 和 `config.toml` 已正确配置，然后运行：
+
+   ```
+   codex
+   ```
+
+
+
+#### 2.3 插件CodeX
+
+配置过上述两个配置文件后，直接在VScode中安装CodeX，即可使用
+
+
+
+
+
+### 三、Openclaw
 
 [OpenClaw | 能干活的 AI 助手](https://openclaws.io/zh/)
 
