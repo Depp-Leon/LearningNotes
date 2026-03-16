@@ -205,6 +205,17 @@ Claude Code 是 [Anthropic](https://zhida.zhihu.com/search?content_id=270746772&
    echo -e '\n export ANTHROPIC_BASE_URL=连接点url' >> ~/.bashrc
    echo -e '\n export ANTHROPIC_AUTH_TOKEN=你的key' >> ~/.zshrc
    echo -e '\n export ANTHROPIC_BASE_URL=连接点url' >> ~/.zshrc
+   source ~/.bashrc  # 或 source ~/.zshrc
+   
+   #实例：
+   echo -e '\n export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-OTcW425bFr9CYrAG51-YucrnPw_eikeEI7bisEZQDNTCMAk2TD89d_df_86m7-3iVLcDT9JosW4me1BneYo1S5X6c8PgEAA' >> ~/.bash_profile
+   echo -e '\n export ANTHROPIC_BASE_URL=https://code.newcli.com/claude/aws' >> ~/.bash_profile
+   echo -e '\n export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-OTcW425bFr9CYrAG51-YucrnPw_eikeEI7bisEZQDNTCMAk2TD89d_df_86m7-3iVLcDT9JosW4me1BneYo1S5X6c8PgEAA' >> ~/.bashrc
+   echo -e '\n export ANTHROPIC_BASE_URL=https://code.newcli.com/claude/aws' >> ~/.bashrc
+   echo -e '\n export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-OTcW425bFr9CYrAG51-YucrnPw_eikeEI7bisEZQDNTCMAk2TD89d_df_86m7-3iVLcDT9JosW4me1BneYo1S5X6c8PgEAA' >> ~/.zshrc
+   echo -e '\n export ANTHROPIC_BASE_URL=https://code.newcli.com/claude/aws' >> ~/.zshrc
+   source ~/.bashrc
+   
    
    #重启终端后直接执行
    cd your-project-folder
@@ -229,7 +240,7 @@ Claude Code 是 [Anthropic](https://zhida.zhihu.com/search?content_id=270746772&
    ccr restart //重启ccr
    
    cd your-project-folder
-   ccr model		// 查看模型
+   ccr model		// 查看模型    注意：更换完模型之后，实际上是对配置文件做了修改，所以还需要重启ccr
    ccr start		// 启动ccr
    ccr code		// 启动cc
    ```
