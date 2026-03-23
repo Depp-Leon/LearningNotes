@@ -1646,8 +1646,33 @@
 
     1. std::find 查找特定值（使用 == 比较）。
     2. std::find_if 查找满足自定义条件的元素，更加灵活。
+    
+21. 关于`std::function`:C++11 标准库中的一个**函数对象包装器**，定义在 `<functional>` 头文件中
 
+    - 它可以保存、复制和调用任何可调用对象（**普通函数、lambda、成员函数指针、仿函数**等）。
 
+    ```c++
+    #include <functional>
+    #include <iostream>
+    
+    std::function<int(int, int)> add = [](int a, int b) { return a + b; };
+    std::cout << add(2, 3) << std::endl; // 输出 5
+    ```
+
+22. **当 lambda 只有一种/一条 return 语句时，编译器可以自动推断返回类型**，所以可以省略 `-> 返回类型`。
+    如果 lambda 有多条 return 或返回类型不明确，建议显式写 `-> 返回类型`，否则可能推断错误或编译失败。
+
+    ```c++
+    auto f1 = [](int a, int b) { return a + b; };         // 自动推断为 int
+    auto f2 = [](int a, int b) -> int { return a + b; };  // 显式指定为 int
+    
+    auto f = [](bool flag) {
+        if (flag) return 1;
+        else return 2.0; // int 和 double 混用，需写 -> double
+    };
+    ```
+
+23. 
 
 ### 5. 时间
 
@@ -2497,10 +2522,137 @@
    2. 花括号 `{}` 是 **列表初始化**（list initialization）的一部分,优点：
       1. **列表初始化**：花括号 `{}` 会使用列表初始化来初始化对象，且会直接构造对象，而不是使用拷贝构造函数，相当于使用了**全是列表初始化的构造函数**
       2. **防止窄化转换**：如果你用花括号进行初始化，编译器会确保没有不合适的类型转换(即编译时会检查，确保**类型安全**)
+   
+8. 关于虚函数重写的问题
 
+   1. 子类实现父类的虚函数，这个函数还是虚函数吗？
 
+      > 只要父类的函数是 `virtual`，子类无论是否加 `virtual`，它实现（重写）这个函数后，这个函数依然是虚函数。这叫**虚函数的继承性**。
 
+   2. 子类的子类再实现这个函数，还是虚函数吗？
 
+      > **还是虚函数。**只要最上层的父类声明了 `virtual`，所有后代类实现的同名同参数函数，都是虚函数
+
+   3. 子类实现虚函数时还需要加 `virtual` 吗？
+
+      > **不需要加也可以。**加不加 `virtual` 都行，效果一样。加上只是为了代码可读性，提醒别人这是虚函数。原因是虚函数的继承性，只要父类的函数是虚函数，子类仍然是虚函数
+
+9. 关于类的初始化使用`()`还是`{}`的问题
+
+   1. 普通类的初始化
+
+      ```c++
+      MyClass obj1();   // 声明了一个函数，不是对象！（最容易误用）
+      MyClass obj2{};   // 正确，使用大括号初始化
+      MyClass obj3;     // 默认构造
+      MyClass obj4 = MyClass(); // 正确，调用无参构造后拷贝构造
+      MyClass obj5 = MyClass{}; // 正确，调用无参构造后拷贝构造
+      ```
+
+   2. 对于带参数的类的构造函数，两种都可以
+
+      ```
+      MyClass obj6(1, 2);
+      MyClass obj7{1, 2};
+      ```
+
+      > 推荐用大括号 `{}`，可以避免“最令人困惑的解析”（Most Vexing Parse）问题。
+
+   3. 如果是类的聚合，类B为类A的成员，则类A在初始化的时候自动调用类B的构造函数
+
+      > 所以推荐使用类的指针，这样成员只是一个指针，而不需要构造初始化
+
+      ```c++
+      class MyClass {
+      public:
+         MyClass(int x) { /* ... */ }
+      };
+      
+      class AnotherClass {
+         MyClass memberObj; // 编译错误：MyClass没有默认构造函数
+      public:
+         AnotherClass() : memberObj(5) {} // 正确，显式初始化
+      };
+      ```
+
+   4. 注意事项
+
+      - 对于内置类型或聚合类型，`{}` 可以防止窄化（如 int 赋值给 char 会报错）。
+      - 对于 `std::vector<int> v{1, 2, 3};`，大括号是列表初始化。
+
+   5. 两种初始化的区别
+
+      1. `MyClass obj2{};`
+
+         - 直接用大括号初始化，叫**直接列表初始化**。
+
+         - 编译器会直接调用 `MyClass` 的构造函数。
+
+      2. `MyClass obj5 = MyClass{};`
+
+         - 这是**拷贝列表初始化**，先用 `MyClass{}` 创建一个<u>临时对象</u>，再用它初始化 `obj5`(**拷贝构造**)。
+
+         - 但对于大多数现代编译器（C++11 及以后），会做**返回值优化（RVO）**，临时对象不会真的多分配一次内存，最终和 `obj2{}` 效果一样。
+
+           > 但是如果你的类禁止拷贝/移动，只能用 `MyClass obj2{};`。
+
+10. 对于类的成员初始化两种不同实现的区别
+
+    1. 类内赋初值（成员变量初始化器）
+
+       ```c++
+       class Foo {
+           bool scanSwitch = false;
+       public:
+           Foo() {} // scanSwitch 已经被初始化为 false
+       };
+       ```
+
+       > - **优先级高**：如果构造函数没有在初始化列表中指定该成员，使用类内初值。
+       > - **更简洁**，推荐用于简单类型和默认值
+
+    2. 构造函数赋值
+
+       ```c++
+       class Foo {
+           bool scanSwitch;
+       public:
+           Foo() : scanSwitch(false) {} // 这里赋值覆盖类内初值
+       };
+       ```
+
+       > - **如果构造函数初始化列表指定了成员变量，则覆盖类内初值**。
+       > - 适合需要根据构造参数动态初始化成员。
+
+11. C++11的委托构造函数：“带参构造函数委托给无参（或另一个）构造函数去做初始化”，即委托构造
+
+    ```
+    CustomTipWidget::CustomTipWidget(QWidget *parent)
+        : QWidget(parent), m_iconLabel(nullptr), m_textLabel(nullptr)
+    {
+    ===
+    }
+    
+    CustomTipWidget::CustomTipWidget(const QPixmap &icon, const QString &text, QWidget *parent)
+        : CustomTipWidget(parent)
+    {
+        setIcon(icon);
+        setText(text);
+    }
+    ```
+
+    执行顺序：
+
+    1. 首先调用**被委托**的构造函数`CustomTipWidget(QWidget *parent)`：
+    2. 被委托构造完成后，回到带参构造函数，执行其函数体（这里执行 `setIcon()`、`setText()`）。
+
+    注意事项：
+
+    1. 委托构造用于复用初始化代码，避免重复。
+    2. 委托构造不能形成循环（禁止 A 委托 B，B 又委托 A）。
+    3. 委托构造中不能让自身的初始化列表覆盖被委托构造的初始化——**被委托**构造函数负责实际的基类/成员初始化（所以通常不会在委托者里再写成员初始化）。
+
+12. 
 
 ### 13. 基本
 
@@ -2741,8 +2893,21 @@
 18. `static_assert(std::is_base_of<IComponentInterface, T>::value, "T must derive from IComponentInterface");`
 
     >这条语句的作用是，**在编译时**强制要求 `T` 必须是 `IComponentInterface` 的派生类;如果 `T` 不是 `IComponentInterface` 的派生类，编译器会抛出错误，错误信息为 `T must derive from IComponentInterface`
+    
+19. 误区：堆对象delete之后，只是将其内存销毁。但是外面其指针也需要手动置为nullptr，否则如果其他再次访问这个指针将会出错
 
+    > 同理，包括Qt的`m_settingDlg->setAttribute(Qt::WA_DeleteOnClose);`也是当关闭界面时自动清理堆空间，但是`m_settingDlg`仍指向那个地址，此时需要手动将其置空
 
+20. 对于C++中，private的虚函数在子类中的权限和是否能被重写的问题
+
+    1. C++两个概念：
+       1. **实现权（Overriding）**：子类是否有权定义该函数的行为。
+       2. **访问权（Visibility）**：谁有权发起这个函数的调用。
+    2. private/protected/public 只是定义了访问权，即该类实例、子类能否调用(考虑子类继承权限)
+    3. 子类实现虚函数可以**不受父类该虚函数的访问权限影响**，可以自定义访问权限
+    4. 父类定义了**纯虚函数**，子类必须实现，否则子类也是抽象类且实例化会报错(即不能实例)
+
+21. 
 
 ### 14. 三方库与项目构建
 

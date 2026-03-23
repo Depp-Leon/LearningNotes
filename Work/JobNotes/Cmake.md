@@ -300,4 +300,56 @@
     add_subdirectory(qt/view/Upgrade)
     ```
 
-    
+26. Cmake中`add_library()` 中的几种库类型区别
+
+    ```
+    add_library(target_name [STATIC | SHARED | MODULE | OBJECT | INTERFACE])
+    ```
+
+    每种类型的行为不同：
+
+    | 类型        | 说明   | 是否有源文件 | 是否生成二进制 (.a/.so)           | 典型用途                                  |
+    | ----------- | ------ | ------------ | --------------------------------- | ----------------------------------------- |
+    | `STATIC`    | 静态库 | ✅ 有         | ✅ `.a` (Linux) / `.lib` (Windows) | 编译期链接到可执行文件中（独立文件）      |
+    | `SHARED`    | 动态库 | ✅ 有         | ✅ `.so` / `.dll`                  | 运行时动态加载（共享代码）                |
+    | `OBJECT`    | 对象库 | ✅ 有         | ❌ 不生成独立文件（只生成 `.o`）   | 将多个库合并编译为中间对象以重用          |
+    | `INTERFACE` | 接口库 | ❌ 无         | ❌ 不生成任何文件                  | 仅用于传递编译选项、宏定义、include路径等 |
+
+27. CMake中`target_source()`三种修饰符
+
+    ```
+    target_sources(<target>
+        [BEFORE]   # （可选）表示在已有源文件前添加
+        [PUBLIC | PRIVATE | INTERFACE] <sources>...
+    )
+    ```
+
+    | 作用域      | 意义                          | 会被编译进目标吗？ | 会传递给依赖它的目标吗？ |
+    | ----------- | ----------------------------- | ------------------ | ------------------------ |
+    | `PRIVATE`   | 仅当前 target 使用            | ✅                  | ❌                        |
+    | `PUBLIC`    | 当前 target + 链接它的 target | ✅                  | ✅                        |
+    | `INTERFACE` | 仅依赖它的 target 使用        | ❌                  | ✅                        |
+
+    使用时机，为什么要用`target_source()`?
+
+    最开始使用`add_executable()`和`add_library`时，将头文件、源文件一起加入到里面，比如
+
+    ```
+    set(SOURCES
+        main.cpp
+        utils.cpp
+        widget.cpp
+    )
+    add_executable(myApp ${SOURCES})
+    ```
+
+    > set(SOURCES ...) 是全局变量，子目录无法安全修改或扩展，而且没法告诉 CMake哪些源文件对外暴露、哪些仅内部使用。
+
+    所以使用`target_source()`
+
+    ```
+    add_executable(myApp)
+    target_sources(myApp PRIVATE main.cpp utils.cpp widget.cpp)
+    ```
+
+28. 

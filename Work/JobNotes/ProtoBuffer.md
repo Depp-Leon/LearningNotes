@@ -392,3 +392,61 @@
     ```
 
     使用上面的protobuffer来传输数据时，如果`type`为`CLIENT_STARTUP`时解析出来的数据为空，因为`proto`的空值的默认值为0，而这个`message`只有一个枚举类型的成员，当这个成员的值为0时，就会导致传递时当成空值来传递
+    
+31. protobuffer中定义了`package`就相当于定义了`namespace`
+
+    ```
+    package HmiToSafed;
+    enum DataOrigin {
+        INIT = 0;
+        LOCAL = 1;
+        CENTER = 2;
+    }
+    ```
+
+    那么，生成的C++代码将会是：
+
+    ```c++
+    namespace HmiToSafed {
+        enum DataOrigin {
+            INIT = 0,
+            LOCAL = 1,
+            CENTER = 2
+        };
+    }
+    ```
+
+32. 当你的 proto 文件结构比较深（多层 message 嵌套、enum 嵌套），protoc 会生成类似
+    `外层_中层_内层_枚举类型_枚举值`
+
+    ```
+    message TerminalConfig {
+      message ZDFYConfig {
+        message DataProtectConfig {
+          message FileVault {
+            enum Type {
+              EXT = 0;
+              DIR = 1;
+            }
+          }
+        }
+      }
+    }
+    ```
+
+    proto生成的枚举值会是：
+
+    ```
+    HmiToSafed::TerminalConfig::ZDFYConfig::DataProtectConfig::FileVault::Type::TerminalConfig_ZDFYConfig_DataProtectConfig_FileVault_Type_EXT
+    ```
+
+    - 这是为了保证全局唯一性，防止不同作用域下的枚举值重名。
+    - 这是 protobuf 官方 C++ 生成器的标准行为（尤其是多层嵌套时）。
+
+    > 如果你的枚举不是嵌套的，或者用了 `option allow_alias = true;` 或 `option c++_namespace`，有时可以直接用 `Type::EXT`。但多层嵌套时，protoc 默认就是下划线拼接全路径。
+
+33. protobuffer删除repeated数据时，同vector等容器一样需要考虑迭代器失效的问题
+
+    > 删除某个元素后，后面的元素会自动前移，保持顺序。
+
+    删除时如果正向遍历会导致下标错乱，推荐**倒序遍历删除**，这和 `std::vector` 删除元素的最佳实践一致。

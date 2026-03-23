@@ -673,4 +673,88 @@
        > 初始化子模块 (--init)：--init 参数会初始化子模块，即读取 .gitmodules 文件中的配置信息（如子模块的路径和 URL），并为每个子模块在本地仓库中创建必要的配置。
        >
        > 更新子模块 (update)：在初始化子模块后，update 会从子模块的远程仓库拉取指定的版本（通常是 .gitmodules 文件中记录的提交哈希值）的内容，填充到对应的子模块目录中
+    
+37. 将本地的分分支B彻底覆盖为分支A
 
+    ```
+    git checkout B
+    git reset --hard A
+    ```
+
+    本地分支A强制拉取远程分支覆盖本地
+
+    ```
+    git fetch
+    git reset --hard origin/A
+    ```
+
+38. 关于在主分支和子分支B合并记录的三个选项(**默认在主分支，合并子分支新的提交**)
+
+    1. `git merge` : 将子分支B提交合并到当前分支，会产生合并记录日志
+
+    2. `git rebase`：将当主分支重新基底到子分支 B 上，即B的新提交会放到主分支未push之前的末尾日志中
+
+    3. `git cherry-pick`：选择性地将分支 B 上的某个或多个提交（通过提交哈希）应用到主分支，生成新的提交，不会引入合并记录。
+
+       ```
+       git checkout main
+       git log B	// 找到分支 B 的目标提交哈希
+       git cherry-pick <commit-hash>
+       ```
+
+39. 关于git分支合并产生的一些问题：
+
+    自己的分支提交之后，切换到主分支；
+
+    1. 主分支pull最新提交之后，rebase子分支，解决冲突。切换到子分支，merge主分支。
+
+       ```
+       git checkout develop_jyd
+       git add .
+       git commit 
+       git checkout develop
+       git pull 
+       git rebase debelop_jyd
+       // 解决冲突
+       git push --force	 // 强制提交
+       git checkout develop_jyd
+       git merge 	// 顺利合并，没有冲突
+       ```
+
+       优点：主分支基于子分支的提交为基底，子分支合并主分支的时候不需要再解决一次冲突。
+
+       缺点：主分支与远端分支的历史记录出现区别，此时提交只能强制push
+
+    2. 主分支pull最新提交之后，merge子分支，解决冲突，产生合并记录。此时要么切换到子分支合并重新解决一次冲突，要么删除掉子分支，新建子分支(推荐方式2)。
+
+       ```
+       // 前面部分与上面相同
+       git merge develop_jyd
+       // 解决冲突，提交产生合并记录
+       // ps：如果使用git cherry-pick <commit-hash> 可以避免产生合并记录
+       git push
+       git branch -d develop_jyd
+       git push origin --delete develop_jyd //删除掉远端的分支
+       git checkout -b develop_jyd //新建子分支，同时切换到子分支
+       git push origin develop_jyd //将新建子分支推送到远端
+       ```
+
+       优点：子分支不需要重新合并主分支，少一次解决冲突。
+
+       缺点：会产生一条合并记录(如果只有一条提交记录，那么可以使用`cherry-pick`解决)
+
+40. Git，执行了错误的命令，如何回退：
+
+    案例：使用了`git pull --rebase`，解决完冲突，使用失误，执行了`git rebase --skip`,导致本次提交的内容全部消失
+
+    解决：使用 `git reflog`：**Git 所有操作都会记录在 reflog 中，包括 rebase、skip、continue 等。**
+
+    ```
+    // 1. 查看reflog： 
+    git reflog
+    
+    // 2. 找到想回退的那句操作，将对应行复制其头（比如HEAD@{2}），然后执行
+    git reset --hard HEAD@{2}
+    ```
+
+41. 
