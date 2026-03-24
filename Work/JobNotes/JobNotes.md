@@ -4284,7 +4284,21 @@ m_pPool->submit([this, pBundle]() {
 
 12. `core`与组件和插件之间的关系，画图梳理->类图建立
 
-13. 前端、后端、客户端、服务端之间的区别
+13. 关于Frameless中的事件过滤器`eventFilter`:（以scanModel为例）
+
+    1. scanmodel在收到safed传来的扫描过程中的异常事件，将会通过信号槽`emit`将该`event`传递到Frameless
+
+    2. Framless在槽函数中执行`postEvent`，发送事件，交给事件过滤器`eventfiliter`处理
+
+       ```
+       QApplication::postEvent(this, pEvent);
+       ```
+
+    3. 事件处理器将会依次处理本轮事件队列，直到下一轮(app.exec)
+
+    4. 事件event的总类(自定义事件)在event文件夹下
+
+14. 前端、后端、客户端、服务端之间的区别
 
     **前端**：用户界面和交互（展示层）
 
@@ -4294,7 +4308,7 @@ m_pPool->submit([this, pBundle]() {
 
     **服务端**：指运行在远程服务器上的部分，负责处理客户端的请求，提供数据或执行复杂任务。
 
-14. 杀毒软件的架构划分
+15. 杀毒软件的架构划分
 
     **客户端**：
 
@@ -4308,14 +4322,14 @@ m_pPool->submit([this, pBundle]() {
     2. **前端**：中控的网页界面（展示数据给用户）。
     3. 运行在远程服务器上，负责远程管理和数据展示。
 
-15. 关于**项目架构**
+16. 关于**项目架构**
 
     1. Safed只提供功能
     2. RJJH(客户端用户)和中控(服务端管理员)可以调用Safed的功能并同时上报信息给另一方。其中若只有一方存在，就有获取功能的入口，程序就可以运行。
     3. 中控调用Safed的功能时，若存在界面(RJJH)，那么会同步进度/信息到界面上。
     4. RJJH使用Safed的功能时，会同步查杀进度、上报日志等到中控管理端上
 
-16. 关于**组件和插件 / 功能和业务**：
+17. 关于**组件和插件 / 功能和业务**：
 
     1. 有了功能之后才能考虑和拓展业务
 
@@ -4329,7 +4343,7 @@ m_pPool->submit([this, pBundle]() {
        >
        > 扫描、文件监控、升级、U盘防护、文件粉碎、主动防御等
 
-17. **Safed的实现**分为三个部分：
+18. **Safed的实现**分为三个部分：
 
     1. 消息队列的实现：**message_center**   
 
@@ -4363,16 +4377,16 @@ m_pPool->submit([this, pBundle]() {
        
          ![image-20250718134024983](source/images/JobNotes/image-20250718134024983.png)
 
-18. 关于**项目中的日志**
+19. 关于**项目中的日志**
 
     1. 自定义简式的：流式日志写入器，看plugins/common/client_management_log.hpp中的实现
     2. 项目中的日志使用了glog三方库
 
-19. 关于**中控授权**
+20. 关于**中控授权**
 
     RJJH激活中控ip，safed就会重启“心跳”。`ctrl_center_agent.cpp`中该类就是一个继承于线程模板的类，重写了`run`函数。`run`函数会根据心跳阶段、通过读取文件(授权ip写在文件中)执行向中控请求，同时执行回调函数(`safed`的)
 
-20. 关于**查杀引擎**任务队列
+21. 关于**查杀引擎**任务队列
 
     扫描引擎是vector容器依次遍历的，所有的引擎都会走一遍，最终才会调用回调函数
 
@@ -4385,7 +4399,7 @@ m_pPool->submit([this, pBundle]() {
       ENGINE_CACHE,		// 为什么两个cache
     ```
 
-21. 关于**项目之间通信**
+22. 关于**项目之间通信**
 
     RJJH和safed使用的是`ipc`；
 
@@ -4400,7 +4414,7 @@ m_pPool->submit([this, pBundle]() {
     3. **信号量/互斥锁**：同步进程访问共享资源。
     4. **管道或套接字**：简单的通信通道。
 
-22. `common/ipc_common`该文件夹下实现**ipc(进程通信)**，使用的方式为**socket通信**。其实现了IPCclt(客户端)和IPCSvr(服务端)。并封装了接口
+23. `common/ipc_common`该文件夹下实现**ipc(进程通信)**，使用的方式为**socket通信**。其实现了IPCclt(客户端)和IPCSvr(服务端)。并封装了接口
 
     1. 对于IPCSvr：
           1. 接受消息：功能类继承`Interface_IPCLogical`类，重写回调`OnRecieveMsg`
@@ -4409,7 +4423,7 @@ m_pPool->submit([this, pBundle]() {
               1. 接收消息：功能类继承`CallBack_IPCclt`类，重写回调`OnRecieveMsg`
               2. 发送消息：调用`ipcClt`的`SendMsg`
 
-23. RJJH的model层与ipc**(IPCclient)剖析**
+24. RJJH的model层与ipc**(IPCclient)剖析**
 
     1. RJJH的ipc作为FramelessWindow的成员(ipc_manager)，通过**信号槽机制**实现消息同步发送
     2. RJJH的ipc收到消息后通过不同的model进行分发，在各自的model中去解析数据并与RJJH交互
@@ -4427,7 +4441,7 @@ m_pPool->submit([this, pBundle]() {
     				//  2. emit send 消息，在ipc_manager中实现信号槽，在ipc中发送消息
     ```
 
-24. Safed层的ipc**(IPCServer)剖析**
+25. Safed层的ipc**(IPCServer)剖析**
 
     1. Safed的ipc作为一个组件(local_service)，通过**启动一个线程**实现消息同步分发
     2. Safed收到消息就会调用消息订阅的publish进行分发
@@ -4445,7 +4459,7 @@ m_pPool->submit([this, pBundle]() {
     							// 2. business_helper_service为其成员，使用其发送接口进行通信
     ```
 
-25. 关于**项目使用的进程和线程**
+26. 关于**项目使用的进程和线程**
 
     项目用了多少个线程？RJJH用了多少个线程呢，safed的插件统信用了8个线程？
 
@@ -4463,7 +4477,7 @@ m_pPool->submit([this, pBundle]() {
 
        > 也就是说第一种需要自己实现start、stop；第二种只需要重写run(要执行线程的函数即可)
 
-26. 关于RJJH里面的**自定义事件处理**：
+27. 关于RJJH里面的**自定义事件处理**：
 
     1. 在**event**文件夹中创建自定义事件
 
@@ -4477,7 +4491,7 @@ m_pPool->submit([this, pBundle]() {
        QApplication::instance()->installEventFilter(this)
        ```
 
-27. **修改/增加protobuffer的步骤**：
+28. **修改/增加protobuffer的步骤**：
 
     1. 修改/增加protobuffer字段
 
@@ -4487,7 +4501,7 @@ m_pPool->submit([this, pBundle]() {
 
     3. 执行`gen_proto.sh`脚本。
 
-28. **修改/替换界面图片的步骤**：
+29. **修改/替换界面图片的步骤**：
 
     1. 替换/修改图片
 
@@ -4501,19 +4515,19 @@ m_pPool->submit([this, pBundle]() {
 
        > RJJH新增的东西删除掉(自己改动的图片除外)、只保留在Output中生成的所需要的rcc文件
 
-29. **项目中更改三方库源码**(以更改glog库为例)
+30. **项目中更改三方库源码**(以更改glog库为例)
 
     1. 40上`708/third_party/`下修改源码
     2. `third_party/build_x64`/执行 `make glog`，编译后的库放在`708/mod/lib/`下
     3. 在`normal_development`仓库下重新编译打包
 
-30. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
+31. **项目git和使用**：项目分为两个仓库，第一个为主代码normal_develop, 第二个为thirdparty
 
     1. 由于gitlib中已绑定自己的ssh公钥，所以直接使用git clone git@拉取即可
     2. thirdparty为项目中使用的三方库，需要在40环境下，进入该仓库的目标架构的build文件夹下，执行make编译。编译后的库文件将会输出到mod仓库的lib下。
     3. 在本地的normal_develop仓库下，需要将刚编译的lib移动到该仓库下。就可以正常使用了
 
-31. **项目中的三方库**
+32. **项目中的三方库**
 
     1. common目录是拆出来三方库源文件(.cpp)存放地，可以根据要求/协议来更改需要的代码
     2. lib文件夹下面包含的是当前架构下三方库的库文件(.a)存放的地方
@@ -4521,7 +4535,7 @@ m_pPool->submit([this, pBundle]() {
     4. 下一步就是将include/thirdparty(三方库头文件)和libsource下的三方库/自己做的库转移到common下
     5. lib目录当前是采用**静态库和头文件**分来的方式，头文件在include，库在当前lib库下。在cmakelist中指定该库就可以编译使用
 
-32. **关于项目中的三方库**：
+33. **关于项目中的三方库**：
 
     1. 项目中的三方库在**仓库**`third_party`中，里面包含的是项目中使用到的三方库的源码(针对自己的项目修改过功能代码)。
     2. **三方库编译**：在40上对项目打包前需要先对`third_party`进行编译，打包时就会带上项目所需的三方库文件
@@ -4530,7 +4544,7 @@ m_pPool->submit([this, pBundle]() {
 
     > normal_development中的lib下是使用的编译好的库文件、libsource使用的是三方库cpp源码文件(主要是自己写的库)
 
-33. 项目中的**右键查杀**
+34. 项目中的**右键查杀**
 
     ```c++
     1. 右键查杀槽函数定义在FramelessWindow中
@@ -4540,7 +4554,7 @@ m_pPool->submit([this, pBundle]() {
        app.connect(&app, SIGNAL(messageRightSelectScan(QString)), &mainWindow, SLOT(rightSelectScan(QString)));
     ```
 
-34. 项目中配置相关流程：
+35. 项目中配置相关流程：
 
     safed中负责保存、分发配置。界面(终端)、中控负责下发、修改配置
 
@@ -4550,7 +4564,7 @@ m_pPool->submit([this, pBundle]() {
     2. 中控下发配置：
        - 由**配置组件(config)**处理修改配置，每一项配置有其自己的`key`及处理函数
 
-35. deb包的四个脚本作用和执行顺序：
+36. deb包的四个脚本作用和执行顺序：
 
     1. preinst（预安装脚本）：在**包解压和安装文件之前**执行，用于准备安装环境或检查前提条件或**备份**
 
@@ -4570,7 +4584,7 @@ m_pPool->submit([this, pBundle]() {
 
     6. postrm（后移除脚本）：：在**包的文件被移除之后**执行，用于清理或完成移除
 
-36. 当一个deb包从版本A**升级**到版本B，对应脚本执行顺序如下：
+37. 当一个deb包从版本A**升级**到版本B，对应脚本执行顺序如下：
 
     1. A的 prerm：调用旧版本 A 的 prerm，参数为 upgrade 和新版本号，准备升级。
 
@@ -4588,21 +4602,21 @@ m_pPool->submit([this, pBundle]() {
 
        > 执行B的安装脚本
 
-37. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
+38. `.deb`安装包脚本的存放位置：`/var/lib/dpkg/info/`
 
-38. **关于项目deb和rpm包的升级脚本执行顺序**：
+39. **关于项目deb和rpm包的升级脚本执行顺序**：
 
     rpm和deb包对于升级的执行顺序不同：
 
     - **deb**：prerm（旧包）→ preinst（新包）→ 安装新包 → postinst（新包）。postrm 通常不执行，除非显式移除旧包。
     - **rpm**：%pre（新包）→ 安装新包 → %post（新包）→ %preun（旧包）→ %postun（旧包）。
 
-39. deb包和rpm包打包区别：
+40. deb包和rpm包打包区别：
 
     1. 相同点：都会用到pre post的四个脚本，只是deb显示指定、rpm会通过创建`/SPECS/jingyun.spec`文件里面指定
     2. rpm需要在spec文件中的`%file`字段显式的指定包管理文件、deb则自动根据打包目标路径下所有文件进行管理
 
-40. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
+41. 关于动态库的调用，使用了**工厂模式**：即`IPlugin`是工厂基类接口、`createPlugin` 是插件的入口函数，负责创建插件实例并返回其智能指针
 
     1. 在插件中定义一个宏(`PLUGIN_EXPORT`)，应用于`createPlugin` 函数的声明。
 
@@ -4633,19 +4647,19 @@ m_pPool->submit([this, pBundle]() {
        }
        ```
 
-41. 项目**工厂模式**：
+42. 项目**工厂模式**：
 
     1. 在safed下创建升级适配工具，根据参数705或者707来创建相应的处理程序(clipp)
     2. 该升级适配工具cmake打成可执行包(cmakelist中`add_executable`)
     3. 在安装脚本中调用该脚本并传入对应参数，开始执行该工具
 
-42. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
+43. 项目**单例模式**：有一个单例类，获取系统的`IGeneraoperator`唯一插件对象，不同组件之间互相调用
 
-43. 项目中的**单例模板**：
+44. 项目中的**单例模板**：
 
     `ZySingleto.h`下存放了懒汉式的单例模板
 
-44. 项目的**生产者消费者模式**：
+45. 项目的**生产者消费者模式**：
 
     1. 将查杀过程中的上报进度放入独立的线程进行上报(解决如果两个引擎最终查杀的都是费时的大文件则界面进度卡住的问题)
     2. 将查杀过程(威胁清除)的上报空路径到中控放入到独立的线程(解决影响查杀效率/查杀后不可再查杀的问题)
@@ -4693,11 +4707,11 @@ m_pPool->submit([this, pBundle]() {
     
     ```
 
-45. 病毒库更新其实也就是查杀引擎更新
+46. 病毒库更新其实也就是查杀引擎更新
 
-46. 中控下发威胁清除实际上就是将威胁列表重新执行查杀，并且设置为自动清理
+47. 中控下发威胁清除实际上就是将威胁列表重新执行查杀，并且设置为自动清理
 
-47. 项目中的**单例模式**：zyiniConfig.h中的配置类，单一配置类确保全局配置统一
+48. 项目中的**单例模式**：zyiniConfig.h中的配置类，单一配置类确保全局配置统一
 
     ```c++
     static IniConfig& Instance()
@@ -4712,7 +4726,7 @@ m_pPool->submit([this, pBundle]() {
     IniConfig::Instance().SaveConfig();
     ```
 
-48. **项目中使用到的心跳**(与中控通信)
+49. **项目中使用到的心跳**(与中控通信)
 
     1. 继承线程类，启动线程
     2. 如果初始状态/超时，重新注册
@@ -4725,6 +4739,337 @@ m_pPool->submit([this, pBundle]() {
 <img src="source/images/JobNotes/image-20250723151717220.png" alt="image-20250723151717220" style="zoom: 80%;" />
 
 ![image-20250723151845098](source/images/JobNotes/image-20250723151845098.png)
+
+49. 组件接口父类分析
+
+    ```c++
+    《component_interface》
+    template<typename T>
+    # 返回类型为IComponentInterface的共享指针
+    static std::shared_ptr<IComponentInterface> createComponent(
+        std::shared_ptr<CGeneralOperatorImpl> pGeneralOpImpl,
+        std::shared_ptr<IMessageCenter> pMessageCenter)
+    {	
+       	#断言，确保T属于IComponentInterface的子类
+        static_assert(std::is_base_of<IComponentInterface, T>::value, "T must derive from IComponentInterface");
+        #返回使用子类构造初始化的共享指针
+        return std::make_shared<T>(pGeneralOpImpl, pMessageCenter);
+    }
+    ```
+
+50. 方德系统执行Qt程序，缺少qt库的解决办法：在chenxinsd的qt库下，手动指定动态链接库，就可以使用该qt库
+
+    ```bash
+    # /opt/apps/chenxinsd/lib/extrnals/qt/lib/			启动程序放置路径
+    # qt/lib	qt/plugins				qt库文件夹分布结构
+    LD_LIBRARY_PATH=$PWD QT_PLUGIN_PATH=$PWD/../plugins		./ScreenStatus
+    ```
+
+    1. **LD_LIBRARY_PATH**：是一个 Linux 系统中的环境变量，用于指定动态链接器（ld.so）在加载程序所需的共享库（.so 文件）时搜索的路径。它本质上是告诉系统：“除了默认的库路径（如 /usr/lib 或 /lib），还请在这些额外路径中查找动态库。”
+
+       > LD指的是动态链接器(Dynamic Linker)（ld.so）,负责在程序运行时将动态库（.so 文件）加载到内存中，并解析程序对这些库的依赖。
+       >
+       > ldd是一个工具，它利用动态链接器（ld.so）的功能来显示可执行文件依赖的动态库
+
+       **原理**：
+
+       当你运行一个可执行文件时，如果它依赖外部动态库（例如 Qt 的 libQt5Core.so），动态链接器会按照以下顺序查找这些库：
+
+       1. 可执行文件中硬编码的 RPATH 或 RUNPATH（如果有）。
+       2. LD_LIBRARY_PATH 中指定的路径。
+       3. 系统默认路径（通常由 /etc/ld.so.conf 和 /etc/ld.so.cache 定义，例如 /usr/lib）。
+       4. 当前工作目录（某些情况下）。
+
+       通过设置 LD_LIBRARY_PATH，你可以覆盖或补充默认路径，让链接器优先加载你指定的库。
+
+    2. **QT_PLUGIN_PATH**： 是 Qt 框架特有的环境变量，用于指定 Qt 查找插件的路径。Qt 的插件（如 xcb 平台插件 libqxcb.so）是模块化的功能扩展，存放在特定目录（通常是 plugins 目录）中。QT_PLUGIN_PATH 告诉 Qt 在哪里找到这些插件。
+
+       **原理**：
+
+       Qt 应用程序启动时，需要加载平台插件（例如 xcb 用于 X11 显示）来与系统交互。
+
+       Qt 默认会在以下位置查找插件：
+
+       1. 编译时指定的插件路径（通常是 Qt 安装目录下的 plugins）。
+       2. QT_PLUGIN_PATH 中指定的路径。
+       3. 可执行文件所在目录的相对路径（某些情况下）。
+
+51. ldd命令解析：ldd 是一个工具，它利用动态链接器（ld.so）的功能来显示可执行文件依赖的动态库。
+
+    **全称**：ldd 是 “List Dynamic Dependencies” 的缩写，即“列出动态依赖”。
+
+    **工作原理**：
+
+    1. ldd 调用动态链接器：
+
+       - ldd 本质上是**运行动态链接器 ld.so**，并让它模拟加载目标文件的依赖。
+       - 它通过设置环境变量 LD_TRACE_LOADED_OBJECTS=1 来告诉 ld.so 不要真正执行程序，而是输出依赖信息
+
+    2. 解析 ELF 文件：
+
+       - 可执行文件（ELF 格式，Executable and Linkable Format）中包含一个 .dynamic 段，记录了它依赖的动态库名称（例如 libQt5Core.so.5）。
+       - **ld.so** 根据这些信息，按照**搜索路径规则**查找库的具体位置。
+
+    3. 输出结果：
+
+       ldd 显示每个依赖库的名称和实际加载路径（如果找到）
+
+52. `export xxxxx` 可以直接在终端执行。比如`export QT_IM_MODULE=fcitx` ，执行后，它会临时将环境变量 `QT_IM_MODULE` 设置为 `fcitx`，影**响当前终端会话中后续运行的程序**
+
+    1. 在终端直接执行`export` 会设置环境变量，但只对当前终端会话有效。如果会话结束或新开终端会话，则无效
+    2. 在`/etc/profiles`等环境变量文件中配置，则是全局环境变量，永久生效，每次启动终端或系统时都会自动应用
+
+53. 当使用shh链接时提示RSA认证失效，此时执行下面代码，删除掉失效的认证，重新认证即可
+
+    ```
+    ssh-keygen -R 192.168.3.154			// 后面为ip
+    ```
+
+54. 项目中safed和rjjh使用**ipc**进行通信，在core/component/local_service/ipc下
+
+    定义引用队列，外面给其传来的队列。里面用引用传输，可以通过里面修改外面
+
+    > 本质上就类似于传输一个指针
+
+    ```
+     m_pBusService(new BusinessHelperService(m_readQueue))  // 外面定义新对象
+    
+    SafeQueue<IBundle *> &m_pReadQueue;	 //里面用引用接收
+    ```
+
+55. **SDK**（Software Development Kit，软件开发工具包）是给**程序员**用的“工具箱”。而我们平时说的**正常版本**（比如 App 或安装包）是给**普通用户**用的“成品”
+
+    SDK 不是一个单一的文件，通常是一堆资源的集合，可以供开发者调用接口，继承到别的软件中。
+
+    1. **库文件（Libraries）：** 已经写好的核心代码逻辑。
+    2. **API 文档：** 告诉开发者怎么调用这些功能的“说明书”。
+    3. **示例代码（Demo）：** 演示如何正确使用这个工具。
+    4. **辅助工具：** 调试、编译或打包时用的小工具。
+
+56. 项目使用多个仓库
+
+    1. 界面使用develop_ui仓库
+    2. 后台使用normal_development仓库
+    3. 第三方库使用third_library仓库
+    4. 项目目录下即这三个仓库，编写cmakelist
+
+57. 新版通信流程
+
+    1. 初始化：
+       1. main中单例构造model和callback对象
+       2. 界面初始化与callback对象建立信号槽链接
+    2. RJJH发往safed：直接调用model的单例对象的函数与safed交互
+    3. safed发往RJJH：model对象收到消息解析之后调用callback对象的函数，触发信号槽
+
+    > 之前的方式是model对象就是一个定义了OBject宏的类，直接在主界面上连接信号槽
+    >
+    > 这个方式model完全是c++对象，通过callback（定义了Object宏）来与界面建立信号槽；可能是因为model层是供Linux和Windows两个界面RJJH的原因，所以加了中间callback回调对象，从而不同平台需要什么信号槽和功能自己定义
+
+58. 部分Ubuntu系统，右上角系统托盘界面不生效的原因：
+
+    1. 个别系统不支持嵌入 QWidget，只允许原生菜单 QMenu。如果是在QtDesinger中创建的界面(QDialog/QWidget)等都不会显示出来
+
+    2. 继承了QSystemTrayIcon之后，只要使用了setContextMenu(m_menu)，系统托盘会自动处理右键/左键的菜单显示，处理不了单击信号。
+
+    3. Ubuntu17之后使用的桌面环境（Desktop Environment，简称 DE）是GNOME，支持自定义窗口。Ubuntu17之前的默认使用的是Unity。Unity机制是托盘图标由 AppIndicator 接管，不允许自定义窗口、只允许菜单。
+
+       > 桌面环境可以理解为Windows 的“任务栏 + 桌面 + 开始菜单 + 系统托盘”的整套 UI
+
+59. 总结**安装中控**
+
+    1. 准备好中控安装包
+    2. dpkg安装
+    3. 使用`systemctl start/status/stop CxCenter.service`
+    4. 初始密码：Vsecure@2016
+    5. 中控中导入授权(从官网下载试用授权文件)
+
+60. **查看主防xml配置文件**，需要解密
+
+    ```
+    sudo ./JYToolBox --decrypt  ../etc/ZyHips.xml temp.xml
+    
+    // 加密使用 eacrypt
+    
+    // 1. 加密
+    ./JYToolBox --encrypt ../etc/ZyHips.xml ./ZyHips.xml
+    // 2. 解密
+    ./JYToolBox --decrypt ZyHips.xml ZyHips.xml
+    ```
+
+61. 启动的时候如果加载libSysMonPolicyManage崩溃，需要替换这两个库，这两个库在另外的仓库编译
+
+    ```
+    libSysMonPolicyManage.so  libSysMonManage.so
+    ```
+
+62. 708的**心跳流程**(与中控之间交互逻辑)(**ctrl_center组件**)：
+
+    ```
+    run()			// 继承线程类，(inner_Mode)循环执行, 当授权相关信息(授权模式/中控IP)发生改变时，重新start
+     ├─> getRegisterConfig()（未注册时）
+     		└─> syncPost()（HTTP通信，content为Request，向中控注册）
+                    └─> 中控服务器
+            └─> getRegisterConfigResponseAnalysis(response) 解析中控消息，是否注册成功
+     └─> syncHeartBeat()（已注册时）
+            └─> syncPost()（HTTP通信）
+                    └─> 中控服务器
+            └─> serverEventResponseAnalysis(response) 解析中控消息，并publish
+    ```
+
+    `syncPost()`的实现，使用了cpr库：
+
+    > 这是一个第三方 C++ HTTP 客户端库，常用于发起 HTTP/HTTPS 请求，支持 GET、POST、PUT、DELETE 等方法。
+
+    ```c++
+    bool CControlCenterAgent::syncPost(const std::string &url, const std::string &body, std::string &strResponse)
+    {
+        if (url.empty()) {
+            return false;
+        }
+        try {
+            cpr::Response r = cpr::Post(cpr::Url {url}, cpr::Header {{"Content-Type", "application/json"}}, cpr::Body {body});
+            if (r.error.code != cpr::ErrorCode::OK) {
+                for (auto const &header : r.header) {
+                    LOG(INFO) << header.first << ": " << header.second;
+                }
+                return false;
+            }
+            strResponse = r.text;
+        } catch (const std::exception &e) {
+            LOG(ERROR) << "Exception caught: " << e.what();
+            return false;
+        } catch (...) {
+            LOG(ERROR) << "Exception caught: unknown error.";
+            return false;
+        }
+        return true;
+    }
+    
+    ```
+
+    ```
+    // cpr代码：
+    cpr::Response r = cpr::Post(
+        cpr::Url{url},
+        cpr::Header{{"Content-Type", "application/json"}},
+        cpr::Body{body}
+    );
+    
+    // cpr用法分析：
+    cpr::Post：发起 HTTP POST 请求。
+    cpr::Url{url}：目标 URL。
+    cpr::Header{{"Content-Type", "application/json"}}：设置 HTTP 头部，声明请求体为 JSON 格式。
+    cpr::Body{body}：请求体内容（你的 protobuf 序列化字符串）。
+    
+    // cpr返回值是一个 cpr::Response 对象，包含：
+    r.status_code：HTTP 状态码
+    r.text：响应内容
+    r.error：错误信息
+    r.header：响应头
+    ```
+
+63. 上面的ctrl_center属于客户端与中控建立链接的过程，由于循环执行run，所以每间隔一段时间都会再去判断是否链接、获取中控的消息。
+
+    客户端主动发送的状态，在src/moudles/PostDataReport2.0中，具体也是执行了syncPost，只是content变为了要上报的内容，步骤为
+
+    1. 当ctrl_center通过心跳(即循环执行run)建立中控链接之后，PostDataReport的状态会更改为startReport
+    2. 客户端需要向中控发送信息，会调用ctrl_center的syncReport，继而调用PostDataReport
+    3. PostDataReport如果是start状态，就可以填充content之后使用syncPost向中控发送
+
+64. 常用的关于http请求方法
+
+    1. GET
+
+       - **作用**：**获取资源**（读取数据）。
+
+       - **特点**：参数一般放在 URL 查询字符串中（如 `?id=123`），**不会有请求体**。
+
+       - **常见用途**：网页浏览、获取配置信息、下载文件等。
+
+       - cpr 用法
+
+         ```c++
+         cpr::Response r = cpr::Get(cpr::Url{"https://example.com/api/info"});
+         ```
+
+    2. POST
+
+       - **作用**：**提交数据**（如表单、JSON、protobuf等）到服务器，**服务器处理后返回结果**。
+
+       - **特点**：参数通常放在请求体（body）中，可以是 JSON、表单、二进制等。
+
+       - **常见用途**：用户登录、上传数据、接口调用等。
+
+       - cpr 用法
+
+         ```c++
+         cpr::Response r = cpr::Post(
+           cpr::Url{"https://example.com/api/upload"},
+           cpr::Body{"your data"},
+           cpr::Header{{"Content-Type", "application/json"}}
+         );
+         ```
+
+    3. PUT
+
+       - **作用**：**更新资源**（整体替换）。
+
+       - **特点**：和 POST 类似，但语义是“替换”而不是“创建”。
+
+       - **常见用途**：更新用户信息、替换文件等。
+
+       - cpr 用法
+
+         ```c++
+         cpr::Response r = cpr::Put(
+           cpr::Url{"https://example.com/api/user/123"},
+           cpr::Body{"new data"}
+         );
+         ```
+
+    4. DELETE
+
+       - **作用**：**删除资源**。
+
+       - **特点**：通常只需要 URL 指定要删除的资源。
+
+       - **常见用途**：删除用户、删除文件等。
+
+       - cpr 用法
+
+         ```c++
+         cpr::Response r = cpr::Delete(cpr::Url{"https://example.com/api/user/123"});
+         ```
+
+    5. PATCH
+
+       - **作用**：**部分更新资源**。
+
+       - **特点**：只修改部分字段，不是整体替换。
+
+       - **常见用途**：修改用户某个属性等。
+
+       - cpr 用法：
+
+         ```c++
+         cpr::Response r = cpr::Patch(
+             cpr::Url{"https://example.com/api/user/123"},
+             cpr::Body{"partial update"}
+         );
+         ```
+
+65. **汇报逻辑**： 
+
+    1. 问题的**现象**(**what**)
+    2. 问题的**原因**(查看日志/gdb 哪一块执行错误/没有执行)(**why**)
+    3. **具体**的代码分析
+    4. **个人推测、结果**
+
+    > 总分总叙事，先说明是什么事，再围绕这个事展开说，最后若要总结就给出推测总结
+
+66. 
+
+
 
 ### 2. 工作部分
 
@@ -4969,34 +5314,11 @@ m_pPool->submit([this, pBundle]() {
 
 4. in、for、of、to、等常用介词的使用方式
 
-7. python脚本的实现顺序
+7. UI层，main_window才是主界面，其在构造的时候初始化了FramelessWindow。
 
-   ```
-   1. main.py
-   2. handle_opts.py -> batchProcess函数中对IPKTS对应的包的参数，执行newpacket
-   3. new_packet.py ->	NewPacket的__init__(self, **kwargs)初始化，并执行createPacket()
-   				 -> savePacket()保存deb包，使用dpkg -b，并将打的包cp到包库中
-   4. handle_opts.py -> Result()对象，在析构的时候执行打印结果
-   ```
-
-12. UI层，main_window才是主界面，其在构造的时候初始化了FramelessWindow。
-
-    rjjh_main是RJJH进程的入口，只有main才会执行app.exec事件循环
-
-7. 关于Frameless中的事件过滤器`eventFilter`:（以scanModel为例）
-
-   1. scanmodel在收到safed传来的扫描过程中的异常事件，将会通过信号槽`emit`将该`event`传递到Frameless
-
-   2. Framless在槽函数中执行`postEvent`，发送事件，交给事件过滤器`eventfiliter`处理
-
-      ```
-      QApplication::postEvent(this, pEvent);
-      ```
-
-   3. 事件处理器将会依次处理本轮事件队列，直到下一轮(app.exec)
-   4. 事件event的总类(自定义事件)在event文件夹下
-
-55. map和hashmap的区别？
+   rjjh_main是RJJH进程的入口，只有main才会执行app.exec事件循环
+   
+7. map和hashmap的区别？
 
 65. 中控如何实现与safed发送消息的？
 
@@ -5024,104 +5346,9 @@ m_pPool->submit([this, pBundle]() {
 
 30. Obsdian和Notion,logsep 记笔记软件
 
-35. 组件接口父类分析
+35. 看下isStringStream(流）如何使用的，如何通过>>赋值的
 
-    ```c++
-    《component_interface》
-    template<typename T>
-    # 返回类型为IComponentInterface的共享指针
-    static std::shared_ptr<IComponentInterface> createComponent(
-        std::shared_ptr<CGeneralOperatorImpl> pGeneralOpImpl,
-        std::shared_ptr<IMessageCenter> pMessageCenter)
-    {	
-       	#断言，确保T属于IComponentInterface的子类
-        static_assert(std::is_base_of<IComponentInterface, T>::value, "T must derive from IComponentInterface");
-        #返回使用子类构造初始化的共享指针
-        return std::make_shared<T>(pGeneralOpImpl, pMessageCenter);
-    }
-    ```
-
-36. 方德系统执行Qt程序，缺少qt库的解决办法：在chenxinsd的qt库下，手动指定动态链接库，就可以使用该qt库
-
-    ```bash
-    # /opt/apps/chenxinsd/lib/extrnals/qt/lib/			启动程序放置路径
-    # qt/lib	qt/plugins				qt库文件夹分布结构
-    LD_LIBRARY_PATH=$PWD QT_PLUGIN_PATH=$PWD/../plugins		./ScreenStatus
-    ```
-
-    1. **LD_LIBRARY_PATH**：是一个 Linux 系统中的环境变量，用于指定动态链接器（ld.so）在加载程序所需的共享库（.so 文件）时搜索的路径。它本质上是告诉系统：“除了默认的库路径（如 /usr/lib 或 /lib），还请在这些额外路径中查找动态库。”
-
-       > LD指的是动态链接器(Dynamic Linker)（ld.so）,负责在程序运行时将动态库（.so 文件）加载到内存中，并解析程序对这些库的依赖。
-       >
-       > ldd是一个工具，它利用动态链接器（ld.so）的功能来显示可执行文件依赖的动态库
-
-       **原理**：
-
-       当你运行一个可执行文件时，如果它依赖外部动态库（例如 Qt 的 libQt5Core.so），动态链接器会按照以下顺序查找这些库：
-
-       1. 可执行文件中硬编码的 RPATH 或 RUNPATH（如果有）。
-       2. LD_LIBRARY_PATH 中指定的路径。
-       3. 系统默认路径（通常由 /etc/ld.so.conf 和 /etc/ld.so.cache 定义，例如 /usr/lib）。
-       4. 当前工作目录（某些情况下）。
-
-       通过设置 LD_LIBRARY_PATH，你可以覆盖或补充默认路径，让链接器优先加载你指定的库。
-
-    2.  **QT_PLUGIN_PATH**： 是 Qt 框架特有的环境变量，用于指定 Qt 查找插件的路径。Qt 的插件（如 xcb 平台插件 libqxcb.so）是模块化的功能扩展，存放在特定目录（通常是 plugins 目录）中。QT_PLUGIN_PATH 告诉 Qt 在哪里找到这些插件。
-
-       **原理**：
-
-       Qt 应用程序启动时，需要加载平台插件（例如 xcb 用于 X11 显示）来与系统交互。
-
-       Qt 默认会在以下位置查找插件：
-
-       1. 编译时指定的插件路径（通常是 Qt 安装目录下的 plugins）。
-       2. QT_PLUGIN_PATH 中指定的路径。
-       3. 可执行文件所在目录的相对路径（某些情况下）。
-
-37. ldd命令解析：ldd 是一个工具，它利用动态链接器（ld.so）的功能来显示可执行文件依赖的动态库。
-
-    **全称**：ldd 是 “List Dynamic Dependencies” 的缩写，即“列出动态依赖”。
-
-    **工作原理**：
-
-    1. ldd 调用动态链接器：
-       - ldd 本质上是**运行动态链接器 ld.so**，并让它模拟加载目标文件的依赖。
-       - 它通过设置环境变量 LD_TRACE_LOADED_OBJECTS=1 来告诉 ld.so 不要真正执行程序，而是输出依赖信息
-       
-    2. 解析 ELF 文件：
-       - 可执行文件（ELF 格式，Executable and Linkable Format）中包含一个 .dynamic 段，记录了它依赖的动态库名称（例如 libQt5Core.so.5）。
-       - **ld.so** 根据这些信息，按照**搜索路径规则**查找库的具体位置。
-       
-    3. 输出结果：
-
-       ldd 显示每个依赖库的名称和实际加载路径（如果找到）
-
-38. `export xxxxx` 可以直接在终端执行。比如`export QT_IM_MODULE=fcitx` ，执行后，它会临时将环境变量 `QT_IM_MODULE` 设置为 `fcitx`，影**响当前终端会话中后续运行的程序**
-
-    1. 在终端直接执行`export` 会设置环境变量，但只对当前终端会话有效。如果会话结束或新开终端会话，则无效
-    2. 在`/etc/profiles`等环境变量文件中配置，则是全局环境变量，永久生效，每次启动终端或系统时都会自动应用
-
-42. 当使用shh链接时提示RSA认证失效，此时执行下面代码，删除掉失效的认证，重新认证即可
-
-    ```
-    ssh-keygen -R 192.168.3.154			// 后面为ip
-    ```
-
-47. 看下isStringStream(流）如何使用的，如何通过>>赋值的
-
-29. 项目中safed和rjjh使用**ipc**进行通信，在core/component/local_service/ipc下
-
-    定义引用队列，外面给其传来的队列。里面用引用传输，可以通过里面修改外面
-
-    > 本质上就类似于传输一个指针
-
-    ```
-     m_pBusService(new BusinessHelperService(m_readQueue))  // 外面定义新对象
-    
-    SafeQueue<IBundle *> &m_pReadQueue;	 //里面用引用接收
-    ```
-
-35. cpr库如何使用、总结rjjh和safed之间如何使用ipc；safed和中控如何使用cpr
+29. cpr库如何使用、总结rjjh和safed之间如何使用ipc；safed和中控如何使用cpr
 
 37. bash脚本的语法总结
 
@@ -5133,16 +5360,7 @@ m_pPool->submit([this, pBundle]() {
     IBundle *pPublishBundle = CBundle::createInstance();
     ```
     
-34. **汇报逻辑**： 
-
-    1. 问题的**现象**(**what**)
-    2. 问题的**原因**(查看日志/gdb 哪一块执行错误/没有执行)(**why**)
-    3. **具体**的代码分析
-    4. **个人推测、结果**
-
-    > 总分总叙事，先说明是什么事，再围绕这个事展开说，最后若要总结就给出推测总结
-
-36. 提升C++能力
+34. 提升C++能力
 
     1. 编程风格、设计思想的认知
     2. 熟悉三方库的使用
@@ -5168,83 +5386,7 @@ m_pPool->submit([this, pBundle]() {
 
 42. 学习python、rust
 
-43. **宏定义**(`#define`)本质上就是**文本替换**，在代码中将宏定义替换为事先准备好的代码
-
-    1. 理论上所有的C/C++代码都可以使用宏
-    2. 但是其不会做语法检查、不能做逻辑判断(只支持(`#ifdef`))、调试困难
-
-    举例：项目中读取Config.ini配置之后给每个配置项设置变量、get、set函数
-
-    ```c++
-    #define ATTRIBUTE_MEMBER_FUNC(argType, arg, defValue)\
-    	public:\
-    	void set_##arg(const argType& v) {\
-    	    arg = v;\
-            b_##arg = true;\
-    	}\
-    	argType get_##arg() {\
-    	    return b_##arg ? arg : defValue;\
-    	}\
-        bool has_##arg() {\
-    	    return b_##arg;\
-    	}\
-        void set_lock_##arg(bool b) {\
-            b_lock_##arg=b;\
-    	}\
-    	bool get_lock_##arg() {\
-    	    return b_lock_##arg;\
-    	}\
-        private:\
-        argType arg;\
-        bool b_##arg;\
-        bool b_lock_##arg;
-    
-    ```
-
-    作用：自动展开为私有的成员变量、公有的set、get函数
-
-    分析：
-
-    1.  `##` 是C/C++宏定义中的**连接符（token-pasting operator）**，用于把前后的标识符拼接成一个新的标识符
-    2. `\`用来换行
-    3. 宏定义**只做文本替换不会检查**，所以如果传来的参数是一个对象指针，在定义中使用该对象的函数也没有问题，可以正常编译和运行(只要该对象真的有这个成员函数)
-
-44. 一些宏的区别
-
-    1. `#ifndef`：判断某个宏是否**没有被定义**，如果没有被定义，则编译后面的代码
-
-       ```
-       #ifndef __ZY_CONFIG_TYPE_H__
-       #define __ZY_CONFIG_TYPE_H__
-       // ...头文件内容...
-       #endif
-       ```
-
-    2. `#ifdef`：判断某个宏是否**已经被定义**，如果定义了，则编译后面的代码。
-
-       ```
-       #ifdef DEBUG
-       // ...调试相关代码...
-       #endif
-       ```
-
-    3. `#if`：判断一个表达式（通常是常量表达式或宏）是否为真
-
-       ```
-       #define VERSION 3
-       
-       #if VERSION == 1
-           printf("版本1的功能\n");
-       #elif VERSION == 2
-           printf("版本2的功能\n");
-       #elif VERSION == 3
-           printf("版本3的功能\n");
-       #else
-           printf("未知版本\n");
-       #endif
-       ```
-
-45. protobuffer的字段，如果未给其赋值，那么其默认为`0/""/false`，定义时后面写的只是标识字段号
+43. protobuffer的字段，如果未给其赋值，那么其默认为`0/""/false`，定义时后面写的只是标识字段号
 
 46. 游泳、英语今年必须得学会
 
@@ -5254,27 +5396,9 @@ m_pPool->submit([this, pBundle]() {
 
 50. Linux下常用的**内存检测和调试工具**：Valgrind
 
-51. 想要使用cmake**重新**编译
+51. 软件升级从之前的分离进程改为独立进程是如何实现的
 
-    1. 在build文件夹下执行`make clean`
-
-    2. 重新执行`make`
-
-       > make clean 会删除所有生成的二进制文件和目标文件，但保留 CMake 缓存和配置文件。
-
-52. 软件升级从之前的分离进程改为独立进程是如何实现的
-
-53. `argv.data()`返回 `char**`，指向 `std::vector<char*>` 的首元素
-
-    > 返回类型随容器类型而变（如 `std::vector<T>` 返回 `T*`，`std::string` 返回 `char*`）。
-
-    ```c++
-    std::vector<char*> argv;
-    // ...填充argv...
-    int result = execv(argv[0], argv.data());
-    ```
-
-54. 708之前有proc(进程)版本，即一个终端管理界面，输入1、2、3、4执行查杀、查看等功能
+53. 708之前有proc(进程)版本，即一个终端管理界面，输入1、2、3、4执行查杀、查看等功能
 
 55. 了解底层学习汇编语言、了解上层学习python语言
 
@@ -5282,177 +5406,13 @@ m_pPool->submit([this, pBundle]() {
 
 57. 以需求导向，想要做什么事，去学这块相关的知识并实现。(比如想要下载，就学习爬虫等)
 
-59. 708的**心跳流程**(与中控之间交互逻辑)(**ctrl_center组件**)：
-
-    ```
-    run()			// 继承线程类，(inner_Mode)循环执行, 当授权相关信息(授权模式/中控IP)发生改变时，重新start
-     ├─> getRegisterConfig()（未注册时）
-     		└─> syncPost()（HTTP通信，content为Request，向中控注册）
-                    └─> 中控服务器
-            └─> getRegisterConfigResponseAnalysis(response) 解析中控消息，是否注册成功
-     └─> syncHeartBeat()（已注册时）
-            └─> syncPost()（HTTP通信）
-                    └─> 中控服务器
-            └─> serverEventResponseAnalysis(response) 解析中控消息，并publish
-    ```
-
-    `syncPost()`的实现，使用了cpr库：
-
-    > 这是一个第三方 C++ HTTP 客户端库，常用于发起 HTTP/HTTPS 请求，支持 GET、POST、PUT、DELETE 等方法。
-
-    ```c++
-    bool CControlCenterAgent::syncPost(const std::string &url, const std::string &body, std::string &strResponse)
-    {
-        if (url.empty()) {
-            return false;
-        }
-        try {
-            cpr::Response r = cpr::Post(cpr::Url {url}, cpr::Header {{"Content-Type", "application/json"}}, cpr::Body {body});
-            if (r.error.code != cpr::ErrorCode::OK) {
-                for (auto const &header : r.header) {
-                    LOG(INFO) << header.first << ": " << header.second;
-                }
-                return false;
-            }
-            strResponse = r.text;
-        } catch (const std::exception &e) {
-            LOG(ERROR) << "Exception caught: " << e.what();
-            return false;
-        } catch (...) {
-            LOG(ERROR) << "Exception caught: unknown error.";
-            return false;
-        }
-        return true;
-    }
-    
-    ```
-
-    ```
-    // cpr代码：
-    cpr::Response r = cpr::Post(
-        cpr::Url{url},
-        cpr::Header{{"Content-Type", "application/json"}},
-        cpr::Body{body}
-    );
-    
-    // cpr用法分析：
-    cpr::Post：发起 HTTP POST 请求。
-    cpr::Url{url}：目标 URL。
-    cpr::Header{{"Content-Type", "application/json"}}：设置 HTTP 头部，声明请求体为 JSON 格式。
-    cpr::Body{body}：请求体内容（你的 protobuf 序列化字符串）。
-    
-    // cpr返回值是一个 cpr::Response 对象，包含：
-    r.status_code：HTTP 状态码
-    r.text：响应内容
-    r.error：错误信息
-    r.header：响应头
-    ```
-
-60. 上面的ctrl_center属于客户端与中控建立链接的过程，由于循环执行run，所以每间隔一段时间都会再去判断是否链接、获取中控的消息。
-
-    客户端主动发送的状态，在src/moudles/PostDataReport2.0中，具体也是执行了syncPost，只是content变为了要上报的内容，步骤为
-
-    1. 当ctrl_center通过心跳(即循环执行run)建立中控链接之后，PostDataReport的状态会更改为startReport
-    2. 客户端需要向中控发送信息，会调用ctrl_center的syncReport，继而调用PostDataReport
-    3. PostDataReport如果是start状态，就可以填充content之后使用syncPost向中控发送
-
-61. 常用的关于http请求方法
-
-    1. GET
-
-       - **作用**：**获取资源**（读取数据）。
-       - **特点**：参数一般放在 URL 查询字符串中（如 `?id=123`），**不会有请求体**。
-       - **常见用途**：网页浏览、获取配置信息、下载文件等。
-
-       - cpr 用法
-
-         ```c++
-         cpr::Response r = cpr::Get(cpr::Url{"https://example.com/api/info"});
-         ```
-
-    2.  POST
-
-       - **作用**：**提交数据**（如表单、JSON、protobuf等）到服务器，**服务器处理后返回结果**。
-
-       - **特点**：参数通常放在请求体（body）中，可以是 JSON、表单、二进制等。
-
-       - **常见用途**：用户登录、上传数据、接口调用等。
-
-       - cpr 用法
-
-         ```c++
-         cpr::Response r = cpr::Post(
-           cpr::Url{"https://example.com/api/upload"},
-           cpr::Body{"your data"},
-           cpr::Header{{"Content-Type", "application/json"}}
-         );
-         ```
-
-    3.  PUT
-
-       - **作用**：**更新资源**（整体替换）。
-
-       - **特点**：和 POST 类似，但语义是“替换”而不是“创建”。
-
-       - **常见用途**：更新用户信息、替换文件等。
-
-       - cpr 用法
-
-         ```c++
-         cpr::Response r = cpr::Put(
-           cpr::Url{"https://example.com/api/user/123"},
-           cpr::Body{"new data"}
-         );
-         ```
-
-    4. DELETE
-
-       - **作用**：**删除资源**。
-
-       - **特点**：通常只需要 URL 指定要删除的资源。
-
-       - **常见用途**：删除用户、删除文件等。
-
-       - cpr 用法
-
-         ```c++
-         cpr::Response r = cpr::Delete(cpr::Url{"https://example.com/api/user/123"});
-         ```
-
-    5. PATCH
-
-       - **作用**：**部分更新资源**。
-
-       - **特点**：只修改部分字段，不是整体替换。
-
-       - **常见用途**：修改用户某个属性等。
-
-       - cpr 用法：
-
-         ```c++
-         cpr::Response r = cpr::Patch(
-             cpr::Url{"https://example.com/api/user/123"},
-             cpr::Body{"partial update"}
-         );
-         ```
-
-62. 英语：音标、自然拼读、单词、语法、短句/词组、音频、讲
+59. 英语：音标、自然拼读、单词、语法、短句/词组、音频、讲
 
     > 发音：Whaddaya Say
     >
     > 单词、语法、词组：English in use
-
-69. 对xml配置文件加密解密
-
-    ```
-    // 在bin目录下
-    // 1. 加密
-    ./JYToolBox --encrypt ../etc/ZyHips.xml ./ZyHips.xml
-    // 2. 解密
-    ./JYToolBox --decrypt ZyHips.xml ZyHips.xml
-    ```
     
-72. QSS样式表
+69. QSS样式表
 
 74. MVC开发模型
 
@@ -5481,145 +5441,48 @@ m_pPool->submit([this, pBundle]() {
     5. 事件(鼠标点击、进入、离开，重绘事件)
     6. TableView、自定义表头、自定义代理
 
-68. 项目使用多个仓库
+51. C++相关，并找到相关的实现部分，哪一块用到了
 
-    1. 界面使用develop_ui仓库
-    2. 后台使用normal_development仓库
-    3. 第三方库使用third_library仓库
-    4. 项目目录下即这三个仓库，编写cmakelist
+    > 1. 类相关
+    >
+    > 2. 线程进程
+    >
+    > 3. 网络编程/通信
+    >
+    > 4. 新特性
+    >
+    >    > 1. 智能指针
+    >    > 2. 类型转换
+    >
+    > 5. 内存管理-堆栈
+    >
+    > 6. 异常处理+输入输出流
+    >
+    > 7. STL(模板、容器)
 
-139. 新版通信流程
+52. Qt相关
 
-     1. 初始化：
-        1. main中单例构造model和callback对象
-        2. 界面初始化与callback对象建立信号槽链接
-     2. RJJH发往safed：直接调用model的单例对象的函数与safed交互
-     3. safed发往RJJH：model对象收到消息解析之后调用callback对象的函数，触发信号槽
-     
-     > 之前的方式是model对象就是一个定义了OBject宏的类，直接在主界面上连接信号槽
-     >
-     > 这个方式model完全是c++对象，通过callback（定义了Object宏）来与界面建立信号槽；可能是因为model层是供Linux和Windows两个界面RJJH的原因，所以加了中间callback回调对象，从而不同平台需要什么信号槽和功能自己定义
-     
-144. 部分Ubuntu系统，右上角系统托盘界面不生效的原因：
+    > 1. 信号槽
+    > 2. MVC模型
+    > 3. 自定义控件
+    > 4. 事件(事件与信号区别、事件循环、自定义事件)
+    > 5. 样式表相关
+    > 6. 线程进程
+    > 7. Object和MOC
+    > 8. 语言家
+    > 9. 构建项目相关(pro、ui、qrc等)
 
-     1. 个别系统不支持嵌入 QWidget，只允许原生菜单 QMenu。如果是在QtDesinger中创建的界面(QDialog/QWidget)等都不会显示出来
-     
-     2. 继承了QSystemTrayIcon之后，只要使用了setContextMenu(m_menu)，系统托盘会自动处理右键/左键的菜单显示，处理不了单击信号。
-     
-     3. Ubuntu17之后使用的桌面环境（Desktop Environment，简称 DE）是GNOME，支持自定义窗口。Ubuntu17之前的默认使用的是Unity。Unity机制是托盘图标由 AppIndicator 接管，不允许自定义窗口、只允许菜单。
-     
-        > 桌面环境可以理解为Windows 的“任务栏 + 桌面 + 开始菜单 + 系统托盘”的整套 UI
-     
-155. 总结安装中控
+53. 项目相关
 
-     1. 准备好中控安装包
-     2. dpkg安装
-     3. 使用`systemctl start/status/stop CxCenter.service`
-     4. 初始密码：Vsecure@2016
-     5. 中控中导入授权(从官网下载试用授权文件)
+    > 1. 仓库：git、gitlab
+    > 2. 调试：gdb
+    > 3. 编译、链接：cmake、cmakelist
+    > 4. 脚本：bash(安装、卸载脚本)、python(打包脚本)
+    > 5. 数据库：sqlite
+    > 6. 结构：通信、架构、插件/组件
 
-156. 
+54. AI agent
 
-159. 查看主防配置文件，需要解密
-
-     ```
-     sudo ./JYToolBox --decrypt  ../etc/ZyHips.xml temp.xml
-     
-     // 加密使用 eacrypt
-     ```
-
-160. 启动的时候如果加载libSysMonPolicyManage崩溃，需要替换这两个库，这两个库在另外的仓库编译
-
-     ```
-     libSysMonPolicyManage.so  libSysMonManage.so
-     ```
-
-161. 关于Node.js和npm
-
-     1. Node.js 是一个**跨平台、开源的 JavaScript 运行时环境**。在 Node.js 出现之前，JavaScript 主要被限制在浏览器中运行，用于处理**网页的客户端**逻辑。它允许你在**服务器端**（后端）、**命令行工具**以及其他应用程序中运行 JavaScript 代码。
-
-        > 所以它的作用，主要在于**后端开发**(实现web服务和API)、**构建工具**(前端开发工具)、**命令行工具**(自动化脚本和命令行应用程序)
-
-     2. npm 的全称是 Node Package Manager（Node 包管理器）。它是 **Node.js 默认的包管理工**，包含三部分：
-
-        1. **egistry（注册表）：** 一个巨大的**在线数据库**，存储了海量的开源 JavaScript 模块
-        2. **网站（Website）：** 用于浏览、搜索和管理包的平台。
-        3. **CLI（命令行工具）：** 安装在你的本地计算机上，用于与 Registry 交互（安装、发布、管理包）。
-
-        > 所以它的作用是代码复用和分享，可以安装和更新管理项目所需要的三方库和工具
-
-     3. 两者关系：
-
-        1. **npm 依赖于 Node.js：** npm 是用 JavaScript 编写的，它需要在 **Node.js 运行时环境**中才能运行。当你安装 Node.js 时，npm 命令行工具通常会**自动一起安装**。
-
-        2. **Node.js 生态依赖于 npm：** Node.js 提供了运行环境，但大部分实际应用的功能都是通过 npm **安装和管理**的各种第三方模块（例如 Express.js Web 框架、Lodash 工具库等）来实现的。
-
-           > 也就是说node.js本质上只提供了js的环境，实际上需要通过npm(命令行功能)，安装的三方模块扩展其功能
-
-162. WSL和VMware的区别
-
-     1. WSL (Windows Subsystem for Linux)：在windows系统下提供一个与Windows继承的Linux开发环境，启动一个真实的Linux内核，与主机windows内核并行运行，共享大部分系统资源和文件系统访问权限。
-     2. VMware Workstation/Player (传统虚拟机)：相当于一个软件，完全虚拟化一套硬件，在这个虚拟的硬件之上安装并运行一个独立的操作系统
-
-163. telnet命令，测试**目标ip**目标端口号是否开启
-
-     > telnet是一种古老的远程登录协议，现在已被ssh取代。其主要用于排查网络故障
-
-     ```
-     telnet [目标ip] [目标port]		
-     ```
-
-164. netstat命令，查看**本地**端口的状态
-
-     ```
-     netstat -ntlp
-     netstat -ntlp | grep [目标port]
-     ```
-
-79. linux下的包管理工具
-
-    | **比较维度**            | **Ubuntu / Debian 系**      | **CentOS / RHEL / Fedora 系** | **角色定位**                                    |
-    | ----------------------- | --------------------------- | ----------------------------- | ----------------------------------------------- |
-    | **高层工具 (项目经理)** | **`apt`** (或 apt-get)      | **`yum`** (或 dnf)            | **负责：** 联网、解析依赖、自动下载、批量升级。 |
-    | **底层工具 (施工员)**   | **`dpkg`**                  | **`rpm`**                     | **负责：** 安装本地文件、提取内容、写入系统。   |
-    | **软件包后缀**          | `.deb`                      | `.rpm`                        | **格式：** 包含程序文件、安装脚本和依赖清单。   |
-    | **核心安装命令**        | `sudo apt install <软件名>` | `sudo yum install <软件名>`   | **场景：** 只要有网，这是首选。                 |
-    | **本地安装命令**        | `sudo dpkg -i <文件>.deb`   | `sudo rpm -ivh <文件>.rpm`    | **场景：** 安装离线下载好的特定软件包。         |
-    | **查询已装软件**        | `dpkg -l`                   | `rpm -qa`                     | **功能：** 直接读取本地安装数据库。             |
-
-    1. Debian系列：Debian、Ubuntu等
-       1. apt负责联网、从服务器仓库中下载deb包并安装(**下载后自动调用dpkg进行安装**)
-       2. dpkg是底层管理器，负责对本地的安装包的安装、解压等操作
-    2. RedHat系列：RedHat、Centos、Fedora等
-       1. yum负责从服务器仓库下载rpm包并安装(同理，**自动调用rpm安装)**
-       2. rpm是底层管理器，负责对本地的安装包的安装、解压等操作
-
-168. **SDK**（Software Development Kit，软件开发工具包）是给**程序员**用的“工具箱”。而我们平时说的**正常版本**（比如 App 或安装包）是给**普通用户**用的“成品”
-
-     SDK 不是一个单一的文件，通常是一堆资源的集合，可以供开发者调用接口，继承到别的软件中。
-
-     1. **库文件（Libraries）：** 已经写好的核心代码逻辑。
-     2. **API 文档：** 告诉开发者怎么调用这些功能的“说明书”。
-     3. **示例代码（Demo）：** 演示如何正确使用这个工具。
-     4. **辅助工具：** 调试、编译或打包时用的小工具。
-
-81. 关于Linux的防火墙
-
-    1. CentOS / Rocky / Alma / Fedora
-
-       ```
-       systemctl status firewalld
-       ```
-
-    2. Ubuntu
-
-       ```
-       ufw status
-       ```
-
-       > 两种系统用的防火墙命令
-
-82. 
 
 ### 5. 末尾，
 

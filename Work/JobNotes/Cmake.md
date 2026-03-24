@@ -352,4 +352,13 @@
     target_sources(myApp PRIVATE main.cpp utils.cpp widget.cpp)
     ```
 
-28. 
+28. 想要使用cmake**重新**编译
+
+    1. 在build文件夹下执行`make clean`
+
+    2. 重新执行`make`
+
+       > make clean 会删除所有生成的二进制文件和目标文件，但保留 CMake 缓存和配置文件。
+
+29. 
+
