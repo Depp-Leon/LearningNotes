@@ -4306,7 +4306,12 @@ m_pPool->submit([this, pBundle]() {
 
 13. (有个系统？)使用protobuffer在dlopen/dlcose会出现进程卸载不掉的问题，需要转为json解析
 
-14. 协助做windows的功能开发
+14. 协助做windows的功能开发: 实现拦截广告弹窗
+
+    1. UI界面完善补充
+    2. 功能实现，调用接口
+
+    > 先填公钥，拉仓库，改代码，是否需要下载windows的QtCreator
 
 
 
@@ -4594,6 +4599,8 @@ m_pPool->submit([this, pBundle]() {
     > 6. 结构：通信、架构、插件/组件
 
 54. AI agent
+
+55. Powershell和CMD的区别
 
 
 ### 5. 末尾，

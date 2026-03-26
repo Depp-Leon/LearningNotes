@@ -147,7 +147,96 @@ Claude Code 是 [Anthropic](https://zhida.zhihu.com/search?content_id=270746772&
    npm install -g @musistudio/claude-code-router
    ```
 
-4. 配置CCR，创建`~/.claude-code-router/config.json`配置文件
+4. 申请API KEY
+
+   > 可以使用付费大模型，此处使用质谱，注册即送token
+   >
+   > zhipu：[智谱AI开放平台](https://bigmodel.cn/console/overview)
+   
+   ```
+   1. 添加API key
+   2. 复制API key，填充到上述CCR配置文件中，并根据模型，更改对应的字段
+   ```
+   
+
+#### 1.2、使用CC
+
+> 只使用Claude Code(不使用CCR的情况下)，在目标项目下启动
+>
+> **配置环境变量，填写key和url，可以自动登录/转接Claude大模型，防止进入claude后让输入账号验证的情况**
+
+##### 1.2.1 Mac和Linux
+
+1. 临时配置环境变量
+
+   ```
+   export ANTHROPIC_BASE_URL="连接点url"
+   export ANTHROPIC_AUTH_TOKEN="你的key"
+   cd your-project-folder
+   claude
+   ```
+
+2. 直接写入配置文件
+
+   ```
+   #避免每次启动都要配置环境变量，可以将其写入文件中
+   echo -e '\n export ANTHROPIC_AUTH_TOKEN=你的key' >> ~/.bash_profile
+   echo -e '\n export ANTHROPIC_BASE_URL=连接点url' >> ~/.bash_profile
+   echo -e '\n export ANTHROPIC_AUTH_TOKEN=你的key' >> ~/.bashrc
+   echo -e '\n export ANTHROPIC_BASE_URL=连接点url' >> ~/.bashrc
+   echo -e '\n export ANTHROPIC_AUTH_TOKEN=你的key' >> ~/.zshrc
+   echo -e '\n export ANTHROPIC_BASE_URL=连接点url' >> ~/.zshrc
+   source ~/.bashrc  # 或 source ~/.zshrc
+   
+   #实例：
+   echo -e '\n export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-OTcW425bFr9CYrAG51-YucrnPw_eikeEI7bisEZQDNTCMAk2TD89d_df_86m7-3iVLcDT9JosW4me1BneYo1S5X6c8PgEAA' >> ~/.bash_profile
+   echo -e '\n export ANTHROPIC_BASE_URL=https://code.newcli.com/claude/aws' >> ~/.bash_profile
+   echo -e '\n export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-OTcW425bFr9CYrAG51-YucrnPw_eikeEI7bisEZQDNTCMAk2TD89d_df_86m7-3iVLcDT9JosW4me1BneYo1S5X6c8PgEAA' >> ~/.bashrc
+   echo -e '\n export ANTHROPIC_BASE_URL=https://code.newcli.com/claude/aws' >> ~/.bashrc
+   echo -e '\n export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-OTcW425bFr9CYrAG51-YucrnPw_eikeEI7bisEZQDNTCMAk2TD89d_df_86m7-3iVLcDT9JosW4me1BneYo1S5X6c8PgEAA' >> ~/.zshrc
+   echo -e '\n export ANTHROPIC_BASE_URL=https://code.newcli.com/claude/aws' >> ~/.zshrc
+   source ~/.bashrc
+   ```
+
+3. 启动
+
+   ```
+   cd your-project-folder
+   claude
+   ```
+
+##### 1.2.2 Windows
+
+1. 配置settings.json文件(claude启动时即会读入该文件)，创建 `~/.claude/settings.json` 文件，内容为：
+
+   ```
+   {
+     "env": {
+       "ANTHROPIC_AUTH_TOKEN": "sk-ant-oat01-IrJ2Dbe43NsQnPwK5oHPfaTj9PBZCTMtz5ogz6oGdSi-SvnsFeAsRZjsrsY9AVV-eDLsVtE1A_3Xc2Vm6Zw_DfqZGuoLpAA",
+       "ANTHROPIC_BASE_URL": "https://code.newcli.com/claude/ultra",
+       "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": 1
+     },
+     "permissions": {
+       "allow": [],
+       "deny": []
+     }
+   }
+   ```
+
+2. 配置环境变量，同样有单次和永久设置(使用1即可)
+
+3. 重新打开终端后启动
+
+   ```
+   cd your-project-folder
+   claude
+   ```
+
+
+
+#### 1.3 使用CCR
+
+1. 配置CCR，创建`~/.claude-code-router/config.json`配置文件
 
    ```
    {
@@ -176,63 +265,7 @@ Claude Code 是 [Anthropic](https://zhida.zhihu.com/search?content_id=270746772&
    }
    ```
 
-5. 申请API KEY
-
-   > 可以使用付费大模型，此处使用质谱，注册即送token
-   >
-   > zhipu：[智谱AI开放平台](https://bigmodel.cn/console/overview)
-
-   ```
-   1. 添加API key
-   2. 复制API key，填充到上述CCR配置文件中，并根据模型，更改对应的字段
-   ```
-
-#### 1.2、使用
-
-1. 只使用Claude Code(不使用CCR的情况下)，在目标项目下启动
-
-   ```
-   #Mac和Linux 环境变量
-   export ANTHROPIC_BASE_URL="连接点url"
-   export ANTHROPIC_AUTH_TOKEN="你的key"
-   cd your-project-folder
-   claude
-   
-   #避免每次启动都要配置环境变量，可以将其写入文件中
-   echo -e '\n export ANTHROPIC_AUTH_TOKEN=你的key' >> ~/.bash_profile
-   echo -e '\n export ANTHROPIC_BASE_URL=连接点url' >> ~/.bash_profile
-   echo -e '\n export ANTHROPIC_AUTH_TOKEN=你的key' >> ~/.bashrc
-   echo -e '\n export ANTHROPIC_BASE_URL=连接点url' >> ~/.bashrc
-   echo -e '\n export ANTHROPIC_AUTH_TOKEN=你的key' >> ~/.zshrc
-   echo -e '\n export ANTHROPIC_BASE_URL=连接点url' >> ~/.zshrc
-   source ~/.bashrc  # 或 source ~/.zshrc
-   
-   #实例：
-   echo -e '\n export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-OTcW425bFr9CYrAG51-YucrnPw_eikeEI7bisEZQDNTCMAk2TD89d_df_86m7-3iVLcDT9JosW4me1BneYo1S5X6c8PgEAA' >> ~/.bash_profile
-   echo -e '\n export ANTHROPIC_BASE_URL=https://code.newcli.com/claude/aws' >> ~/.bash_profile
-   echo -e '\n export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-OTcW425bFr9CYrAG51-YucrnPw_eikeEI7bisEZQDNTCMAk2TD89d_df_86m7-3iVLcDT9JosW4me1BneYo1S5X6c8PgEAA' >> ~/.bashrc
-   echo -e '\n export ANTHROPIC_BASE_URL=https://code.newcli.com/claude/aws' >> ~/.bashrc
-   echo -e '\n export ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-OTcW425bFr9CYrAG51-YucrnPw_eikeEI7bisEZQDNTCMAk2TD89d_df_86m7-3iVLcDT9JosW4me1BneYo1S5X6c8PgEAA' >> ~/.zshrc
-   echo -e '\n export ANTHROPIC_BASE_URL=https://code.newcli.com/claude/aws' >> ~/.zshrc
-   source ~/.bashrc
-   
-   
-   #重启终端后直接执行
-   cd your-project-folder
-   claude
-   ```
-
-   
-
-2. 使用CCR情况下，在目标项目下启动
-
-   > 1. 若ccr start启动后立马退出，则为其端口3456被占用，杀掉对应进程即可
-   >
-   > 2. 若cc code启动报网络链接错误，则需要在文件`~/.claude.json`增加一行
-   >
-   >    ```
-   >    "hasCompletedOnboarding": true
-   >    ```
+2. 重启CCR后启动
 
    ```
    #配置~/.claude-code-router/config.json文件，填充url和key
@@ -244,6 +277,18 @@ Claude Code 是 [Anthropic](https://zhida.zhihu.com/search?content_id=270746772&
    ccr start		// 启动ccr
    ccr code		// 启动cc
    ```
+
+3. 常见错误
+
+   1. 若ccr start启动后立马退出，则为其端口3456被占用，杀掉对应进程即可
+
+   2. 若cc code启动报网络链接错误(即地区禁止)，则需要在文件`~/.claude.json`增加一行
+
+      ```
+      "hasCompletedOnboarding": true
+      ```
+
+      
 
 #### 1.3、CC教程
 

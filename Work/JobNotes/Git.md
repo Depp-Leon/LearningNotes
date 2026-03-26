@@ -445,7 +445,7 @@ git pull是从远程仓库拉代码并merge到你的本地仓库，pull是两个
         ```
 
         ```
-        ssh-keygen -t rsa -b 4096 -C "jiayuandi@v-secure.cn -f ~/.ssh/my_rsa_key
+        ssh-keygen -t rsa -b 4096 -C "jiayuandi@v-secure.cn" -f ~/.ssh/my_rsa_key
         // -t	指定生成 RSA 类型的密钥。
         // -b	指定密钥长度为 4096位。
         // -C	指定注释为 jiayuandi@v-secure.cn。
@@ -563,4 +563,12 @@ git pull是从远程仓库拉代码并merge到你的本地仓库，pull是两个
    // 2. 找到想回退的那句操作，将对应行复制其头（比如HEAD@{2}），然后执行
    git reset --hard HEAD@{2}
    ```
+   
+5. windows使用git相关命令，由于本地用户名为中文名导致的验证不了本地私钥，可以创建一个英文用户的路径并复制私钥到其目录下，再临时指定当前HOME的环境变量
 
+   ```
+   # 将~/用户/.ssh/rsa私钥复制到下面的路径下
+   $env:HOME="C:\Users\leslie\Documents\my_ssh_home"		// 临时指定
+   ```
+
+   
